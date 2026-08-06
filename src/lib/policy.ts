@@ -1,6 +1,6 @@
 /**
  * Central authorization & tenant-scoping policies.
- * All routes must use these helpers instead of ad-hoc role checks.
+ * All mutating routes must use assertLocationAccess / tenantWhere — deny on null tenants.
  */
 
 export const ROLES = {
@@ -18,12 +18,43 @@ export type AuthUser = {
   provinceId?: string | null;
   organisationId?: string | null;
   email?: string | null;
+  sessionVersion?: number;
+  mustChangePassword?: boolean;
+  mfaEnabled?: boolean;
+  active?: boolean;
 };
 
-export const PUBLISHABLE_STATUSES = ["DRAFT", "PENDING_REVIEW", "VERIFIED", "PUBLISHED", "ARCHIVED"] as const;
+export const PUBLIC_LOCATION_STATUSES = ["PUBLISHED", "VERIFIED"] as const;
+export const PUBLIC_ORG_STATUSES = ["PUBLISHED"] as const;
+
+export const PUBLISHABLE_STATUSES = [
+  "DRAFT",
+  "PENDING_REVIEW",
+  "VERIFIED",
+  "PUBLISHED",
+  "ARCHIVED",
+] as const;
 export type LocationStatus = (typeof PUBLISHABLE_STATUSES)[number];
 
-/** Roles that may sign in to management surfaces */
+export const SUBMISSION_STATUSES = [
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "APPROVED",
+  "REJECTED",
+  "WITHDRAWN",
+] as const;
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+
+export type LocationRecord = {
+  id?: string;
+  provinceId: string;
+  organisationId?: string | null;
+  ownerId?: string | null;
+  status?: string | null;
+};
+
+export type PolicyResult = { ok: true } | { ok: false; reason: string };
+
 export function isStaffRole(role?: string) {
   return Boolean(role && Object.values(ROLES).includes(role as Role));
 }
@@ -44,12 +75,10 @@ export function isContributor(user?: AuthUser | null) {
   return user?.role === ROLES.CONTRIBUTOR;
 }
 
-/** Can create/edit draft content (not publish/verify unless also elevated) */
 export function canEditDrafts(user?: AuthUser | null) {
   return isStaffRole(user?.role);
 }
 
-/** Province admins and super may verify + publish public records */
 export function canVerify(user?: AuthUser | null) {
   return isSuperAdmin(user) || isProvincialAdmin(user);
 }
@@ -70,52 +99,83 @@ export function canManageAllProvinces(user?: AuthUser | null) {
   return isSuperAdmin(user);
 }
 
-/** Encrypted backup create/download — super admin only */
 export function canManageBackups(user?: AuthUser | null) {
   return isSuperAdmin(user);
 }
 
+export function canModerateSubmissions(user?: AuthUser | null) {
+  return isSuperAdmin(user) || isProvincialAdmin(user);
+}
+
+/** MFA required for elevated roles when MFA_ENFORCE=1 (production). */
+export function requiresMfa(user?: AuthUser | null) {
+  if (process.env.MFA_ENFORCE !== "1" && process.env.NODE_ENV !== "production") {
+    return false;
+  }
+  if (process.env.MFA_ENFORCE === "0") return false;
+  return isSuperAdmin(user) || isProvincialAdmin(user);
+}
+
 /**
- * Enforce province scope: provincial admins may only touch their province.
- * Super admins may touch all. Org/contributors must not reassign outside org province unless matching.
+ * Province access — DENY when actor or target tenant is unbound (except super admin).
  */
 export function assertProvinceAccess(
   user: AuthUser | null | undefined,
   targetProvinceId: string | null | undefined
-): { ok: true } | { ok: false; reason: string } {
+): PolicyResult {
   if (!user?.id) return { ok: false, reason: "Unauthorized" };
   if (isSuperAdmin(user)) return { ok: true };
+
   if (isProvincialAdmin(user)) {
-    if (!user.provinceId) return { ok: false, reason: "Provincial admin has no province bound" };
-    if (targetProvinceId && targetProvinceId !== user.provinceId) {
+    if (!user.provinceId) {
+      return { ok: false, reason: "Provincial admin has no province assignment" };
+    }
+    if (!targetProvinceId) {
+      return { ok: false, reason: "Record has no province assignment" };
+    }
+    if (targetProvinceId !== user.provinceId) {
       return { ok: false, reason: "Outside your province scope" };
     }
     return { ok: true };
   }
-  // Org/contributor: must match province if set on user
-  if (user.provinceId && targetProvinceId && targetProvinceId !== user.provinceId) {
+
+  // Org admin / contributor: must be bound to province AND match record
+  if (!user.provinceId) {
+    return { ok: false, reason: "User has no province assignment" };
+  }
+  if (!targetProvinceId) {
+    return { ok: false, reason: "Record has no province assignment" };
+  }
+  if (targetProvinceId !== user.provinceId) {
     return { ok: false, reason: "Outside your province scope" };
   }
   return { ok: true };
 }
 
 /**
- * Organisation scope: org admins only their org; others need elevated roles.
+ * Organisation scope — org admins need exact organisationId match (null = DENY).
  */
 export function assertOrganisationAccess(
   user: AuthUser | null | undefined,
   targetOrganisationId: string | null | undefined
-): { ok: true } | { ok: false; reason: string } {
+): PolicyResult {
   if (!user?.id) return { ok: false, reason: "Unauthorized" };
   if (isSuperAdmin(user) || isProvincialAdmin(user)) return { ok: true };
+
   if (isOrgAdmin(user)) {
-    if (!user.organisationId) return { ok: false, reason: "Org admin has no organisation bound" };
-    if (targetOrganisationId && targetOrganisationId !== user.organisationId) {
+    if (!user.organisationId) {
+      return { ok: false, reason: "Org admin has no organisation assignment" };
+    }
+    if (!targetOrganisationId) {
+      return { ok: false, reason: "Record is not assigned to an organisation" };
+    }
+    if (targetOrganisationId !== user.organisationId) {
       return { ok: false, reason: "Outside your organisation scope" };
     }
     return { ok: true };
   }
-  // Contributors may edit own drafts but not other orgs' owned content when org is set
+
+  // Contributor: if they have an org, cannot touch other orgs; null org records OK only if they own
   if (targetOrganisationId && user.organisationId && targetOrganisationId !== user.organisationId) {
     return { ok: false, reason: "Outside your organisation scope" };
   }
@@ -123,14 +183,100 @@ export function assertOrganisationAccess(
 }
 
 /**
- * Normalize status transitions — reject publish/verify from org/contributor.
+ * Record-level location access (read unpublished or write).
+ * Contributors: owner only. Org admins: exact organisationId only.
  */
+export function assertLocationAccess(
+  user: AuthUser | null | undefined,
+  record: LocationRecord,
+  mode: "read" | "write" = "write"
+): PolicyResult {
+  if (!user?.id) return { ok: false, reason: "Unauthorized" };
+  if (isSuperAdmin(user)) return { ok: true };
+
+  const prov = assertProvinceAccess(user, record.provinceId);
+  if (!prov.ok) return prov;
+
+  if (isProvincialAdmin(user)) return { ok: true };
+
+  if (isOrgAdmin(user)) {
+    const org = assertOrganisationAccess(user, record.organisationId);
+    if (!org.ok) return org;
+    return { ok: true };
+  }
+
+  if (isContributor(user)) {
+    if (mode === "write") {
+      if (!record.ownerId || record.ownerId !== user.id) {
+        return { ok: false, reason: "Contributors may only modify locations they own" };
+      }
+    } else {
+      // read unpublished: owner or same org if bound
+      if (record.ownerId === user.id) return { ok: true };
+      if (
+        user.organisationId &&
+        record.organisationId &&
+        record.organisationId === user.organisationId
+      ) {
+        return { ok: true };
+      }
+      return { ok: false, reason: "Not authorized to view this record" };
+    }
+    return { ok: true };
+  }
+
+  return { ok: false, reason: "Forbidden" };
+}
+
+/**
+ * Block org-admin claim of unassigned records and cross-tenant reassignment.
+ */
+export function assertLocationAssignmentChange(
+  user: AuthUser | null | undefined,
+  existing: LocationRecord,
+  nextOrganisationId: string | null | undefined,
+  nextProvinceId: string | null | undefined
+): PolicyResult {
+  if (nextProvinceId !== undefined && nextProvinceId !== existing.provinceId) {
+    const p = assertProvinceAccess(user, nextProvinceId);
+    if (!p.ok) return p;
+    if (!isSuperAdmin(user) && !isProvincialAdmin(user)) {
+      return { ok: false, reason: "Only provincial or super administrators may reassign province" };
+    }
+  }
+
+  if (nextOrganisationId === undefined) return { ok: true };
+
+  if (nextOrganisationId !== (existing.organisationId ?? null)) {
+    if (isOrgAdmin(user)) {
+      // Cannot claim unassigned, cannot set anything other than own org (and only if already theirs is invalid for claim)
+      if (!existing.organisationId) {
+        return { ok: false, reason: "Cannot claim an unassigned record" };
+      }
+      if (!user?.organisationId || nextOrganisationId !== user.organisationId) {
+        return { ok: false, reason: "Cannot reassign organisation" };
+      }
+      if (existing.organisationId !== user.organisationId) {
+        return { ok: false, reason: "Outside your organisation scope" };
+      }
+    } else if (isContributor(user)) {
+      return { ok: false, reason: "Contributors cannot reassign organisation" };
+    } else if (isProvincialAdmin(user) || isSuperAdmin(user)) {
+      return { ok: true };
+    }
+  }
+  return { ok: true };
+}
+
 export function assertStatusChange(
   user: AuthUser | null | undefined,
   nextStatus: string | undefined,
   previousStatus?: string
-): { ok: true; status?: string } | { ok: false; reason: string } {
+): PolicyResult & { status?: string } {
   if (!nextStatus || nextStatus === previousStatus) return { ok: true, status: nextStatus };
+  if (!PUBLISHABLE_STATUSES.includes(nextStatus as LocationStatus)) {
+    return { ok: false, reason: "Invalid status" };
+  }
   const elevated = ["VERIFIED", "PUBLISHED"];
   if (elevated.includes(nextStatus) && !canVerify(user)) {
     return {
@@ -138,35 +284,65 @@ export function assertStatusChange(
       reason: "Only provincial or super administrators may verify or publish records",
     };
   }
+  // Coordinate quality gate for publication
+  if (nextStatus === "PUBLISHED" && process.env.ENFORCE_COORD_QUALITY === "1") {
+    // caller must pass quality separately — see assertPublishableQuality
+  }
   if (nextStatus === "ARCHIVED" && !canArchive(user)) {
     return { ok: false, reason: "Only provincial or super administrators may archive records" };
   }
   return { ok: true, status: nextStatus };
 }
 
-/** Force lower roles to DRAFT / PENDING_REVIEW only on create */
+export function assertPublishableQuality(coordQuality?: string | null): PolicyResult {
+  if (process.env.ENFORCE_COORD_QUALITY !== "1") return { ok: true };
+  if (coordQuality === "verified" || coordQuality === "estimated") return { ok: true };
+  return {
+    ok: false,
+    reason: "Publication requires coordQuality of verified or estimated (not town-centre/unknown)",
+  };
+}
+
 export function coerceCreateStatus(user: AuthUser | null | undefined, requested?: string): string {
-  if (canPublish(user) && requested) return requested;
+  if (canPublish(user) && requested && PUBLISHABLE_STATUSES.includes(requested as LocationStatus)) {
+    return requested;
+  }
   if (requested === "PENDING_REVIEW") return "PENDING_REVIEW";
   return "DRAFT";
 }
 
-/** Prisma where fragment for list queries scoped to tenant */
+/** List query tenant filter — deny-all when tenant unbound */
 export function tenantWhere(user: AuthUser | null | undefined): Record<string, unknown> {
   if (!user?.id || isSuperAdmin(user)) return {};
-  if (isProvincialAdmin(user) && user.provinceId) {
+  if (isProvincialAdmin(user)) {
+    if (!user.provinceId) return { id: "__none__" };
     return { provinceId: user.provinceId };
   }
-  if (isOrgAdmin(user) && user.organisationId) {
+  if (isOrgAdmin(user)) {
+    if (!user.organisationId) return { id: "__none__" };
     return { organisationId: user.organisationId };
   }
   if (isContributor(user)) {
-    return {
-      OR: [
-        { ownerId: user.id },
-        ...(user.organisationId ? [{ organisationId: user.organisationId }] : []),
-      ],
-    };
+    // Own records only for management lists
+    return { ownerId: user.id };
+  }
+  return { id: "__none__" };
+}
+
+export function submissionTenantWhere(user: AuthUser | null | undefined): Record<string, unknown> {
+  if (!user?.id || isSuperAdmin(user)) return {};
+  if (isProvincialAdmin(user)) {
+    if (!user.provinceId) return { id: "__none__" };
+    return { provinceId: user.provinceId };
+  }
+  return { id: "__none__" };
+}
+
+export function auditTenantWhere(user: AuthUser | null | undefined): Record<string, unknown> {
+  if (!user?.id || isSuperAdmin(user)) return {};
+  if (isProvincialAdmin(user)) {
+    if (!user.provinceId) return { id: "__none__" };
+    return { provinceId: user.provinceId };
   }
   return { id: "__none__" };
 }

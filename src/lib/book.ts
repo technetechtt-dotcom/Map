@@ -201,9 +201,9 @@ export async function getBookData(provinceSlug?: string) {
     categories,
     districts,
     locations: shaped,
-    byDistrict: [...byDistrict.entries()].sort(([a], [b]) => a.localeCompare(b)),
-    categoryCounts: [...byCategory.entries()].sort((a, b) => b[1] - a[1]),
-    provinceCounts: [...byProvince.entries()].sort((a, b) => b[1] - a[1]),
+    byDistrict: Array.from(byDistrict.entries()).sort(([a], [b]) => a.localeCompare(b)),
+    categoryCounts: Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1]),
+    provinceCounts: Array.from(byProvince.entries()).sort((a, b) => b[1] - a[1]),
     funding: funding.map((f) => ({
       ...f,
       tags: parseJsonArray(f.tagsJson),

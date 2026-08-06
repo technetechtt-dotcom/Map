@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { shapeLocation, parseJsonArray } from "@/lib/shape";
+import { shapeLocation, parseJsonArray, PUBLIC_STATUSES } from "@/lib/shape";
 import { trackEvent } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -12,14 +12,25 @@ export default async function LocationProfilePage({
   params: { slug: string };
 }) {
   const row = await prisma.location.findFirst({
-    where: { OR: [{ slug: params.slug }, { id: params.slug }] },
+    where: {
+      OR: [{ slug: params.slug }, { id: params.slug }],
+      status: { in: [...PUBLIC_STATUSES] },
+    },
     include: {
       category: true,
       province: true,
       district: true,
       municipality: true,
       organisation: true,
-      sources: true,
+      sources: {
+        select: {
+          id: true,
+          title: true,
+          documentRef: true,
+          url: true,
+          // notes intentionally omitted on public profiles
+        },
+      },
     },
   });
   if (!row) notFound();
@@ -53,6 +64,10 @@ export default async function LocationProfilePage({
     provinceId: row.provinceId,
   }).catch(() => undefined);
 
+  const isStale =
+    loc.verificationExpiresAt &&
+    new Date(loc.verificationExpiresAt).getTime() < Date.now();
+
   return (
     <div className="page">
       <p className="eyebrow">{loc.province.name} · {loc.category.name}</p>
@@ -60,9 +75,15 @@ export default async function LocationProfilePage({
       <p className="text-muted mb-4 max-w-3xl text-lg">{loc.summary}</p>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        <span className="chip chip-active">{loc.status}</span>
+        <span className="chip chip-active">Published</span>
         {loc.lastVerifiedAt && (
-          <span className="chip">Verified {new Date(loc.lastVerifiedAt).toLocaleDateString()}</span>
+          <span className="chip">
+            Verified {new Date(loc.lastVerifiedAt).toLocaleDateString()}
+          </span>
+        )}
+        {isStale && <span className="chip">Verification review due</span>}
+        {loc.coordQuality && (
+          <span className="chip">Coordinates: {loc.coordQuality}</span>
         )}
         {loc.district && <span className="chip">{loc.district.name}</span>}
         {loc.municipality && <span className="chip">{loc.municipality.name}</span>}
@@ -102,8 +123,7 @@ export default async function LocationProfilePage({
 
           <h3 className="mb-2 mt-8 font-bold">Key contacts &amp; organisations</h3>
           <p className="text-sm text-muted mb-3">
-            From the NC ICT Ecosystem Presentation (mLab NC). Town-specific contacts listed first;
-            province-wide partners follow.
+            Published organisations linked to this town.
           </p>
           <div className="grid gap-3">
             {contacts.map((c) => {
@@ -118,7 +138,6 @@ export default async function LocationProfilePage({
                       <h4 className="font-bold">{c.name}</h4>
                       <p className="text-xs text-muted">
                         {c.type}
-                        {c.sourcePage ? ` · PDF ${c.sourcePage}` : ""}
                         {townSpecific ? " · Town listing" : " · Province-wide"}
                       </p>
                     </div>
@@ -159,6 +178,7 @@ export default async function LocationProfilePage({
                 <dt className="text-muted">Coordinates</dt>
                 <dd>
                   {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
+                  {loc.coordQuality ? ` (${loc.coordQuality})` : ""}
                 </dd>
               </div>
               <div>
@@ -187,10 +207,10 @@ export default async function LocationProfilePage({
                   </dd>
                 </div>
               )}
-              {loc.verificationSource && (
+              {loc.lastVerifiedAt && (
                 <div>
-                  <dt className="text-muted">Verification source</dt>
-                  <dd>{loc.verificationSource}</dd>
+                  <dt className="text-muted">Last verified</dt>
+                  <dd>{new Date(loc.lastVerifiedAt).toLocaleDateString()}</dd>
                 </div>
               )}
             </dl>
@@ -200,9 +220,9 @@ export default async function LocationProfilePage({
           </div>
 
           <div className="panel-card">
-            <h2 className="mb-2 text-lg font-bold">Source records</h2>
+            <h2 className="mb-2 text-lg font-bold">Sources</h2>
             {row.sources.length === 0 && (
-              <p className="text-muted text-sm">No sources attached.</p>
+              <p className="text-muted text-sm">No public sources listed.</p>
             )}
             <ul className="space-y-3 text-sm">
               {row.sources.map((s) => (
@@ -214,7 +234,6 @@ export default async function LocationProfilePage({
                       {s.url}
                     </a>
                   )}
-                  {s.notes && <p>{s.notes}</p>}
                 </li>
               ))}
             </ul>

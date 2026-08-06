@@ -8,25 +8,38 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  name           String
-  passwordHash   String
-  role           String   @default("CONTRIBUTOR")
-  provinceId     String?
-  province       Province? @relation(fields: [provinceId], references: [id])
-  organisationId String?
-  organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  active         Boolean  @default(true)
-  locale         String   @default("en")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  auditLogs      AuditLog[]
-  locationsOwned Location[] @relation("LocationOwner")
-  locationsReviewed Location[] @relation("LocationReviewer")
-  submissions    Submission[]
-  sources        SourceRecord[]
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String
+  passwordHash       String
+  role               String    @default("CONTRIBUTOR")
+  provinceId         String?
+  province           Province? @relation(fields: [provinceId], references: [id])
+  organisationId     String?
+  organisation       Organisation? @relation(fields: [organisationId], references: [id])
+  active             Boolean   @default(true)
+  locale             String    @default("en")
+  /// Increment to revoke all JWTs immediately
+  sessionVersion     Int       @default(0)
+  mustChangePassword Boolean   @default(false)
+  mfaEnabled         Boolean   @default(false)
+  mfaSecret          String?
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  auditLogs          AuditLog[]
+  locationsOwned     Location[] @relation("LocationOwner")
+  locationsReviewed  Location[] @relation("LocationReviewer")
+  submissions        Submission[] @relation("SubmissionSubmitter")
+  submissionsReviewed Submission[] @relation("SubmissionReviewer")
+  sources            SourceRecord[]
+  passwordResetTokens PasswordResetToken[]
+  invitationsSent    AdminInvitation[] @relation("InvitationInviter")
 }
+
 
 model Province {
   id          String   @id @default(cuid())
@@ -48,6 +61,7 @@ model Province {
   programmes  Programme[]
   procurements Procurement[]
   users       User[]
+  submissions Submission[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -171,6 +185,7 @@ model Organisation {
   events       EcosystemEvent[]
   programmes   Programme[]
   procurements Procurement[]
+  submissions  Submission[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -268,40 +283,90 @@ model Procurement {
 }
 
 model Submission {
-  id             String   @id @default(cuid())
-  type           String
-  payloadJson    String
-  status         String   @default("SUBMITTED")
-  submitterName  String
-  submitterEmail String
-  notes          String?
-  reviewedNotes  String?
-  submittedById  String?
-  submittedBy    User?    @relation(fields: [submittedById], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String    @id @default(cuid())
+  type              String
+  payloadJson       String
+  payloadHash       String?
+  status            String    @default("SUBMITTED")
+  submitterName     String
+  submitterEmail    String
+  notes             String?
+  reviewedNotes     String?
+  provinceId        String?
+  province          Province? @relation(fields: [provinceId], references: [id])
+  organisationId    String?
+  organisation      Organisation? @relation(fields: [organisationId], references: [id])
+  submittedById     String?
+  submittedBy       User?     @relation("SubmissionSubmitter", fields: [submittedById], references: [id])
+  reviewedById      String?
+  reviewedBy        User?     @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
+  reviewedAt        DateTime?
+  createdLocationId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([provinceId, status])
+  @@index([payloadHash])
+  @@index([submitterEmail, createdAt])
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String
-  entityType String
-  entityId   String?
-  metadataJson String?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  action         String
+  entityType     String
+  entityId       String?
+  metadataJson   String?
+  ipAddress      String?
+  provinceId     String?
+  organisationId String?
+  createdAt      DateTime @default(now())
+
+  @@index([provinceId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
 }
 
 model AnalyticsEvent {
-  id         String   @id @default(cuid())
-  eventType  String
-  path       String?
-  provinceId String?
-  locationId String?
+  id           String   @id @default(cuid())
+  eventType    String
+  path         String?
+  provinceId   String?
+  locationId   String?
   metadataJson String?
-  createdAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([provinceId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model AdminInvitation {
+  id             String    @id @default(cuid())
+  email          String
+  role           String
+  provinceId     String?
+  organisationId String?
+  tokenHash      String    @unique
+  invitedById    String?
+  invitedBy      User?     @relation("InvitationInviter", fields: [invitedById], references: [id])
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([email])
 }
 
 model AppSetting {
@@ -311,10 +376,56 @@ model AppSetting {
 }
 
 model BackupRecord {
-  id        String   @id @default(cuid())
-  filename  String
-  path      String
-  sizeBytes Int
-  notes     String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  filename   String
+  path       String
+  sizeBytes  Int
+  notes      String?
+  createdById String?
+  createdAt  DateTime @default(now())
 }
+
+model StoredObject {
+  id             String   @id @default(cuid())
+  filename       String
+  url            String
+  contentType    String
+  sizeBytes      Int
+  sha256         String
+  access         String   @default("private") // private | public
+  driver         String   @default("local")
+  organisationId String?
+  uploadedById   String?
+  createdAt      DateTime @default(now())
+
+  @@index([organisationId])
+  @@index([sha256])
+}
+
+model DataSubjectRequest {
+  id          String   @id @default(cuid())
+  type        String   // access | correction | deletion | withdraw_consent
+  status      String   @default("OPEN")
+  requesterEmail String
+  requesterName  String?
+  details     String?
+  provinceId  String?
+  handledNotes String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CorrectionRequest {
+  id             String   @id @default(cuid())
+  targetType     String   // location | organisation
+  targetId       String?
+  targetSlug     String?
+  status         String   @default("OPEN")
+  submitterName  String
+  submitterEmail String
+  message        String
+  provinceId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+

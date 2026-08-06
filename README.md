@@ -6,15 +6,15 @@ Full-stack platform evolving the Northern Cape ICT Interactive Map MVP into a na
 
 ```bash
 cp .env.example .env
-# set NEXTAUTH_SECRET and SEED_ADMIN_PASSWORD (min 12 chars)
-# optional local demo: ALLOW_DEMO_USERS=1
+# set NEXTAUTH_SECRET, SEED_ADMIN_PASSWORD (min 12), BACKUP_ENCRYPTION_KEY
 npm install
-npm run db:setup
+npm run db:setup:dev   # generates schema + seeds (destructive reset)
 npm test
+npm run typecheck
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+**Production:** use `npm run db:setup` (generate + push only) — **never** seed production without `ALLOW_DATABASE_RESET=1`.
 
 ### Admin accounts
 

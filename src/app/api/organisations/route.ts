@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
       }));
     }
 
-    const types = [...new Set(rows.map((o) => o.type))].sort();
+    const types = Array.from(new Set(rows.map((o) => o.type))).sort();
 
     return NextResponse.json({
       count: organisations.length,

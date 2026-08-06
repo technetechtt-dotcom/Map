@@ -28,6 +28,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
     { href: "/programmes", label: t(L, "programmes") },
     { href: "/procurement", label: t(L, "procurement") },
     { href: "/submit", label: t(L, "submit") },
+    { href: "/rights", label: "Rights" },
     { href: "/dashboard", label: t(L, "dashboard") },
   ];
 

@@ -37,6 +37,7 @@ export default function SubmitPage() {
         submitterEmail: fd.get("submitterEmail"),
         notes: fd.get("notes"),
         website: fd.get("website") || "",
+        consent: fd.get("consent") === "on",
         payload,
       }),
     });
@@ -92,6 +93,17 @@ export default function SubmitPage() {
         </label>
         <label className="grid gap-1 text-sm font-semibold">Notes for reviewers
           <textarea className="field" name="notes" />
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="consent" required className="mt-1" />
+          <span>
+            I consent to the platform processing my name and email to review this
+            submission, as described in the{" "}
+            <a className="text-g700 font-semibold" href="/privacy">
+              privacy notice
+            </a>
+            .
+          </span>
         </label>
         {/* Honeypot — leave blank (bots fill it) */}
         <label className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">

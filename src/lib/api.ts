@@ -3,18 +3,81 @@ import { NextResponse } from "next/server";
 import { authOptions } from "./auth";
 import type { AuthUser } from "./policy";
 import { clientIp } from "./security";
-import { rateLimit } from "./rate-limit";
+import { rateLimit, rateLimitAsync } from "./rate-limit";
+import { prisma } from "./prisma";
 
+let envChecked = false;
+
+/**
+ * Authenticate and load **current** DB user (roles, tenants, sessionVersion).
+ * Rejects disabled users and revoked sessions.
+ */
 export async function requireSession(roles?: string[]) {
+  if (!envChecked) {
+    envChecked = true;
+    try {
+      const { assertEnvOrLog } = await import("./env");
+      assertEnvOrLog();
+    } catch {
+      // only throws when ENFORCE_ENV_VALIDATION=1 in production
+    }
+  }
+
   const session = await getServerSession(authOptions);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = session?.user as any as AuthUser | undefined;
-  if (!user?.id) {
+  const tokenUser = session?.user as any as AuthUser | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((session as any)?.error === "SessionRevoked" || !tokenUser?.id) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: tokenUser.id },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      provinceId: true,
+      organisationId: true,
+      active: true,
+      sessionVersion: true,
+      mustChangePassword: true,
+      mfaEnabled: true,
+    },
+  });
+
+  if (!dbUser || !dbUser.active) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  if (
+    typeof tokenUser.sessionVersion === "number" &&
+    dbUser.sessionVersion !== tokenUser.sessionVersion
+  ) {
+    return {
+      error: NextResponse.json(
+        { error: "Session revoked — please sign in again" },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const user: AuthUser = {
+    id: dbUser.id,
+    email: dbUser.email,
+    role: dbUser.role,
+    provinceId: dbUser.provinceId,
+    organisationId: dbUser.organisationId,
+    sessionVersion: dbUser.sessionVersion,
+    mustChangePassword: dbUser.mustChangePassword,
+    mfaEnabled: dbUser.mfaEnabled,
+    active: dbUser.active,
+  };
+
   if (roles && !roles.includes(user.role || "")) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
+
   return { session, user };
 }
 
@@ -26,14 +89,36 @@ export function jsonError(message: string, status = 400, extra?: Record<string, 
   return NextResponse.json({ error: message, ...extra }, { status });
 }
 
-/** Apply rate limit; returns Response when blocked */
 export function enforceRateLimit(
   req: Request,
   bucket: string,
-  opts: { limit: number; windowMs: number }
+  opts: { limit: number; windowMs: number },
+  userId?: string | null
 ): NextResponse | null {
   const ip = clientIp(req);
-  const result = rateLimit(`${bucket}:${ip}`, opts);
+  const key = userId ? `${bucket}:u:${userId}` : `${bucket}:ip:${ip}`;
+  const result = rateLimit(key, opts);
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: "Too many requests", retryAfterSec: result.retryAfterSec },
+      {
+        status: 429,
+        headers: { "Retry-After": String(result.retryAfterSec) },
+      }
+    );
+  }
+  return null;
+}
+
+export async function enforceRateLimitAsync(
+  req: Request,
+  bucket: string,
+  opts: { limit: number; windowMs: number },
+  userId?: string | null
+): Promise<NextResponse | null> {
+  const ip = clientIp(req);
+  const key = userId ? `${bucket}:u:${userId}` : `${bucket}:ip:${ip}`;
+  const result = await rateLimitAsync(key, opts);
   if (!result.ok) {
     return NextResponse.json(
       { error: "Too many requests", retryAfterSec: result.retryAfterSec },

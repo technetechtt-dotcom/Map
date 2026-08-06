@@ -492,8 +492,14 @@ export default function EcosystemMap({
       preferCanvas={false}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={
+          process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION ||
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }
+        url={
+          process.env.NEXT_PUBLIC_MAP_TILE_URL ||
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        }
         maxZoom={19}
       />
       <ResizeFix />

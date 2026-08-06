@@ -1,5 +1,5 @@
 /**
- * Security helpers: XSS escaping, payload limits, CAPTCHA checks.
+ * Client IP helper — only trusts X-Forwarded-For when TRUST_PROXY=1.
  */
 
 const HTML_ESCAPE: Record<string, string> = {
@@ -10,7 +10,6 @@ const HTML_ESCAPE: Record<string, string> = {
   "'": "&#39;",
 };
 
-/** Escape text before injecting into HTML/Leaflet popups */
 export function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPE[ch] || ch);
 }
@@ -19,7 +18,6 @@ export function escapeAttr(value: unknown): string {
   return escapeHtml(value).replace(/`/g, "&#96;");
 }
 
-/** Max JSON body size (bytes) for non-upload APIs */
 export const MAX_JSON_BYTES = 128 * 1024;
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -42,11 +40,6 @@ export async function readJsonLimited<T = unknown>(
   }
 }
 
-/**
- * CAPTCHA: production requires TURNSTILE_SECRET (or RECAPTCHA_SECRET).
- * Honeypot field `website` must be empty.
- * Development may skip when CAPTCHA_DISABLED=1.
- */
 export async function verifyCaptcha(input: {
   token?: string | null;
   honeypot?: string | null;
@@ -103,7 +96,19 @@ export async function verifyCaptcha(input: {
 }
 
 export function clientIp(req: Request): string {
-  const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0].trim();
-  return req.headers.get("x-real-ip") || "unknown";
+  // Only trust proxy headers when behind a known reverse proxy
+  if (process.env.TRUST_PROXY === "1") {
+    const xf = req.headers.get("x-forwarded-for");
+    if (xf) return xf.split(",")[0].trim();
+    const real = req.headers.get("x-real-ip");
+    if (real) return real.trim();
+  }
+  return "unknown";
+}
+
+/** Stable hash for duplicate submission detection */
+export async function hashPayload(payload: unknown): Promise<string> {
+  const { createHash } = await import("crypto");
+  const canonical = JSON.stringify(payload ?? {});
+  return createHash("sha256").update(canonical).digest("hex");
 }

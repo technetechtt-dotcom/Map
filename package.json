@@ -1,18 +1,24 @@
 {
   "name": "sa-ict-ecosystem-map",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
+    "audit:deps": "npm audit --audit-level=high",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
-    "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
+    "db:reset": "node -e \"if(process.env.ALLOW_DATABASE_RESET!=='1'){console.error('Set ALLOW_DATABASE_RESET=1');process.exit(1)}\" && node prisma/seed.js",
+    "db:setup": "prisma generate && prisma db push",
+    "db:setup:dev": "prisma generate && prisma db push && node prisma/seed.js",
+    "db:migrate": "prisma migrate deploy",
+    "backup:restore-test": "node scripts/restore-backup-smoke.js",
     "maps:districts": "node data/seed/crop-district-maps.js",
     "maps:mdb": "node data/seed/download-mdb-boundaries.js && node data/seed/build-mdb-maps.js",
     "maps:mdb:build": "node data/seed/build-mdb-maps.js",
@@ -35,13 +41,12 @@
     "next-intl": "^4.13.5",
     "papaparse": "^5.5.4",
     "prisma": "5.22.0",
-    "react": "^18",
-    "react-dom": "^18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
     "recharts": "^3.10.1",
     "sharp": "^0.35.3",
     "uuid": "^14.0.1",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -60,5 +65,9 @@
     "tsx": "^4.23.8",
     "typescript": "^5",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   }
 }

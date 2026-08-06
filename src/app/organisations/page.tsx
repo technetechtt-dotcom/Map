@@ -14,7 +14,7 @@ export default async function OrganisationsPage({
     orderBy: [{ type: "asc" }, { name: "asc" }],
   });
 
-  const types = [...new Set(rows.map((o) => o.type))].sort();
+  const types = Array.from(new Set(rows.map((o) => o.type))).sort();
   let orgs = rows.map((o) => ({
     ...o,
     locationSlugs: parseJsonArray(o.locationSlugsJson),
@@ -72,7 +72,7 @@ export default async function OrganisationsPage({
         {searchParams.location ? ` · linked to ${searchParams.location}` : ""}.
       </p>
 
-      {[...byType.entries()].map(([type, list]) => (
+      {Array.from(byType.entries()).map(([type, list]) => (
         <section key={type} className="mb-8">
           <h2 className="mb-3 text-lg font-bold text-g700">{type}</h2>
           <div className="card-grid">

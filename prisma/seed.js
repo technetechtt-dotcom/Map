@@ -107,6 +107,19 @@ function slugify(s) {
 async function main() {
   console.log("Seeding SA ICT Ecosystem platform...");
 
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd && process.env.ALLOW_DATABASE_RESET !== "1") {
+    throw new Error(
+      "Destructive seed blocked in production. Set ALLOW_DATABASE_RESET=1 only after explicit approval, or use non-destructive import scripts."
+    );
+  }
+  if (!isProd && process.env.ALLOW_DATABASE_RESET === "0") {
+    throw new Error("Seed blocked: ALLOW_DATABASE_RESET=0");
+  }
+  if (isProd) {
+    console.warn("WARNING: wiping all application data (ALLOW_DATABASE_RESET=1).");
+  }
+
   await prisma.analyticsEvent.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.submission.deleteMany();
@@ -120,6 +133,11 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.municipality.deleteMany();
   await prisma.district.deleteMany();
+  await prisma.passwordResetToken.deleteMany().catch(() => undefined);
+  await prisma.adminInvitation.deleteMany().catch(() => undefined);
+  await prisma.storedObject.deleteMany().catch(() => undefined);
+  await prisma.dataSubjectRequest.deleteMany().catch(() => undefined);
+  await prisma.correctionRequest.deleteMany().catch(() => undefined);
   await prisma.user.deleteMany();
   await prisma.organisation.deleteMany();
   await prisma.province.deleteMany();

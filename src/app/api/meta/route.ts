@@ -51,22 +51,29 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
-      categories,
-      provinces,
-      districts: districts.map((d) => ({
-        id: d.id,
-        code: d.code,
-        name: d.name,
-        municipalities: d.municipalities.map((m) => ({
-          id: m.id,
-          code: m.code,
-          name: m.name,
+    return NextResponse.json(
+      {
+        categories,
+        provinces,
+        districts: districts.map((d) => ({
+          id: d.id,
+          code: d.code,
+          name: d.name,
+          municipalities: d.municipalities.map((m) => ({
+            id: m.id,
+            code: m.code,
+            name: m.name,
+          })),
         })),
-      })),
-      /** Public status tallies only (no draft/archive exposure) */
-      statusCounts: stats,
-    });
+        /** Public status tallies only (no draft/archive exposure) */
+        statusCounts: stats,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (error) {
     console.error("[api/meta]", error);
     return NextResponse.json({ error: "Failed to load metadata" }, { status: 500 });

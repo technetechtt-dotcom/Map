@@ -54,19 +54,32 @@ export async function POST(req: NextRequest) {
     });
     provinceId = p?.id;
   }
+  // Non-super may not inherit a default province from "first NC" without having one assigned
   if (!provinceId) {
-    const nc = await prisma.province.findFirst({ where: { code: "NC" } });
-    provinceId = nc?.id;
+    if (auth.user.role === "SUPER_ADMIN") {
+      const nc = await prisma.province.findFirst({ where: { code: "NC" } });
+      provinceId = nc?.id;
+    } else {
+      return jsonError("Province required for your account", 400);
+    }
   }
   if (!provinceId) return jsonError("Province required", 400);
 
   const prov = assertProvinceAccess(auth.user, provinceId);
   if (!prov.ok) return jsonError(prov.reason, 403);
 
-  const organisationId = body.organisationId || auth.user.organisationId || null;
+  // Org admin creates under their org only
+  let organisationId = body.organisationId || auth.user.organisationId || null;
+  if (auth.user.role === "ORG_ADMIN") {
+    if (!auth.user.organisationId) return jsonError("Org admin has no organisation", 403);
+    organisationId = auth.user.organisationId;
+  }
   if (organisationId) {
     const org = assertOrganisationAccess(auth.user, organisationId);
     if (!org.ok) return jsonError(org.reason, 403);
+  }
+  if (auth.user.role === "ORG_ADMIN" && !organisationId) {
+    return jsonError("Organisation assignment required", 403);
   }
 
   const status = coerceCreateStatus(auth.user, body.status);

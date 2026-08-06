@@ -422,7 +422,7 @@ export default async function BookPrintPage({
                   ({locs.length} location{locs.length === 1 ? "" : "s"})
                 </span>
               </h3>
-              {locs.map((loc, idx) => (
+              {locs.map((loc: { id: string; slug: string; name: string; summary: string; latitude: number; longitude: number; status: string; category: { icon: string; name: string }; municipality?: { name: string } | null; opportunities: string[] }, idx: number) => (
                 <article key={loc.id} className="loc-card" id={`loc-${loc.slug}`}>
                   <header className="loc-header">
                     <span className="loc-num">
@@ -445,7 +445,7 @@ export default async function BookPrintPage({
                         <strong>Priority opportunities</strong>
                       </p>
                       <ul>
-                        {loc.opportunities.map((o) => (
+                        {loc.opportunities.map((o: string) => (
                           <li key={o}>{o}</li>
                         ))}
                       </ul>

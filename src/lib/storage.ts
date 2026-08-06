@@ -1,12 +1,14 @@
 /**
- * Secure upload validation + optional object storage (S3-compatible).
- * Local filesystem used when STORAGE_DRIVER=local (default).
+ * Secure upload validation + object storage (S3-compatible).
+ * STORAGE_DRIVER=local | s3
+ * When STORAGE_DRIVER=s3, local fallback is forbidden unless STORAGE_ALLOW_LOCAL_FALLBACK=1.
  */
 
 import { createHash, randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 import { MAX_UPLOAD_BYTES } from "@/lib/security";
+import { prisma } from "@/lib/prisma";
 
 const ALLOWED: Record<string, string[]> = {
   ".png": ["image/png"],
@@ -17,7 +19,6 @@ const ALLOWED: Record<string, string[]> = {
   ".pdf": ["application/pdf"],
 };
 
-/** Magic-byte sniff (first bytes) — exported for unit tests */
 export function sniffMimeForTest(buf: Buffer): string | null {
   return sniffMime(buf);
 }
@@ -48,12 +49,15 @@ export type StoredFile = {
   size: number;
   contentType: string;
   sha256: string;
+  access: string;
+  id?: string;
 };
 
-export async function validateAndStoreUpload(file: File): Promise<
-  { ok: true; file: StoredFile } | { ok: false; error: string }
-> {
-  const bytes = Buffer.from(await file.arrayBuffer());
+export async function validateAndStoreUpload(
+  file: File,
+  opts?: { organisationId?: string | null; uploadedById?: string | null; access?: "private" | "public" }
+): Promise<{ ok: true; file: StoredFile } | { ok: false; error: string }> {
+  let bytes = Buffer.from(await file.arrayBuffer());
   if (bytes.length === 0) return { ok: false, error: "Empty file" };
   if (bytes.length > MAX_UPLOAD_BYTES) {
     return { ok: false, error: `Max file size ${MAX_UPLOAD_BYTES} bytes` };
@@ -67,67 +71,127 @@ export async function validateAndStoreUpload(file: File): Promise<
     return { ok: false, error: "File content does not match extension" };
   }
 
-  // Reject polyglot JS/PDF edge: keep PDF pure
-  if (sniffed === "application/pdf" && bytes.includes(Buffer.from("<script", "utf8"))) {
-    return { ok: false, error: "Rejected dangerous PDF content" };
+  if (sniffed === "application/pdf") {
+    if (bytes.includes(Buffer.from("<script", "utf8")) || bytes.includes(Buffer.from("/JS", "utf8"))) {
+      return { ok: false, error: "Rejected dangerous PDF content" };
+    }
+  }
+
+  // Re-encode images via sharp when available to strip metadata
+  if (sniffed.startsWith("image/") && sniffed !== "image/gif") {
+    try {
+      const sharp = (await import("sharp")).default;
+      if (sniffed === "image/png") {
+        bytes = await sharp(bytes).rotate().png().toBuffer();
+      } else if (sniffed === "image/webp") {
+        bytes = await sharp(bytes).rotate().webp().toBuffer();
+      } else {
+        bytes = await sharp(bytes).rotate().jpeg({ quality: 88 }).toBuffer();
+      }
+    } catch {
+      // sharp optional failure — keep original after magic-byte check
+    }
   }
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
-  const filename = `${randomUUID()}${ext}`;
+  const filename = `${randomUUID()}${ext === ".jpeg" ? ".jpg" : ext}`;
   const driver = process.env.STORAGE_DRIVER || "local";
+  const access = opts?.access || "private";
 
+  let url: string;
   if (driver === "s3") {
-    const url = await putS3(filename, bytes, sniffed);
-    if (!url) return { ok: false, error: "Object storage upload failed" };
-    return {
-      ok: true,
-      file: { url, filename, size: bytes.length, contentType: sniffed, sha256 },
-    };
+    const s3url = await putS3(filename, bytes, sniffed);
+    if (!s3url) return { ok: false, error: "Object storage upload failed" };
+    url = s3url;
+  } else {
+    const uploadRoot = path.join(process.cwd(), "public", "uploads");
+    await mkdir(uploadRoot, { recursive: true });
+    await writeFile(path.join(uploadRoot, filename), bytes);
+    url = `/uploads/${filename}`;
   }
 
-  const uploadRoot = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadRoot, { recursive: true });
-  await writeFile(path.join(uploadRoot, filename), bytes);
+  const record = await prisma.storedObject.create({
+    data: {
+      filename,
+      url,
+      contentType: sniffed,
+      sizeBytes: bytes.length,
+      sha256,
+      access,
+      driver,
+      organisationId: opts?.organisationId || null,
+      uploadedById: opts?.uploadedById || null,
+    },
+  });
+
   return {
     ok: true,
     file: {
-      url: `/uploads/${filename}`,
+      id: record.id,
+      url,
       filename,
       size: bytes.length,
       contentType: sniffed,
       sha256,
+      access,
     },
   };
 }
 
+export async function deleteStoredObject(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const row = await prisma.storedObject.findUnique({ where: { id } });
+  if (!row) return { ok: false, error: "Not found" };
+
+  if (row.driver === "local" && row.url.startsWith("/uploads/")) {
+    const full = path.join(process.cwd(), "public", row.url);
+    try {
+      await unlink(full);
+    } catch {
+      // file may already be gone
+    }
+  }
+  // S3 delete left for SDK when configured
+  await prisma.storedObject.delete({ where: { id } });
+  return { ok: true };
+}
+
 async function putS3(key: string, body: Buffer, contentType: string): Promise<string | null> {
   const bucket = process.env.S3_BUCKET;
-  const endpoint = process.env.S3_ENDPOINT; // e.g. https://s3.amazonaws.com or R2
+  const endpoint = process.env.S3_ENDPOINT;
   const region = process.env.S3_REGION || "auto";
   const accessKey = process.env.S3_ACCESS_KEY_ID;
   const secret = process.env.S3_SECRET_ACCESS_KEY;
-  const publicBase = process.env.S3_PUBLIC_BASE_URL; // CDN URL
+  const publicBase = process.env.S3_PUBLIC_BASE_URL;
 
-  if (!bucket || !accessKey || !secret) return null;
-
-  try {
-    // Optional peer dependency — installed only when using STORAGE_DRIVER=s3
-    const awsModule = "@aws-sdk/client-s3";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let sdk: any = null;
-    try {
-      // @ts-expect-error optional dependency may be absent
-      sdk = await import(awsModule);
-    } catch {
-      sdk = null;
-    }
-    if (!sdk?.S3Client || !sdk?.PutObjectCommand) {
-      if (process.env.S3_REQUIRE === "1") return null;
+  if (!bucket || !accessKey || !secret) {
+    if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
       const uploadRoot = path.join(process.cwd(), "public", "uploads");
       await mkdir(uploadRoot, { recursive: true });
       await writeFile(path.join(uploadRoot, key), body);
       return `/uploads/${key}`;
     }
+    return null;
+  }
+
+  try {
+    // Dynamic import without static type resolution (optional dep)
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const importS3 = new Function("return import('@aws-sdk/client-s3')") as () => Promise<{
+      S3Client: new (cfg: unknown) => { send: (cmd: unknown) => Promise<unknown> };
+      PutObjectCommand: new (input: unknown) => unknown;
+      GetObjectCommand?: new (input: unknown) => unknown;
+    }>;
+    const sdk = await importS3().catch(() => null);
+    if (!sdk?.S3Client || !sdk?.PutObjectCommand) {
+      if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
+        const uploadRoot = path.join(process.cwd(), "public", "uploads");
+        await mkdir(uploadRoot, { recursive: true });
+        await writeFile(path.join(uploadRoot, key), body);
+        return `/uploads/${key}`;
+      }
+      return null;
+    }
+
     const client = new sdk.S3Client({
       region,
       endpoint: endpoint || undefined,
@@ -140,11 +204,11 @@ async function putS3(key: string, body: Buffer, contentType: string): Promise<st
         Key: key,
         Body: body,
         ContentType: contentType,
-        ACL: "private",
       })
     );
     if (publicBase) return `${publicBase.replace(/\/$/, "")}/${key}`;
-    return `s3://${bucket}/${key}`;
+    // Private objects: use API proxy path
+    return `/api/uploads/object?key=${encodeURIComponent(key)}`;
   } catch {
     return null;
   }

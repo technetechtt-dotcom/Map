@@ -19,6 +19,7 @@ export default function LoginPage() {
     const res = await signIn("credentials", {
       email: String(fd.get("email")),
       password: String(fd.get("password")),
+      mfaCode: String(fd.get("mfaCode") || ""),
       redirect: false,
     });
     setLoading(false);
@@ -59,10 +60,19 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
         </label>
+        <label className="grid gap-1 text-sm font-semibold">
+          MFA code (if enabled)
+          <input className="field" name="mfaCode" autoComplete="one-time-code" />
+        </label>
         <button className="btn" type="submit" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
         </button>
         {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
+        <p className="text-sm">
+          <a href="/reset-password" className="text-g700 font-semibold">
+            Forgot password?
+          </a>
+        </p>
       </form>
     </div>
   );

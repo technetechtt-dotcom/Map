@@ -119,7 +119,6 @@ type Props = {
  * with aligned callout names so every PDF contact is readable.
  */
 export function DistrictPinMap({
-  title: _title,
   districtCode,
   accent,
   pins,

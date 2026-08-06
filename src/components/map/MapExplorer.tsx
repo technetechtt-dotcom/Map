@@ -82,10 +82,17 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     if (verifiedOnly) params.set("verified", "1");
     if (searchVisible && bounds) params.set("bounds", bounds);
 
+    const controller = new AbortController();
     setLoading(true);
     const handle = setTimeout(() => {
-      fetch(`/api/locations?${params}`)
-        .then((r) => r.json())
+      fetch(`/api/locations?${params}`, { signal: controller.signal })
+        .then(async (r) => {
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.error || `Locations request failed (${r.status})`);
+          }
+          return r.json();
+        })
         .then((data) => {
           const next: PublicLocation[] = data.locations || [];
           setLocations(next);
@@ -98,9 +105,18 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             setSelectedId(null);
           }
         })
-        .finally(() => setLoading(false));
+        .catch((err) => {
+          if (err?.name === "AbortError") return;
+          console.error(err);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
     }, 280);
-    return () => clearTimeout(handle);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
   }, [q, province, district, category, verifiedOnly, bounds, searchVisible]);
 
   useEffect(() => {
@@ -108,15 +124,25 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     if (q) params.set("q", q);
     if (province) params.set("province", province);
 
+    const controller = new AbortController();
     const handle = setTimeout(() => {
-      fetch(`/api/organisations?${params}`)
-        .then((r) => r.json())
+      fetch(`/api/organisations?${params}`, { signal: controller.signal })
+        .then(async (r) => {
+          if (!r.ok) throw new Error("Organisations request failed");
+          return r.json();
+        })
         .then((data) => {
           setHubs(data.hubs || []);
         })
-        .catch(console.error);
+        .catch((err) => {
+          if (err?.name === "AbortError") return;
+          console.error(err);
+        });
     }, 280);
-    return () => clearTimeout(handle);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
   }, [q, province]);
 
   const selectedTown = useMemo(

@@ -98,12 +98,12 @@ export function layoutSpiralOffsets<T extends GeoPoint>(
 
   const assigned = new Array(items.length).fill(-1);
   let groupId = 0;
-  for (const idxs of groups.values()) {
-    if (idxs.length === 0) continue;
-    let gid = idxs.map((i) => assigned[i]).find((g) => g >= 0);
+  Array.from(groups.values()).forEach((idxs) => {
+    if (idxs.length === 0) return;
+    let gid = idxs.map((i: number) => assigned[i]).find((g: number) => g >= 0);
     if (gid === undefined) gid = groupId++;
     for (const i of idxs) assigned[i] = gid;
-  }
+  });
 
   const byGroup = new Map<number, number[]>();
   assigned.forEach((g, i) => {
@@ -198,7 +198,7 @@ export function layoutAlignedPinLabels(
   const roomLeft = minX - pinR - pad;
   const onRight = roomRight >= roomLeft && roomRight >= boxW + gapFromPins;
 
-  let boxX = onRight
+  const boxX = onRight
     ? Math.min(options.width - pad - boxW, maxX + pinR + gapFromPins)
     : Math.max(pad, minX - pinR - gapFromPins - boxW);
 
@@ -287,8 +287,8 @@ export function layoutPinsInPixels<T extends { latitude: number; longitude: numb
     groups.set(r, list);
   });
 
-  for (const idxs of groups.values()) {
-    if (idxs.length < 2) continue;
+  Array.from(groups.values()).forEach((idxs) => {
+    if (idxs.length < 2) return;
 
     let cx = 0;
     let cy = 0;
@@ -303,7 +303,7 @@ export function layoutPinsInPixels<T extends { latitude: number; longitude: numb
     // Radius so chord length ≈ minSep around the circle
     const radius = Math.max(minSep * 1.05, (minSep * n) / (2 * Math.PI) + minSep * 0.35);
     // Extra ring for large clusters
-    idxs.forEach((i, order) => {
+    idxs.forEach((i: number, order: number) => {
       const ring = Math.floor(order / 8);
       const inRing = order % 8;
       const countOnRing = Math.min(8, n - ring * 8);
@@ -319,7 +319,7 @@ export function layoutPinsInPixels<T extends { latitude: number; longitude: numb
       base[i].y = y;
       base[i].wasSpread = true;
     });
-  }
+  });
 
   // Second pass: push any remaining pairwise overlaps (different clusters)
   for (let pass = 0; pass < 4; pass++) {

@@ -55,13 +55,40 @@ export const locationCreateSchema = locationWriteSchema.extend({
 });
 
 export const submissionSchema = z.object({
-  type: z.string().max(40).optional(),
+  type: z.string().max(40).optional().default("location"),
   submitterName: z.string().min(2).max(120),
   submitterEmail: z.string().email().max(200),
   notes: z.string().max(2000).nullable().optional(),
-  payload: z.record(z.string(), z.unknown()),
+  provinceId: z.string().max(40).nullable().optional(),
+  organisationId: z.string().max(40).nullable().optional(),
+  payload: z.object({
+    name: z.string().min(2).max(200),
+    summary: z.string().min(2).max(2000),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    categorySlug: z.string().max(80).optional(),
+    provinceSlug: z.string().max(80).optional(),
+    opportunities: z.array(z.string().max(300)).max(50).optional(),
+    assets: z.array(z.string().max(300)).max(50).optional(),
+  }),
   captchaToken: z.string().max(4000).optional(),
   website: z.string().max(0).optional(), // honeypot
+  consent: z.boolean().optional(),
+});
+
+export const passwordResetRequestSchema = z.object({
+  email: z.string().email().max(200),
+});
+
+export const passwordResetSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(12).max(128),
+});
+
+export const invitationAcceptSchema = z.object({
+  token: z.string().min(20).max(200),
+  name: z.string().min(2).max(120),
+  password: z.string().min(12).max(128),
 });
 
 export const userCreateSchema = z.object({

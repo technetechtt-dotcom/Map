@@ -6,8 +6,8 @@ import { parseJsonArray } from "@/lib/shape";
 export const dynamic = "force-dynamic";
 
 export default async function OrgPage({ params }: { params: { slug: string } }) {
-  const org = await prisma.organisation.findUnique({
-    where: { slug: params.slug },
+  const org = await prisma.organisation.findFirst({
+    where: { slug: params.slug, status: "PUBLISHED" },
     include: { province: true },
   });
   if (!org) notFound();

@@ -16,7 +16,9 @@ jobs:
       BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
       ALLOW_DEMO_USERS: "0"
       SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
+      ALLOW_DATABASE_RESET: "1"
       NODE_ENV: test
+      TRUST_PROXY: "0"
 
     steps:
       - uses: actions/checkout@v4
@@ -29,20 +31,32 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Dependency audit (high+)
+        run: npm audit --audit-level=high
+        continue-on-error: false
+
       - name: Prisma generate + schema push
         run: npx prisma generate && npx prisma db push --skip-generate
+
+      - name: Seed smoke (destructive allowed in CI)
+        run: node prisma/seed.js
 
       - name: Unit tests
         run: npm test
 
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Build
         run: npm run build
 
-  postgres-restore-smoke:
+      - name: Backup encrypt smoke
+        run: node scripts/restore-backup-smoke.js
+
+  postgres-postgis:
     runs-on: ubuntu-latest
     services:
       postgis:
@@ -60,13 +74,15 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
-      - name: Init PostGIS extension
+      - name: PostGIS + coordinate sync trigger
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
           PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -f prisma/migrations/20260326_postgis_init.sql
           PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT PostGIS_Version();"
-      - name: Document restore procedure
+      - name: Docs present
         run: |
           test -f scripts/restore-backup.md
-          test -f prisma/migrations/README.md
+          test -f docs/ops-runbook.md
+          test -f docs/popia-governance.md

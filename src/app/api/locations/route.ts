@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_STATUSES, shapeLocation } from "@/lib/shape";
 import { trackEvent } from "@/lib/audit";
-import { requireSession, jsonError } from "@/lib/api";
+import { requireSession } from "@/lib/api";
 import { tenantWhere } from "@/lib/policy";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/security";
@@ -22,16 +22,17 @@ export async function GET(req: NextRequest) {
     }
 
     const sp = req.nextUrl.searchParams;
-    const q = sp.get("q")?.trim().toLowerCase() || "";
+    const q = sp.get("q")?.trim() || "";
     const province = sp.get("province") || "";
     const district = sp.get("district") || "";
     const category = sp.get("category") || "";
     const status = sp.get("status") || "";
     const verifiedOnly = sp.get("verified") === "1";
     const bounds = sp.get("bounds");
-    /** Authenticated admin list — replaces open admin=1 bypass */
     const adminList = sp.get("scope") === "manage";
-    const limit = Math.min(Number(sp.get("limit") || 500), 500);
+    const limit = Math.min(Math.max(Number(sp.get("limit") || 100), 1), 200);
+    const cursor = sp.get("cursor") || undefined;
+    const offset = Math.max(Number(sp.get("offset") || 0), 0);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
@@ -64,6 +65,17 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // DB-side text filter (SQLite: contains is case-sensitive unless COLLATE NOCASE)
+    if (q) {
+      where.OR = [
+        { name: { contains: q } },
+        { summary: { contains: q } },
+        { description: { contains: q } },
+      ];
+    }
+
+    const total = await prisma.location.count({ where });
+
     const rows = await prisma.location.findMany({
       where,
       include: {
@@ -75,27 +87,15 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { name: "asc" },
       take: limit,
+      ...(cursor
+        ? { skip: 1, cursor: { id: cursor } }
+        : offset
+          ? { skip: offset }
+          : {}),
     });
 
-    let shaped = rows.map(shapeLocation);
-    if (q) {
-      shaped = shaped.filter((x) => {
-        const hay = [
-          x.name,
-          x.summary,
-          x.category.name,
-          x.district?.name,
-          x.municipality?.name,
-          x.province.name,
-          ...x.opportunities,
-          ...x.assets,
-          ...x.tags,
-        ]
-          .join(" ")
-          .toLowerCase();
-        return hay.includes(q);
-      });
-    }
+    const shaped = rows.map(shapeLocation);
+    const nextCursor = rows.length === limit ? rows[rows.length - 1]?.id : null;
 
     trackEvent({
       eventType: "locations.search",
@@ -103,7 +103,14 @@ export async function GET(req: NextRequest) {
       metadata: { q, province, district, category, count: shaped.length, adminList },
     }).catch(() => undefined);
 
-    return NextResponse.json({ count: shaped.length, locations: shaped });
+    return NextResponse.json({
+      count: shaped.length,
+      total,
+      limit,
+      offset,
+      nextCursor,
+      locations: shaped,
+    });
   } catch (error) {
     log.error("locations.list.failed", {
       detail: error instanceof Error ? error.message : String(error),

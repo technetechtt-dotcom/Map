@@ -4,8 +4,9 @@ import { shapeLocation, serializeArray, PUBLIC_STATUSES } from "@/lib/shape";
 import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { writeAudit } from "@/lib/audit";
 import {
-  assertOrganisationAccess,
-  assertProvinceAccess,
+  assertLocationAccess,
+  assertLocationAssignmentChange,
+  assertPublishableQuality,
   assertStatusChange,
   canEditDrafts,
   canPublish,
@@ -32,14 +33,29 @@ export async function GET(
   });
   if (!loc) return jsonError("Not found", 404);
 
-  // Public only sees public statuses; full detail when staff session
-  if (!PUBLIC_STATUSES.includes(loc.status as (typeof PUBLIC_STATUSES)[number])) {
+  const isPublic = PUBLIC_STATUSES.includes(
+    loc.status as (typeof PUBLIC_STATUSES)[number]
+  );
+
+  if (!isPublic) {
     const auth = await requireSession();
     if (auth.error) return jsonError("Not found", 404);
-    const prov = assertProvinceAccess(auth.user, loc.provinceId);
-    if (!prov.ok) return jsonError("Not found", 404);
+    const access = assertLocationAccess(auth.user, loc, "read");
+    if (!access.ok) return jsonError("Not found", 404);
+    return jsonOk({
+      location: shapeLocation(loc),
+      sources: loc.sources.map((s) => ({
+        id: s.id,
+        title: s.title,
+        url: s.url,
+        documentRef: s.documentRef,
+        notes: s.notes,
+        capturedAt: s.capturedAt,
+      })),
+    });
   }
 
+  // Public profile: no draft verification notes / raw source internals
   return jsonOk({
     location: shapeLocation(loc),
     sources: loc.sources.map((s) => ({
@@ -47,7 +63,6 @@ export async function GET(
       title: s.title,
       url: s.url,
       documentRef: s.documentRef,
-      notes: s.notes,
       capturedAt: s.capturedAt,
     })),
   });
@@ -74,22 +89,23 @@ export async function PATCH(
   });
   if (!existing) return jsonError("Not found", 404);
 
-  const prov = assertProvinceAccess(auth.user, existing.provinceId);
-  if (!prov.ok) return jsonError(prov.reason, 403);
-  const org = assertOrganisationAccess(auth.user, existing.organisationId);
-  if (!org.ok) return jsonError(org.reason, 403);
+  const access = assertLocationAccess(auth.user, existing, "write");
+  if (!access.ok) return jsonError(access.reason, 403);
+
+  const assign = assertLocationAssignmentChange(
+    auth.user,
+    existing,
+    body.organisationId,
+    body.provinceId
+  );
+  if (!assign.ok) return jsonError(assign.reason, 403);
 
   const statusCheck = assertStatusChange(auth.user, body.status, existing.status);
   if (!statusCheck.ok) return jsonError(statusCheck.reason, 403);
 
-  // Org/contributor cannot reassign province outside scope
-  if (body.provinceId) {
-    const p2 = assertProvinceAccess(auth.user, body.provinceId);
-    if (!p2.ok) return jsonError(p2.reason, 403);
-  }
-  if (body.organisationId) {
-    const o2 = assertOrganisationAccess(auth.user, body.organisationId);
-    if (!o2.ok) return jsonError(o2.reason, 403);
+  if (body.status === "PUBLISHED") {
+    const quality = assertPublishableQuality(body.coordQuality || existing.coordQuality);
+    if (!quality.ok) return jsonError(quality.reason, 400);
   }
 
   const data: Record<string, unknown> = {};
@@ -155,11 +171,14 @@ export async function PATCH(
   });
 
   await writeAudit({
+    user: auth.user,
     userId: auth.user.id,
     action: "UPDATE",
     entityType: "Location",
     entityId: updated.id,
     metadata: { fields: Object.keys(body) },
+    provinceId: updated.provinceId,
+    organisationId: updated.organisationId,
   });
 
   log.info("location.updated", { id: updated.id, by: auth.user.id });
@@ -179,18 +198,21 @@ export async function DELETE(
   });
   if (!existing) return jsonError("Not found", 404);
 
-  const prov = assertProvinceAccess(auth.user, existing.provinceId);
-  if (!prov.ok) return jsonError(prov.reason, 403);
+  const access = assertLocationAccess(auth.user, existing, "write");
+  if (!access.ok) return jsonError(access.reason, 403);
 
   await prisma.location.update({
     where: { id: existing.id },
     data: { status: "ARCHIVED" },
   });
   await writeAudit({
+    user: auth.user,
     userId: auth.user.id,
     action: "ARCHIVE",
     entityType: "Location",
     entityId: existing.id,
+    provinceId: existing.provinceId,
+    organisationId: existing.organisationId,
   });
   return jsonOk({ ok: true });
 }

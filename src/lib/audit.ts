@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import type { AuthUser } from "./policy";
 
 export async function writeAudit(params: {
   userId?: string | null;
@@ -7,19 +8,33 @@ export async function writeAudit(params: {
   entityId?: string | null;
   metadata?: unknown;
   ipAddress?: string | null;
+  provinceId?: string | null;
+  organisationId?: string | null;
+  user?: AuthUser | null;
 }) {
+  const provinceId =
+    params.provinceId ?? params.user?.provinceId ?? null;
+  const organisationId =
+    params.organisationId ?? params.user?.organisationId ?? null;
+
+  // Append-only: never update/delete via application code
   await prisma.auditLog.create({
     data: {
-      userId: params.userId || null,
+      userId: params.userId || params.user?.id || null,
       action: params.action,
       entityType: params.entityType,
       entityId: params.entityId || null,
       metadataJson: params.metadata ? JSON.stringify(params.metadata) : null,
       ipAddress: params.ipAddress || null,
+      provinceId,
+      organisationId,
     },
   });
 }
 
+/**
+ * Sampled analytics to limit DB growth. Override with ANALYTICS_SAMPLE_RATE=1.0.
+ */
 export async function trackEvent(params: {
   eventType: string;
   path?: string;
@@ -27,6 +42,14 @@ export async function trackEvent(params: {
   locationId?: string;
   metadata?: unknown;
 }) {
+  const rate = Number(process.env.ANALYTICS_SAMPLE_RATE ?? "0.25");
+  if (rate <= 0) return;
+  if (rate < 1 && Math.random() > rate) return;
+
+  // Skip obvious bot user-agents when provided in metadata
+  const meta = params.metadata as { ua?: string } | undefined;
+  if (meta?.ua && /bot|crawler|spider|slurp/i.test(meta.ua)) return;
+
   await prisma.analyticsEvent.create({
     data: {
       eventType: params.eventType,
@@ -34,6 +57,24 @@ export async function trackEvent(params: {
       provinceId: params.provinceId,
       locationId: params.locationId,
       metadataJson: params.metadata ? JSON.stringify(params.metadata) : null,
+    },
+  });
+}
+
+/** Retention: delete analytics older than N days (call from cron). */
+export async function pruneAnalytics(retentionDays = 90) {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 3600 * 1000);
+  return prisma.analyticsEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
+}
+
+/** Retention: archive audit logs older than N days into BackupRecord note count */
+export async function pruneAuditLogs(retentionDays = 365) {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 3600 * 1000);
+  // Soft retention: keep security events; delete only high-volume SEARCH logs when implemented
+  return prisma.auditLog.deleteMany({
+    where: {
+      createdAt: { lt: cutoff },
+      action: { in: ["locations.search", "VIEW"] },
     },
   });
 }

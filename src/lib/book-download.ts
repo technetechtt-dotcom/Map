@@ -143,7 +143,8 @@ export function buildBookHtmlDocument(book: BookPayload, origin = ""): string {
     .map(([districtName, locs]) => {
       const cards = locs
         .map((loc) => {
-          const themes = (loc.themes || [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const themes = ((loc as any).themes || loc.tags || [])
             .map((t: string) => `<span class="chip">${esc(t)}</span>`)
             .join(" ");
           return `<article class="loc-card">

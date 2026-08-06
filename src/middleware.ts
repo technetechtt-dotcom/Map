@@ -3,19 +3,20 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /**
- * Protect admin UI routes and attach security headers to all responses.
+ * Protect admin UI routes and attach security headers.
+ * Prefer nonces when CSP_NONCE=1 (generated per request).
  */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const nonce = crypto.randomUUID().replace(/-/g, "");
 
-  // Gate management UI (APIs enforce auth separately)
   if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
     });
-    const role = (token as { role?: string } | null)?.role;
-    if (!token || !role) {
+    const role = (token as { role?: string; invalid?: boolean } | null)?.role;
+    if (!token || !role || (token as { invalid?: boolean }).invalid) {
       const login = new URL("/login", req.url);
       login.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(login);
@@ -28,16 +29,22 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next();
   const isProd = process.env.NODE_ENV === "production";
+  const strictCsp = process.env.CSP_STRICT === "1";
 
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+  const scriptSrc = strictCsp
+    ? `'self' 'nonce-${nonce}' https://challenges.cloudflare.com`
+    : `'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com`;
+
   res.headers.set(
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com",
+      `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline' https://unpkg.com",
       "img-src 'self' data: blob: https: http:",
       "font-src 'self' data:",
@@ -46,8 +53,13 @@ export async function middleware(req: NextRequest) {
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-    ].join("; ")
+      process.env.CSP_REPORT_URI ? `report-uri ${process.env.CSP_REPORT_URI}` : "",
+    ]
+      .filter(Boolean)
+      .join("; ")
   );
+  res.headers.set("x-nonce", nonce);
+
   if (isProd) {
     res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   }
@@ -56,7 +68,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|uploads/|maps/).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
