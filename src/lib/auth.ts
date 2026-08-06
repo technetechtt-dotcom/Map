@@ -4,7 +4,6 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { createHmac } from "crypto";
 import { prisma } from "./prisma";
 import {
   canEditDrafts,
@@ -17,13 +16,10 @@ import {
 } from "./policy";
 import { rateLimit } from "./rate-limit";
 import { log } from "./logger";
+import { verifyTotp } from "./totp";
 
 const MAX_FAILED = Number(process.env.LOGIN_MAX_FAILED || 5);
 const LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
-
-function totpWindowCode(secret: string, window: number) {
-  return createHmac("sha1", secret).update(String(window)).digest("hex").slice(0, 6);
-}
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
@@ -90,17 +86,7 @@ export const authOptions: NextAuthOptions = {
 
         if (user.mfaEnabled) {
           const code = (credentials?.mfaCode || "").trim();
-          if (!code || code.length < 6) return null;
-          if (process.env.MFA_BYPASS === code) {
-            // emergency break-glass only when explicitly configured
-          } else if (user.mfaSecret) {
-            const day = Math.floor(Date.now() / 30_000);
-            const expected = totpWindowCode(user.mfaSecret, day);
-            const prev = totpWindowCode(user.mfaSecret, day - 1);
-            if (code !== expected && code !== prev) return null;
-          } else {
-            return null;
-          }
+          if (!user.mfaSecret || !verifyTotp(user.mfaSecret, code)) return null;
         }
 
         await prisma.user.update({

@@ -39,11 +39,17 @@ Wire `SENTRY_DSN` / log shipper to capture:
 - storage upload failures  
 - verification-expiry counts from analytics dashboard  
 
-Uptime: HTTP check on `/api/meta` every 1–5 minutes.
+Uptime: HTTP check on `/api/health` (and `/api/meta`) every 1–5 minutes.
 
 ## Maintenance mode
 
-Set app setting `maintenance=1` (future page gate) or pause traffic at reverse proxy.
+- Env: `MAINTENANCE_MODE=1` (highest priority) — public APIs/pages return 503 or `/maintenance`.
+- Super-admin toggle: `PUT /api/admin/settings` with `{ "maintenance": true, "message": "…" }`.
+- Super-admins can still use admin routes while maintenance is on.
+
+## Health probe
+
+`GET /api/health` — `{ status, db, maintenance, latencyMs }` · `Cache-Control: no-store`.
 
 ## Disaster recovery
 
@@ -85,7 +91,20 @@ Jobs: `expiry` (flag/demote expired verification), `prune` (analytics/audit rete
 
 ## Account security
 
-- `/account/security` — password change + MFA setup
+- `/account/security` — password change + **RFC 6238 TOTP** MFA (authenticator apps via base32 / otpauth URI)
+- Login requires MFA code when `mfaEnabled`
+- Force password change: `mustChangePassword` redirects to `/account/security`
 - `/accept-invite` — invitation workflow
 - `/reset-password` — token reset
 - Admin users: revoke sessions / disable accounts
+
+## Bulk import (draft-only)
+
+1. Stage: `POST /api/admin/imports` with `{ source, rows: [{ name, latitude, longitude, provinceSlug, categorySlug, … }] }`
+2. Review duplicate/nearby report; UI at `/admin/imports`
+3. Apply: `POST /api/admin/imports` `{ apply: true, batchId }` → creates **DRAFT** locations only (super-admin; provincial if `IMPORT_APPLY_PROVINCIAL=1`)
+4. Verify / publish through normal location workflow
+
+## Malware scan hook
+
+Set `AV_SCAN_URL` to a private scanner endpoint. Optional `AV_SCAN_REQUIRED=1`. Uploads call the scanner after magic-byte validation.

@@ -24,8 +24,18 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("Invalid email or password");
+      setError("Invalid email or password (or MFA code if required)");
       return;
+    }
+    try {
+      const me = await fetch("/api/auth/mfa").then((r) => r.json());
+      if (me?.mustChangePassword) {
+        router.push("/account/security?force=1");
+        router.refresh();
+        return;
+      }
+    } catch {
+      // fall through
     }
     router.push("/admin");
     router.refresh();

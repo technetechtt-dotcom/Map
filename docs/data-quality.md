@@ -14,11 +14,12 @@
 | `ENFORCE_COORD_QUALITY=1` | Blocks publish unless coordQuality is `verified` or `estimated` |
 | `verificationExpiresAt` | Dashboard counts `expiredVerify`; flag “review due” on profiles |
 | Evidence | `evidenceJson` + `SourceRecord` required procedurally (enforce in admin UI) |
+| Import staging | `/admin/imports` + `ImportBatch` — dry-run duplicates, apply as DRAFT only |
+| Duplicate check | Name Jaccard + 250 m proximity in import report (`src/lib/duplicates.ts`) |
 
-## Workflows not in UI yet (schema ready)
+## Workflows
 
-- Bulk import staging / preview approval (`CorrectionRequest`, future `ImportBatch`)
-- Duplicate matching (name+province fuzzy) — run offline before merge
+- Bulk import staging / preview / apply (`ImportBatch`, admin UI)
 - Data owner confirm/dispute via `CorrectionRequest`
 - DSAR via `DataSubjectRequest`
 - Quality score = weighted: status + coordQuality + evidence presence + expiry

@@ -429,3 +429,22 @@ model CorrectionRequest {
   updatedAt      DateTime @updatedAt
 }
 
+// Staged bulk import (CSV/JSON dry-run + apply). Never auto-publishes.
+model ImportBatch {
+  id             String   @id @default(cuid())
+  source         String
+  status         String   @default("STAGED")
+  provinceId     String?
+  rowCount       Int      @default(0)
+  appliedCount   Int      @default(0)
+  payloadJson    String
+  reportJson     String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  appliedAt      DateTime?
+
+  @@index([status, createdAt])
+  @@index([provinceId])
+}
+

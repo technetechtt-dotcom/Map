@@ -36,6 +36,7 @@ export default function AdminHome() {
       )}
       <div className="mt-6 flex flex-wrap gap-3">
         <Link href="/admin/locations" className="btn">Manage locations</Link>
+        <Link href="/admin/imports" className="btn btn-outline">Import staging</Link>
         <Link href="/admin/submissions" className="btn btn-outline">Review submissions</Link>
         <Link href="/admin/backups" className="btn btn-outline">Create backup</Link>
       </div>

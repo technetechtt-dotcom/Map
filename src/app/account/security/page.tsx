@@ -9,7 +9,13 @@ export default function AccountSecurityPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
-  const [mfa, setMfa] = useState<{ mfaEnabled?: boolean; mfaRequired?: boolean; secret?: string; sampleCode?: string }>({});
+  const [mfa, setMfa] = useState<{
+    mfaEnabled?: boolean;
+    mfaRequired?: boolean;
+    secret?: string;
+    sampleCode?: string;
+    otpauthUrl?: string;
+  }>({});
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -44,8 +50,13 @@ export default function AccountSecurityPage() {
       setMsg(data.error || "MFA setup failed");
       return;
     }
-    setMfa((m) => ({ ...m, secret: data.secret, sampleCode: data.sampleCode }));
-    setMsg("Secret issued — enter sample code to enable.");
+    setMfa((m) => ({
+      ...m,
+      secret: data.secret,
+      sampleCode: data.sampleCode,
+      otpauthUrl: data.otpauthUrl,
+    }));
+    setMsg("Add the secret (or otpauth URI) to your authenticator, then enter the 6-digit code.");
   }
 
   async function enableMfa(e: FormEvent<HTMLFormElement>) {
@@ -102,11 +113,17 @@ export default function AccountSecurityPage() {
             {mfa.secret && (
               <form onSubmit={enableMfa} className="grid gap-3">
                 <p className="text-xs break-all">
-                  Secret: <code>{mfa.secret}</code>
+                  Base32 secret: <code>{mfa.secret}</code>
+                  {mfa.otpauthUrl && (
+                    <>
+                      <br />
+                      otpauth: <code className="text-[10px]">{mfa.otpauthUrl}</code>
+                    </>
+                  )}
                   {mfa.sampleCode && (
                     <>
                       <br />
-                      Current window sample: <code>{mfa.sampleCode}</code>
+                      Dev sample code: <code>{mfa.sampleCode}</code>
                     </>
                   )}
                 </p>

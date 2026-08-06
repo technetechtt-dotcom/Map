@@ -3,12 +3,36 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /**
- * Protect admin UI routes and attach security headers.
- * Prefer nonces when CSP_NONCE=1 (generated per request).
+ * Protect admin UI routes, force password change, optional maintenance, security headers.
  */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const nonce = crypto.randomUUID().replace(/-/g, "");
+
+  const maintenance =
+    process.env.MAINTENANCE_MODE === "1" || process.env.MAINTENANCE_MODE === "true";
+  if (maintenance) {
+    const allow =
+      pathname.startsWith("/api/health") ||
+      pathname.startsWith("/api/auth") ||
+      pathname === "/login" ||
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/admin") || // admins may still sign in to ops surfaces
+      pathname.startsWith("/api/admin");
+    if (!allow && !pathname.startsWith("/maintenance")) {
+      const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+      const role = (token as { role?: string } | null)?.role;
+      if (role !== "SUPER_ADMIN") {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Service temporarily unavailable", maintenance: true },
+            { status: 503 }
+          );
+        }
+        return NextResponse.redirect(new URL("/maintenance", req.url));
+      }
+    }
+  }
 
   if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
     const token = await getToken({
@@ -24,6 +48,20 @@ export async function middleware(req: NextRequest) {
     const allowed = ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"];
     if (!allowed.includes(role)) {
       return NextResponse.redirect(new URL("/", req.url));
+    }
+    if (
+      (token as { mustChangePassword?: boolean }).mustChangePassword &&
+      !pathname.startsWith("/account/security")
+    ) {
+      return NextResponse.redirect(new URL("/account/security?force=1", req.url));
+    }
+  }
+
+  // Force password change for authenticated callers hitting account pages except security
+  if (pathname.startsWith("/account") && !pathname.startsWith("/account/security")) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if ((token as { mustChangePassword?: boolean } | null)?.mustChangePassword) {
+      return NextResponse.redirect(new URL("/account/security?force=1", req.url));
     }
   }
 

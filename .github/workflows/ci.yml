@@ -56,6 +56,13 @@ jobs:
       - name: Backup encrypt smoke
         run: node scripts/restore-backup-smoke.js
 
+      - name: Docs present
+        run: |
+          test -f docs/ops-runbook.md
+          test -f docs/popia-governance.md
+          test -f docs/next15-upgrade.md
+          test -f docs/data-quality.md
+
   postgres-postgis:
     runs-on: ubuntu-latest
     services:

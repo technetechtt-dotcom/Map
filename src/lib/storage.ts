@@ -77,6 +77,13 @@ export async function validateAndStoreUpload(
     }
   }
 
+  const { scanUploadBuffer } = await import("./av-scan");
+  const scan = await scanUploadBuffer(bytes, {
+    filename: file.name || "upload",
+    contentType: sniffed,
+  });
+  if (!scan.ok) return { ok: false, error: scan.reason };
+
   // Re-encode images via sharp when available to strip metadata
   if (sniffed.startsWith("image/") && sniffed !== "image/gif") {
     try {

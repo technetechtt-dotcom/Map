@@ -8,6 +8,7 @@ import { ReactNode } from "react";
 const links = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/locations", label: "Locations" },
+  { href: "/admin/imports", label: "Import staging" },
   { href: "/admin/submissions", label: "Submissions" },
   { href: "/admin/organisations", label: "Organisations" },
   { href: "/admin/users", label: "Users & roles" },

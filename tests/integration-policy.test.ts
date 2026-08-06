@@ -88,25 +88,25 @@ describe("org claim prevention", () => {
 
 describe("env validation", () => {
   it("reports missing secrets when enforced", () => {
+    const env = process.env as Record<string, string | undefined>;
     const saved = {
-      NODE_ENV: process.env.NODE_ENV,
-      ENFORCE_ENV_VALIDATION: process.env.ENFORCE_ENV_VALIDATION,
-      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-      DATABASE_URL: process.env.DATABASE_URL,
-      BACKUP_ENCRYPTION_KEY: process.env.BACKUP_ENCRYPTION_KEY,
-      CAPTCHA_DISABLED: process.env.CAPTCHA_DISABLED,
+      NODE_ENV: env.NODE_ENV,
+      ENFORCE_ENV_VALIDATION: env.ENFORCE_ENV_VALIDATION,
+      NEXTAUTH_SECRET: env.NEXTAUTH_SECRET,
+      DATABASE_URL: env.DATABASE_URL,
+      BACKUP_ENCRYPTION_KEY: env.BACKUP_ENCRYPTION_KEY,
+      CAPTCHA_DISABLED: env.CAPTCHA_DISABLED,
     };
-    process.env.NODE_ENV = "production";
-    process.env.ENFORCE_ENV_VALIDATION = "1";
-    delete process.env.NEXTAUTH_SECRET;
-    delete process.env.DATABASE_URL;
-    delete process.env.BACKUP_ENCRYPTION_KEY;
-    process.env.CAPTCHA_DISABLED = "1";
+    env.NODE_ENV = "production";
+    env.ENFORCE_ENV_VALIDATION = "1";
+    delete env.NEXTAUTH_SECRET;
+    delete env.DATABASE_URL;
+    delete env.BACKUP_ENCRYPTION_KEY;
+    env.CAPTCHA_DISABLED = "1";
     const issues = validateEnv();
-    // restore
     for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
+      if (v === undefined) delete env[k];
+      else env[k] = v;
     }
     expect(issues.some((i) => i.key === "NEXTAUTH_SECRET")).toBe(true);
   });

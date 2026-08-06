@@ -1,18 +1,14 @@
 import { NextRequest } from "next/server";
-import { randomBytes, createHmac } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
 import { readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { requiresMfa } from "@/lib/policy";
 import { revokeUserSessions } from "@/lib/auth";
+import { generateTotpSecret, otpauthUri, totpCode, verifyTotp } from "@/lib/totp";
 import bcrypt from "bcryptjs";
 
-function totpCode(secret: string, window: number) {
-  return createHmac("sha1", secret).update(String(window)).digest("hex").slice(0, 6);
-}
-
-/** Enable MFA for current user — returns secret once for authenticator enrollment (HMAC-based window). */
+/** Start MFA enrollment — returns base32 secret + otpauth URI (authenticator apps). */
 export async function POST(req: NextRequest) {
   const limited = enforceRateLimit(req, "mfa-setup", { limit: 10, windowMs: 60_000 });
   if (limited) return limited;
@@ -20,7 +16,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  const secret = randomBytes(20).toString("hex");
+  const secret = generateTotpSecret();
   await prisma.user.update({
     where: { id: auth.user.id },
     data: { mfaSecret: secret, mfaEnabled: false },
@@ -34,17 +30,19 @@ export async function POST(req: NextRequest) {
     entityId: auth.user.id,
   });
 
-  const day = Math.floor(Date.now() / 30_000);
   return jsonOk({
     secret,
-    // Dev convenience sample code for current window (production clients use secret)
-    sampleCode: totpCode(secret, day),
-    note: "Store secret in authenticator; call PUT with code to enable. Period 30s HMAC codes.",
+    otpauthUrl: otpauthUri({
+      secretBase32: secret,
+      accountName: auth.user.email || auth.user.id,
+    }),
+    sampleCode: process.env.NODE_ENV === "production" ? undefined : totpCode(secret),
+    note: "Scan otpauthUrl or enter secret in your authenticator. PUT with 6-digit code to enable.",
     required: requiresMfa(auth.user),
   });
 }
 
-/** Confirm MFA enable with a valid code, or disable with password. */
+/** Confirm MFA enable with a valid TOTP, or disable with password. */
 export async function PUT(req: NextRequest) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
@@ -82,14 +80,8 @@ export async function PUT(req: NextRequest) {
     return jsonOk({ mfaEnabled: false });
   }
 
-  // enable
   if (!user.mfaSecret) return jsonError("Call POST to start MFA setup first", 400);
-  const code = (body.code || "").trim();
-  if (code.length < 6) return jsonError("Invalid code", 400);
-  const day = Math.floor(Date.now() / 30_000);
-  const expected = totpCode(user.mfaSecret, day);
-  const prev = totpCode(user.mfaSecret, day - 1);
-  if (code !== expected && code !== prev && process.env.MFA_BYPASS !== code) {
+  if (!verifyTotp(user.mfaSecret, body.code || "")) {
     return jsonError("Invalid MFA code", 400);
   }
 
