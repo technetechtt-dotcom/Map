@@ -1,14 +1,24 @@
 import { prisma } from "@/lib/prisma";
-import { jsonOk, requireSession } from "@/lib/api";
+import { jsonOk, requireSession, jsonError } from "@/lib/api";
+import { isOrgAdmin, isProvincialAdmin, isSuperAdmin, tenantWhere } from "@/lib/policy";
 
 export async function GET() {
   const auth = await requireSession(["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"]);
   if (auth.error) return auth.error;
 
-  const provinceFilter =
-    auth.user.role === "PROVINCIAL_ADMIN" && auth.user.provinceId
-      ? { provinceId: auth.user.provinceId }
-      : {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let provinceFilter: any = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let locationWhere: any = tenantWhere(auth.user);
+
+  if (isOrgAdmin(auth.user) && auth.user.organisationId) {
+    provinceFilter = { organisationId: auth.user.organisationId };
+    locationWhere = { organisationId: auth.user.organisationId };
+  } else if (isProvincialAdmin(auth.user) && auth.user.provinceId) {
+    provinceFilter = { provinceId: auth.user.provinceId };
+  } else if (!isSuperAdmin(auth.user) && !isProvincialAdmin(auth.user) && !isOrgAdmin(auth.user)) {
+    return jsonError("Forbidden", 403);
+  }
 
   const [
     totalLocations,
@@ -25,17 +35,18 @@ export async function GET() {
     recentViews,
     audits,
   ] = await Promise.all([
-    prisma.location.count({ where: provinceFilter }),
-    prisma.location.count({ where: { ...provinceFilter, status: "PUBLISHED" } }),
-    prisma.location.count({ where: { ...provinceFilter, lastVerifiedAt: { not: null } } }),
-    prisma.location.count({ where: { ...provinceFilter, status: "DRAFT" } }),
+    prisma.location.count({ where: locationWhere }),
+    prisma.location.count({ where: { ...locationWhere, status: "PUBLISHED" } }),
+    prisma.location.count({ where: { ...locationWhere, lastVerifiedAt: { not: null } } }),
+    prisma.location.count({ where: { ...locationWhere, status: "DRAFT" } }),
     prisma.location.groupBy({
       by: ["categoryId"],
-      where: provinceFilter,
+      where: locationWhere,
       _count: true,
     }),
     prisma.location.groupBy({
       by: ["provinceId"],
+      where: locationWhere,
       _count: true,
     }),
     prisma.fundingCall.count({ where: { status: "PUBLISHED", ...provinceFilter } }),
@@ -70,7 +81,7 @@ export async function GET() {
       events,
       programmes,
       procurements,
-      openSubmissions: submissions,
+      openSubmissions: isSuperAdmin(auth.user) || isProvincialAdmin(auth.user) ? submissions : 0,
       analyticsEvents7d: recentViews,
     },
     byCategory: byCategory.map((r) => ({
@@ -81,6 +92,6 @@ export async function GET() {
       name: provMap[r.provinceId] || r.provinceId,
       count: r._count,
     })),
-    recentAudit: audits,
+    recentAudit: isSuperAdmin(auth.user) || isProvincialAdmin(auth.user) ? audits : [],
   });
 }

@@ -14,7 +14,7 @@ export default function AdminUsersPage() {
   async function load() {
     const r = await fetch("/api/admin/users");
     if (!r.ok) {
-      setMsg("Super admin only");
+      setMsg(r.status === 403 ? "Administrators only" : "Failed to load users");
       return;
     }
     const data = await r.json();
@@ -29,8 +29,12 @@ export default function AdminUsersPage() {
     const email = prompt("Email");
     const name = prompt("Name");
     const role = prompt("Role: SUPER_ADMIN | PROVINCIAL_ADMIN | ORG_ADMIN | CONTRIBUTOR", "PROVINCIAL_ADMIN");
-    const password = prompt("Temp password", "ChangeMe123!");
+    const password = prompt("Temp password (min 12 characters)");
     if (!email || !name || !role || !password) return;
+    if (password.length < 12) {
+      setMsg("Password must be at least 12 characters");
+      return;
+    }
     const r = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

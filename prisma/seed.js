@@ -12,6 +12,52 @@ const {
   nationalBoundaries,
 } = require("../data/seed/boundaries");
 
+/** Prefer MDB pack (same as book / live map API) for NC geometry when present. */
+function loadMdbPack() {
+  try {
+    const p = path.join(__dirname, "..", "data", "boundaries", "mdb", "nc_mdb_book.json");
+    if (!fs.existsSync(p)) return null;
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function mdbDistrictFeature(mdb, code) {
+  const sheet = mdb?.districts?.[code];
+  if (!sheet?.geometry) return null;
+  return {
+    type: "Feature",
+    properties: { name: sheet.name, code: sheet.code, fill: sheet.color },
+    geometry: sheet.geometry,
+  };
+}
+
+function mdbMunicipalityFeature(mdb, districtCode, munName, munCode) {
+  const sheet = mdb?.districts?.[districtCode];
+  if (!sheet) return null;
+  const m = (sheet.municipalities || []).find(
+    (x) => String(x.name).toLowerCase() === String(munName).toLowerCase()
+  );
+  if (!m?.geometry) return null;
+  return {
+    type: "Feature",
+    properties: {
+      name: m.name,
+      code: munCode,
+      fill: m.fill || sheet.color,
+      district: sheet.name,
+      districtCode,
+    },
+    geometry: m.geometry,
+  };
+}
+
+const mdbPack = loadMdbPack();
+if (mdbPack) {
+  console.log("Seed: using MDB boundary pack for NC districts/municipalities (matches book).");
+}
+
 const prisma = new PrismaClient();
 
 const NC_DISTRICTS = [
@@ -104,7 +150,13 @@ async function main() {
   const munMap = {};
 
   for (const d of NC_DISTRICTS) {
-    const feat = ncDistricts.features.find((f) => f.properties.code === d.code);
+    const feat =
+      mdbDistrictFeature(mdbPack, d.code) ||
+      ncDistricts.features.find((f) => f.properties.code === d.code);
+    // ensure fill colour from MDB palette on feature props
+    if (feat?.properties && mdbPack?.districts?.[d.code]?.color) {
+      feat.properties.fill = mdbPack.districts[d.code].color;
+    }
     const district = await prisma.district.create({
       data: {
         code: d.code,
@@ -116,7 +168,12 @@ async function main() {
     });
     districtMap[d.code] = district;
     for (const m of d.muns) {
-      const mfeat = ncMunicipalities.features.find((f) => f.properties.code === m.code);
+      const mfeat =
+        mdbMunicipalityFeature(mdbPack, d.code, m.name, m.code) ||
+        ncMunicipalities.features.find((f) => f.properties.code === m.code);
+      if (mfeat?.properties && !mfeat.properties.fill && feat?.properties?.fill) {
+        mfeat.properties.fill = feat.properties.fill;
+      }
       const mun = await prisma.municipality.create({
         data: {
           code: m.code,
@@ -134,27 +191,46 @@ async function main() {
     catMap[c.slug] = await prisma.category.create({ data: c });
   }
 
-  const passwordHash = await bcrypt.hash("Admin123!", 10);
-  const superAdmin = await prisma.user.create({
-    data: {
-      email: "admin@ictmap.gov.za",
-      name: "National Super Admin",
-      passwordHash,
-      role: "SUPER_ADMIN",
-      locale: "en",
-    },
-  });
+  const passwordFromEnv = (process.env.SEED_ADMIN_PASSWORD || "").trim();
+  const allowDemo =
+    process.env.ALLOW_DEMO_USERS === "1" && process.env.NODE_ENV !== "production";
+  const demoPassword = allowDemo ? passwordFromEnv || "ChangeMe-LocalOnly-123!" : "";
+  const adminPassword = passwordFromEnv || demoPassword;
 
-  const ncAdmin = await prisma.user.create({
-    data: {
-      email: "nc.admin@ictmap.gov.za",
-      name: "Northern Cape Admin",
-      passwordHash,
-      role: "PROVINCIAL_ADMIN",
-      provinceId: nc.id,
-      locale: "en",
-    },
-  });
+  let superAdmin = null;
+  let ncAdmin = null;
+  let orgAdminCreated = false;
+
+  if (adminPassword) {
+    if (adminPassword.length < 12) {
+      throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters");
+    }
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    superAdmin = await prisma.user.create({
+      data: {
+        email: (process.env.SEED_ADMIN_EMAIL || "admin@ictmap.gov.za").toLowerCase(),
+        name: "National Super Admin",
+        passwordHash,
+        role: "SUPER_ADMIN",
+        locale: "en",
+      },
+    });
+
+    ncAdmin = await prisma.user.create({
+      data: {
+        email: (process.env.SEED_NC_ADMIN_EMAIL || "nc.admin@ictmap.gov.za").toLowerCase(),
+        name: "Northern Cape Admin",
+        passwordHash,
+        role: "PROVINCIAL_ADMIN",
+        provinceId: nc.id,
+        locale: "en",
+      },
+    });
+  } else {
+    console.warn(
+      "[seed] No admin users created. Set SEED_ADMIN_PASSWORD (min 12 chars), or ALLOW_DEMO_USERS=1 for non-production demo."
+    );
+  }
 
   const orgMap = {};
   let orgCoordsCount = 0;
@@ -191,16 +267,20 @@ async function main() {
 
   const org = orgMap["mlab-northern-cape"];
 
-  await prisma.user.create({
-    data: {
-      email: "org@dedat.example",
-      name: "DEDaT Org Admin",
-      passwordHash,
-      role: "ORG_ADMIN",
-      provinceId: nc.id,
-      organisationId: org.id,
-    },
-  });
+  if (adminPassword && ncAdmin && org) {
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    await prisma.user.create({
+      data: {
+        email: (process.env.SEED_ORG_ADMIN_EMAIL || "org@dedat.example").toLowerCase(),
+        name: "DEDaT Org Admin",
+        passwordHash,
+        role: "ORG_ADMIN",
+        provinceId: nc.id,
+        organisationId: org.id,
+      },
+    });
+    orgAdminCreated = true;
+  }
 
   let verifiedCount = 0;
   for (const row of locations) {
@@ -237,8 +317,24 @@ async function main() {
         verificationNotes: verified
           ? "Limited to sites listed in NC_ICT_Ecosystem_Presentation.pptx.pdf"
           : "Awaiting verification.",
-        ownerId: ncAdmin.id,
-        reviewedById: verified ? ncAdmin.id : null,
+        /** Town-centre proxies until field survey; formal review expires after 12 months */
+        coordQuality: "town-centre",
+        coordSource: verified ? sourceRef || "NC_ICT_Ecosystem_Presentation.pptx.pdf" : null,
+        verificationExpiresAt: verified
+          ? new Date("2026-01-15")
+          : null,
+        evidenceJson: verified
+          ? JSON.stringify([
+              {
+                title: "NC ICT Ecosystem Presentation (mLab NC)",
+                url: null,
+                documentRef: sourceRef || "NC_ICT_Ecosystem_Presentation.pptx.pdf",
+                capturedAt: "2025-01-15",
+              },
+            ])
+          : "[]",
+        ownerId: ncAdmin?.id || superAdmin?.id || null,
+        reviewedById: verified ? ncAdmin?.id || superAdmin?.id || null : null,
         organisationId: primaryOrgId,
         publishedAt: status === "PUBLISHED" ? new Date("2025-01-15") : null,
         website: null,
@@ -250,8 +346,8 @@ async function main() {
         title: "NC ICT Ecosystem Presentation (mLab NC, Updated 2025)",
         documentRef: sourceRef || "NC_ICT_Ecosystem_Presentation.pptx.pdf",
         url: null,
-        notes: "Geo-pin and key contacts/organisations from presentation only.",
-        capturedById: superAdmin.id,
+        notes: "Geo-pin and key contacts/organisations from presentation only. Coordinates are town-centre quality until verified on site.",
+        capturedById: superAdmin?.id || null,
       },
     });
     if (verified) verifiedCount += 1;
@@ -450,11 +546,18 @@ async function main() {
   );
 
   console.log(`Seeded ${locations.length} PDF-only NC locations (${verifiedCount} source-checked).`);
-  console.log(`Seeded ${pdfOrganisations.length} PDF organisations / contacts (${orgCoordsCount} with verified map pins).`);
-  console.log("Boundaries: NC districts/municipalities (municipalities.co.za layout colours).");
+  console.log(`Seeded ${pdfOrganisations.length} PDF organisations / contacts (${orgCoordsCount} with map pins).`);
+  console.log(
+    "Dataset note: curated CSV may list 100+ candidates; active DB is PDF presentation rows only — reconcile before public claims."
+  );
+  console.log("Boundaries: NC districts/municipalities (MDB / municipalities.co.za layout).");
   console.log("Source: NC_ICT_Ecosystem_Presentation.pptx.pdf");
-  console.log("Admin: admin@ictmap.gov.za / Admin123!");
-  console.log("NC Admin: nc.admin@ictmap.gov.za / Admin123!");
+  if (superAdmin) {
+    console.log(`Admin user seeded: ${superAdmin.email} (password from SEED_ADMIN_PASSWORD / demo env — not logged)`);
+  }
+  if (ncAdmin) console.log(`Provincial admin seeded: ${ncAdmin.email}`);
+  if (orgAdminCreated) console.log("Org admin seeded (password not logged).");
+  if (allowDemo) console.log("ALLOW_DEMO_USERS=1 — local demo passwords only; never use in production.");
 }
 
 main()

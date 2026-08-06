@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "file:./ci.db"
+      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use"
+      NEXTAUTH_URL: "http://localhost:3000"
+      CAPTCHA_DISABLED: "1"
+      BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
+      ALLOW_DEMO_USERS: "0"
+      SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate + schema push
+        run: npx prisma generate && npx prisma db push --skip-generate
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+  postgres-restore-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ictmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Init PostGIS extension
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT PostGIS_Version();"
+      - name: Document restore procedure
+        run: |
+          test -f scripts/restore-backup.md
+          test -f prisma/migrations/README.md

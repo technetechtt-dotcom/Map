@@ -1,10 +1,21 @@
+/**
+ * Extend auth helpers and re-export policy for compatibility.
+ */
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import {
+  canEditDrafts,
+  canManageAllProvinces,
+  canManageUsers,
+  canPublish,
+  canVerify,
+  isSuperAdmin,
+} from "./policy";
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   pages: { signIn: "/login" },
   providers: [
     CredentialsProvider({
@@ -16,7 +27,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials.password) return null;
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
+          where: { email: credentials.email.toLowerCase().trim() },
           include: { province: true, organisation: true },
         });
         if (!user || !user.active) return null;
@@ -61,14 +72,19 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
+/** @deprecated use policy */
 export function canManageAll(role?: string) {
-  return role === "SUPER_ADMIN";
+  return isSuperAdmin({ id: "", role });
 }
 
+/** @deprecated use policy */
 export function canManageProvince(role?: string) {
-  return role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN";
+  return canManageAllProvinces({ id: "", role }) || role === "PROVINCIAL_ADMIN";
 }
 
+/** @deprecated use policy.canEditDrafts */
 export function canEditContent(role?: string) {
-  return ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"].includes(role || "");
+  return canEditDrafts({ id: "", role });
 }
+
+export { canPublish, canVerify, canManageUsers };

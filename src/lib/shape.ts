@@ -37,6 +37,11 @@ export type PublicLocation = {
   imageUrl?: string | null;
   lastVerifiedAt?: string | null;
   verificationSource?: string | null;
+  verificationNotes?: string | null;
+  coordQuality?: string | null;
+  coordSource?: string | null;
+  verificationExpiresAt?: string | null;
+  evidence?: { title?: string; url?: string; capturedAt?: string }[];
   opportunities: string[];
   assets: string[];
   tags: string[];
@@ -65,6 +70,20 @@ export function shapeLocation(loc: any): PublicLocation {
     imageUrl: loc.imageUrl,
     lastVerifiedAt: loc.lastVerifiedAt ? new Date(loc.lastVerifiedAt).toISOString() : null,
     verificationSource: loc.verificationSource,
+    verificationNotes: loc.verificationNotes ?? null,
+    coordQuality: loc.coordQuality ?? "unknown",
+    coordSource: loc.coordSource ?? null,
+    verificationExpiresAt: loc.verificationExpiresAt
+      ? new Date(loc.verificationExpiresAt).toISOString()
+      : null,
+    evidence: (() => {
+      try {
+        const e = JSON.parse(loc.evidenceJson || "[]");
+        return Array.isArray(e) ? e : [];
+      } catch {
+        return [];
+      }
+    })(),
     opportunities: parseJsonArray(loc.opportunitiesJson),
     assets: parseJsonArray(loc.assetsJson),
     tags: parseJsonArray(loc.tagsJson),

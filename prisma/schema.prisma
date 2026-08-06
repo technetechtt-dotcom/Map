@@ -124,6 +124,13 @@ model Location {
   verificationNotes  String?
   lastVerifiedAt     DateTime?
   verificationSource String?
+  // verified | estimated | town-centre | unknown
+  coordQuality       String   @default("unknown")
+  coordSource        String?
+  // When current verification review expires and needs re-check
+  verificationExpiresAt DateTime?
+  // JSON: [{ title, url, capturedAt }] evidence sources
+  evidenceJson       String   @default("[]")
   ownerId            String?
   owner              User?    @relation("LocationOwner", fields: [ownerId], references: [id])
   reviewedById       String?

@@ -36,6 +36,7 @@ export default function SubmitPage() {
         submitterName: fd.get("submitterName"),
         submitterEmail: fd.get("submitterEmail"),
         notes: fd.get("notes"),
+        website: fd.get("website") || "",
         payload,
       }),
     });
@@ -91,6 +92,11 @@ export default function SubmitPage() {
         </label>
         <label className="grid gap-1 text-sm font-semibold">Notes for reviewers
           <textarea className="field" name="notes" />
+        </label>
+        {/* Honeypot — leave blank (bots fill it) */}
+        <label className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
+          Website
+          <input className="field" name="website" tabIndex={-1} autoComplete="off" />
         </label>
         <button className="btn" type="submit" disabled={loading}>
           {loading ? "Submitting…" : "Submit for review"}

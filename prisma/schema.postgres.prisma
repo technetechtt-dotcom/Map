@@ -1,18 +1,12 @@
-// Production PostgreSQL schema outline (use when Docker/Postgres is available).
-// Copy over schema.prisma and change datasource to postgresql, then:
-//   - change *Json string array fields to String[]
-//   - change geojson String? to Json?
-//   - run: npx prisma db push
+// PostgreSQL / PostGIS production path
 //
-// PostGIS (run via SQL after migrate):
-//   CREATE EXTENSION IF NOT EXISTS postgis;
-//   ALTER TABLE "Location" ADD COLUMN IF NOT EXISTS geom geometry(Point, 4326);
-//   UPDATE "Location" SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);
-//   CREATE INDEX IF NOT EXISTS location_geom_idx ON "Location" USING GIST (geom);
+// 1. Start services: docker compose up -d (PostGIS on 5433 by default)
+// 2. Set DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ictmap
+// 3. Point schema.prisma datasource to postgresql (or use dual deploy pipeline)
+// 4. Apply: psql $DATABASE_URL -f prisma/migrations/20260326_postgis_init.sql
+// 5. Seed with strong SEED_ADMIN_PASSWORD (never commit secrets)
 //
-// Boundary import example:
-//   INSERT INTO district_geom(id, geom)
-//   SELECT id, ST_SetSRID(ST_GeomFromGeoJSON(geojson), 4326) FROM "District";
+// Full models live in schema.prisma — this file only documents the postgres datasource.
 
 generator client {
   provider = "prisma-client-js"
@@ -22,6 +16,3 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// Models mirror prisma/schema.prisma — keep SQLite schema as the default working copy.
-// Prefer migrating with `prisma db push` after converting array/json fields.

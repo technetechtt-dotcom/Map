@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  hasMdbBoundaries,
+  mdbDistrictFeatureCollection,
+  mdbMunicipalityFeatureCollection,
+} from "@/lib/mdb-boundaries";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+function isNorthernCape(province: string) {
+  const p = province.toLowerCase().replace(/\s+/g, "-");
+  return (
+    p === "northern-cape" ||
+    p === "nc" ||
+    p.includes("northern") ||
+    province === "Northern Cape"
+  );
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,6 +42,33 @@ export async function GET(req: NextRequest) {
           defaultZoom: p.defaultZoom,
         })),
       });
+    }
+
+    // Live map uses the same MDB pack as the opportunity book (exact boundaries + colours).
+    if (isNorthernCape(province) && hasMdbBoundaries()) {
+      if (type === "municipalities") {
+        const fc = mdbMunicipalityFeatureCollection();
+        if (fc) {
+          return NextResponse.json({
+            ...fc,
+            count: fc.features.length,
+            source: "mdb-2018",
+            attribution:
+              "Municipal Demarcation Board (MDB) 2018 · colours match municipalities.co.za",
+          });
+        }
+      } else {
+        // districts (default)
+        const fc = mdbDistrictFeatureCollection();
+        if (fc) {
+          return NextResponse.json({
+            ...fc,
+            source: "mdb-2018",
+            attribution:
+              "Municipal Demarcation Board (MDB) 2018 · colours match municipalities.co.za",
+          });
+        }
+      }
     }
 
     const prov = await prisma.province.findFirst({

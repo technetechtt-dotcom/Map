@@ -1,9 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, requireSession } from "@/lib/api";
-import { canEditContent } from "@/lib/auth";
+import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
 import { serializeArray, shapeLocation } from "@/lib/shape";
 import { writeAudit } from "@/lib/audit";
+import {
+  assertOrganisationAccess,
+  assertProvinceAccess,
+  canEditDrafts,
+  coerceCreateStatus,
+} from "@/lib/policy";
+import { locationCreateSchema } from "@/lib/validation";
+import { readJsonLimited } from "@/lib/security";
 
 function slugify(s: string) {
   return s
@@ -14,16 +21,22 @@ function slugify(s: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = enforceRateLimit(req, "loc-create", { limit: 30, windowMs: 60_000 });
+  if (limited) return limited;
+
   const auth = await requireSession();
   if (auth.error) return auth.error;
-  if (!canEditContent(auth.user.role)) return jsonError("Forbidden", 403);
+  if (!canEditDrafts(auth.user)) return jsonError("Forbidden", 403);
 
-  const body = await req.json();
-  if (!body.name || !body.summary || body.latitude == null || body.longitude == null) {
-    return jsonError("name, summary, latitude, longitude are required");
+  const parsed = await readJsonLimited(req);
+  if (!parsed.ok) return jsonError(parsed.error, 413);
+  const bodyResult = locationCreateSchema.safeParse(parsed.data);
+  if (!bodyResult.success) {
+    return jsonError("Validation failed", 400, { issues: bodyResult.error.issues });
   }
+  const body = bodyResult.data;
 
-  let categoryId = body.categoryId;
+  let categoryId = (parsed.data as { categoryId?: string }).categoryId;
   if (!categoryId && body.categorySlug) {
     const cat = await prisma.category.findUnique({ where: { slug: body.categorySlug } });
     categoryId = cat?.id;
@@ -32,8 +45,9 @@ export async function POST(req: NextRequest) {
     const first = await prisma.category.findFirst();
     categoryId = first?.id;
   }
+  if (!categoryId) return jsonError("No category configured", 500);
 
-  let provinceId = body.provinceId || auth.user.provinceId;
+  let provinceId = body.provinceId || auth.user.provinceId || undefined;
   if (!provinceId && body.provinceSlug) {
     const p = await prisma.province.findFirst({
       where: { OR: [{ slug: body.provinceSlug }, { code: body.provinceSlug }] },
@@ -44,6 +58,18 @@ export async function POST(req: NextRequest) {
     const nc = await prisma.province.findFirst({ where: { code: "NC" } });
     provinceId = nc?.id;
   }
+  if (!provinceId) return jsonError("Province required", 400);
+
+  const prov = assertProvinceAccess(auth.user, provinceId);
+  if (!prov.ok) return jsonError(prov.reason, 403);
+
+  const organisationId = body.organisationId || auth.user.organisationId || null;
+  if (organisationId) {
+    const org = assertOrganisationAccess(auth.user, organisationId);
+    if (!org.ok) return jsonError(org.reason, 403);
+  }
+
+  const status = coerceCreateStatus(auth.user, body.status);
 
   const baseSlug = body.slug || slugify(body.name);
   let slug = baseSlug;
@@ -72,10 +98,12 @@ export async function POST(req: NextRequest) {
       phone: body.phone || null,
       address: body.address || null,
       imageUrl: body.imageUrl || null,
-      status: body.status || "DRAFT",
+      status,
       ownerId: auth.user.id,
-      organisationId: body.organisationId || auth.user.organisationId || null,
+      organisationId,
       verificationSource: body.verificationSource || null,
+      coordQuality: body.coordQuality || "unknown",
+      coordSource: body.coordSource || null,
     },
     include: {
       category: true,
@@ -104,7 +132,7 @@ export async function POST(req: NextRequest) {
     action: "CREATE",
     entityType: "Location",
     entityId: created.id,
-    metadata: { name: created.name },
+    metadata: { name: created.name, status },
   });
 
   return jsonOk({ location: shapeLocation(created) }, 201);

@@ -14,7 +14,9 @@ export default function AdminBackupsPage() {
     const data = await r.json().catch(() => ({}));
     setLoading(false);
     if (r.ok) {
-      setResult(`Backup saved: ${data.backup?.filename} (${data.backup?.sizeBytes} bytes)`);
+      setResult(
+        `Encrypted backup saved: ${data.backup?.filename} (${data.backup?.sizeBytes} bytes). Super-admin only. Set BACKUP_ENCRYPTION_KEY.`
+      );
     } else {
       setResult(data.error || "Backup failed");
     }
@@ -23,13 +25,15 @@ export default function AdminBackupsPage() {
   return (
     <AdminShell>
       <p className="eyebrow">Resilience</p>
-      <h1 className="mb-2 text-2xl font-extrabold">Backups</h1>
+      <h1 className="mb-2 text-2xl font-extrabold">Encrypted backups</h1>
       <p className="text-muted mb-4 max-w-xl">
-        Exports locations, users (no passwords), organisations, ecosystem content, submissions, settings and recent audits
-        into <code>data/backups/</code>. For PostgreSQL production, also schedule <code>pg_dump</code>.
+        Super-admin only. Creates an AES-256-GCM encrypted export (no password hashes) under{" "}
+        <code>data/backups/*.enc</code>. Decrypt only via authenticated API with{" "}
+        <code>?decrypt=1</code>. Production Postgres: also schedule{" "}
+        <code>pg_dump</code> and test restore regularly.
       </p>
       <button className="btn" type="button" onClick={runBackup} disabled={loading}>
-        {loading ? "Creating…" : "Create backup now"}
+        {loading ? "Creating…" : "Create encrypted backup"}
       </button>
       {result && <p className="mt-4 font-semibold text-g700">{result}</p>}
     </AdminShell>

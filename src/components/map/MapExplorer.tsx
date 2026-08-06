@@ -45,7 +45,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [bounds, setBounds] = useState<string>("");
-  const [boundaryMode, setBoundaryMode] = useState<"districts" | "municipalities" | "none">("districts");
+  const [boundaryMode, setBoundaryMode] = useState<"districts" | "municipalities" | "none">(
+    "municipalities"
+  );
   const [loading, setLoading] = useState(true);
   const [flyTarget, setFlyTarget] = useState<{
     id: string;
@@ -368,8 +370,8 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
               ))}
             </div>
             <p className="mt-2 text-[10px] leading-snug text-muted">
-              District layout &amp; colours from the official NC district municipalities map
-              (municipalities.co.za). Tear-drop = towns · square ◎ = hubs (fanned when stacked).
+              Live map borders use the same MDB district/municipality shapes and colours as the
+              opportunity book (municipalities.co.za palette). Tear-drop = towns · square ◎ = hubs.
             </p>
             <a
               className="mt-2 inline-block text-[10px] font-semibold text-g700"
@@ -377,7 +379,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
               target="_blank"
               rel="noreferrer"
             >
-              Open full official district map →
+              Open official district map (reference) →
             </a>
           </div>
 

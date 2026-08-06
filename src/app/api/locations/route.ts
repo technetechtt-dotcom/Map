@@ -2,12 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_STATUSES, shapeLocation } from "@/lib/shape";
 import { trackEvent } from "@/lib/audit";
+import { requireSession, jsonError } from "@/lib/api";
+import { tenantWhere } from "@/lib/policy";
+import { rateLimit } from "@/lib/rate-limit";
+import { clientIp } from "@/lib/security";
+import { log } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
+    const rl = rateLimit(`locations:${clientIp(req)}`, { limit: 120, windowMs: 60_000 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many requests", retryAfterSec: rl.retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
     const sp = req.nextUrl.searchParams;
     const q = sp.get("q")?.trim().toLowerCase() || "";
     const province = sp.get("province") || "";
@@ -16,16 +29,22 @@ export async function GET(req: NextRequest) {
     const status = sp.get("status") || "";
     const verifiedOnly = sp.get("verified") === "1";
     const bounds = sp.get("bounds");
-    const includeAll = sp.get("admin") === "1";
-    const limit = Math.min(Number(sp.get("limit") || 500), 1000);
+    /** Authenticated admin list — replaces open admin=1 bypass */
+    const adminList = sp.get("scope") === "manage";
+    const limit = Math.min(Number(sp.get("limit") || 500), 500);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
-    if (!includeAll) {
+
+    if (adminList) {
+      const auth = await requireSession();
+      if (auth.error) return auth.error;
+      Object.assign(where, tenantWhere(auth.user));
+      if (status) where.status = status;
+    } else {
       where.status = { in: PUBLIC_STATUSES };
-    } else if (status) {
-      where.status = status;
     }
+
     if (province) {
       where.province = { OR: [{ slug: province }, { code: province }, { name: province }] };
     }
@@ -81,18 +100,14 @@ export async function GET(req: NextRequest) {
     trackEvent({
       eventType: "locations.search",
       path: "/api/locations",
-      metadata: { q, province, district, category, count: shaped.length },
+      metadata: { q, province, district, category, count: shaped.length, adminList },
     }).catch(() => undefined);
 
     return NextResponse.json({ count: shaped.length, locations: shaped });
   } catch (error) {
-    console.error("[api/locations]", error);
-    return NextResponse.json(
-      {
-        error: "Failed to load locations",
-        detail: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    log.error("locations.list.failed", {
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json({ error: "Failed to load locations" }, { status: 500 });
   }
 }

@@ -43,7 +43,7 @@ export default function AdminLocationsPage() {
   const [showCreate, setShowCreate] = useState(false);
 
   async function load() {
-    const params = new URLSearchParams({ admin: "1", limit: "500" });
+    const params = new URLSearchParams({ scope: "manage", limit: "500" });
     if (q) params.set("q", q);
     if (statusFilter) params.set("status", statusFilter);
     const r = await fetch(`/api/locations?${params}`);

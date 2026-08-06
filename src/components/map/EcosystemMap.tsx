@@ -14,6 +14,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import type { PublicLocation } from "@/lib/shape";
+import { escapeAttr, escapeHtml } from "@/lib/security";
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -169,19 +170,21 @@ function TownClusterLayer({
     for (const loc of locations) {
       const icon = L.divIcon({
         className: "",
-        html: `<div class="custom-marker" style="--marker-color:${loc.category.color}"><span>${loc.category.icon}</span></div>`,
+        html: `<div class="custom-marker" style="--marker-color:${escapeAttr(loc.category.color)}"><span>${escapeHtml(loc.category.icon)}</span></div>`,
         iconSize: [38, 38],
         iconAnchor: [19, 38],
         popupAnchor: [0, -38],
       });
       const m = L.marker([loc.latitude, loc.longitude], { icon, title: loc.name });
+      const place = loc.district?.name || loc.province.name;
+      const mun = loc.municipality ? ` · ${escapeHtml(loc.municipality.name)}` : "";
       m.bindPopup(`
         <article class="popup">
-          <p class="popup-category">${loc.category.name}</p>
-          <h3>${loc.name}</h3>
-          <p><strong>${loc.district?.name || loc.province.name}</strong>${loc.municipality ? ` · ${loc.municipality.name}` : ""}</p>
-          <p>${loc.summary}</p>
-          <p><a href="/locations/${loc.slug}">Open town profile →</a></p>
+          <p class="popup-category">${escapeHtml(loc.category.name)}</p>
+          <h3>${escapeHtml(loc.name)}</h3>
+          <p><strong>${escapeHtml(place)}</strong>${mun}</p>
+          <p>${escapeHtml(loc.summary)}</p>
+          <p><a href="/locations/${escapeAttr(loc.slug)}">Open town profile →</a></p>
         </article>
       `);
       m.on("click", () => onSelectRef.current(loc.id));
@@ -262,11 +265,14 @@ function HubClusterLayer({
     const markers = new Map<string, L.Marker>();
 
     for (const hub of hubs) {
-      const contact = [hub.email, hub.phone].filter(Boolean).join("<br/>");
+      const contact = [hub.email, hub.phone]
+        .filter(Boolean)
+        .map((v) => escapeHtml(v))
+        .join("<br/>");
       const place = hub.address
-        ? `<p class="meta">${hub.address}</p>`
+        ? `<p class="meta">${escapeHtml(hub.address)}</p>`
         : hub.hostTownName
-          ? `<p><strong>${hub.hostTownName}</strong></p>`
+          ? `<p><strong>${escapeHtml(hub.hostTownName)}</strong></p>`
           : "";
       const trueLat = hub.trueLatitude ?? hub.latitude;
       const trueLng = hub.trueLongitude ?? hub.longitude;
@@ -275,7 +281,7 @@ function HubClusterLayer({
         : `<p class="meta">${trueLat.toFixed(5)}, ${trueLng.toFixed(5)} · WGS84</p>`;
       const icon = L.divIcon({
         className: "",
-        html: `<div class="hub-marker" style="--hub-color:${hub.color}" title="${hub.name}"><span>◎</span></div>`,
+        html: `<div class="hub-marker" style="--hub-color:${escapeAttr(hub.color)}" title="${escapeAttr(hub.name)}"><span>◎</span></div>`,
         iconSize: [30, 30],
         iconAnchor: [15, 15],
         popupAnchor: [0, -12],
@@ -285,17 +291,19 @@ function HubClusterLayer({
         title: `${hub.name} (${hub.type})`,
         zIndexOffset: 200,
       });
+      const safeWebsite =
+        hub.website && /^https?:\/\//i.test(hub.website) ? escapeAttr(hub.website) : null;
       m.bindPopup(`
         <article class="popup">
-          <p class="popup-category">Hub / organisation · ${hub.type}</p>
-          <h3>${hub.name}</h3>
+          <p class="popup-category">Hub / organisation · ${escapeHtml(hub.type)}</p>
+          <h3>${escapeHtml(hub.name)}</h3>
           ${place}
           ${spreadNote}
-          ${hub.description ? `<p>${hub.description}</p>` : ""}
+          ${hub.description ? `<p>${escapeHtml(hub.description)}</p>` : ""}
           ${contact ? `<p>${contact}</p>` : ""}
-          ${hub.website ? `<p><a href="${hub.website}" target="_blank" rel="noreferrer">Website</a></p>` : ""}
-          <p><a href="/org/${hub.slug}">Open organisation profile →</a></p>
-          ${hub.sourcePage ? `<p class="meta">Source: PDF ${hub.sourcePage}</p>` : ""}
+          ${safeWebsite ? `<p><a href="${safeWebsite}" target="_blank" rel="noreferrer">Website</a></p>` : ""}
+          <p><a href="/org/${escapeAttr(hub.slug)}">Open organisation profile →</a></p>
+          ${hub.sourcePage ? `<p class="meta">Source: PDF ${escapeHtml(hub.sourcePage)}</p>` : ""}
         </article>
       `);
       m.on("click", () => onSelectRef.current(hub.id));
@@ -453,13 +461,23 @@ export default function EcosystemMap({
 
   const style = useMemo(
     () => (feature?: GeoJSON.Feature) => {
-      const fill = (feature?.properties as { fill?: string })?.fill || "#0f766e";
+      const props = (feature?.properties || {}) as {
+        fill?: string;
+        level?: string;
+        source?: string;
+      };
+      const fill = props.fill || "#0f766e";
+      const isMdb = props.source === "mdb";
+      const isMun = boundaryMode === "municipalities" || props.level === "municipality";
+      // Match book DistrictPinMap: thin dark borders, soft district fills
       return {
-        color: "#1f2937",
-        weight: boundaryMode === "districts" ? 1.8 : 1.2,
-        opacity: 0.85,
-        fillOpacity: boundaryMode === "districts" ? 0.28 : 0.2,
+        color: "#1e293b",
+        weight: isMun ? 1.1 : isMdb ? 2.0 : 1.8,
+        opacity: 0.9,
+        fillOpacity: isMun ? 0.42 : 0.38,
         fillColor: fill,
+        lineJoin: "round" as const,
+        lineCap: "round" as const,
       };
     },
     [boundaryMode]
@@ -495,8 +513,22 @@ export default function EcosystemMap({
           data={geo}
           style={style}
           onEachFeature={(feature, layer) => {
-            const name = (feature.properties as { name?: string })?.name;
-            if (name) layer.bindTooltip(name, { sticky: true, direction: "center", className: "district-tip" });
+            const props = feature.properties as {
+              name?: string;
+              district?: string;
+              level?: string;
+            };
+            const label =
+              props.level === "municipality" && props.district
+                ? `${props.name} (${props.district})`
+                : props.name;
+            if (label) {
+              layer.bindTooltip(label, {
+                sticky: true,
+                direction: "center",
+                className: "district-tip",
+              });
+            }
           }}
         />
       )}
