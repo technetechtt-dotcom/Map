@@ -30,7 +30,7 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/client": "5.22.0",
+    "@prisma/client": "7.9.1",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "leaflet": "^1.9.4",
