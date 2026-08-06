@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SA ICT Ecosystem Map — Phases 1–4
 
-## Getting Started
+Full-stack platform evolving the Northern Cape ICT Interactive Map MVP into a national innovation ecosystem map with management workflows, community submissions, analytics and multi-province support.
 
-First, run the development server:
+## Quick start (local SQLite — works offline)
 
 ```bash
+npm install
+npm run db:setup
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Demo accounts
+| Role | Email | Password |
+|---|---|---|
+| Super admin | `admin@ictmap.gov.za` | `Admin123!` |
+| NC provincial admin | `nc.admin@ictmap.gov.za` | `Admin123!` |
+| Org admin | `org@dedat.example` | `Admin123!` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Phase coverage
 
-## Learn More
+### Phase 1 — Northern Cape public MVP
+- Official district/municipality **structure** + map boundary layers (seed envelopes; swap for MDB/PostGIS layers in production)
+- Full NC spreadsheet: `data/NC_ICT_Locations_Full.csv` (100+ curated rows)
+- Desktop verification batch flags (`lastVerifiedAt`, verification notes/sources)
+- Marker **clustering** + **visible-map-area search**
+- Rich location cards + **profile pages** at `/locations/[slug]`
+- Public frontend: Next.js app (deployable to Vercel/Node)
 
-To learn more about Next.js, take a look at the following resources:
+### Phase 2 — Management system
+- Data layer via Prisma (SQLite for local; PostgreSQL/PostGIS via Docker ready)
+- REST API under `/api/*`
+- Administrator login (NextAuth credentials)
+- Create / verify / publish / archive workflows in `/admin/locations`
+- Image / document **uploads** (`POST /api/uploads`)
+- Source records on locations
+- Audit logs + JSON backups
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Phase 3 — Ecosystem platform
+- Funding calls, events, programmes, procurement pages + API
+- Community submissions (`/submit` → admin moderation)
+- Organisation accounts
+- Analytics / provincial dashboards (`/dashboard`)
+- Multilingual UI strings (en / af / xh / zu)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Phase 4 — National expansion
+- All 9 provinces in geography model + national boundary GeoJSON
+- Seed hubs in other provinces for national search
+- Provincial administrator role + scoped user management
+- Province filter on public map for national search/reporting
 
-## Deploy on Vercel
+## Production PostgreSQL / PostGIS
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Start Docker Desktop, then:
+docker compose up -d
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Point DATABASE_URL at Postgres (see .env example), then use schema:
+# prisma/schema.postgres.prisma  (or migrate arrays to native Postgres types)
+```
+
+`docker-compose.yml` runs `postgis/postgis:16-3.4` on port **5433**.  
+`scripts/init-postgis.sql` enables PostGIS.  
+Boundary GeoJSON can be imported into geometry columns with `ST_GeomFromGeoJSON`.
+
+## Deploy public frontend
+
+### Vercel
+1. Push repo to GitHub
+2. Import project in Vercel
+3. Set env: `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
+4. Build command: `prisma generate && next build`
+5. For serverless, use hosted Postgres (Neon/Supabase) instead of SQLite file
+
+### Node / VPS
+```bash
+npm ci
+npm run db:setup
+npm run build
+npm start
+```
+
+## Key routes
+
+| Route | Purpose |
+|---|---|
+| `/book` | Choose national or provincial edition |
+| `/book/print` | Full printable book (use Print → Save as PDF) |
+| `/api/book` | JSON book payload for external typesetting |
+| `/locations/[slug]` | Location profile |
+| `/funding` `/events` `/programmes` `/procurement` | Ecosystem content |
+| `/submit` | Community submission |
+| `/dashboard` | Analytics (admin) |
+| `/admin/*` | Management console |
+| `/login` | Auth |
+
+## Data files
+
+- `data/NC_ICT_Locations_Full.csv` — full NC directory spreadsheet
+- `data/boundaries/*.geojson` — district, municipality, province envelopes
+- `data/boundaries/mdb/` — MDB district/local GeoJSON + book map pack (`npm run maps:mdb`)
+- `data/seed/*` — seed sources
+- `legacy/` — original static MVP
+- **[docs/maps-sources.md](docs/maps-sources.md)** — georeferenced official map sources, REST query URLs, QGIS checklist
+
+## Note on verification
+
+Coordinates and themes originate from Northern Cape ecosystem materials plus curated expansion. Public launch still requires field verification of coordinates, contacts and official boundary polygons.

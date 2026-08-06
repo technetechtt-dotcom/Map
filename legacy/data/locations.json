@@ -1,0 +1,227 @@
+[
+  {
+    "id": "kimberley",
+    "name": "Kimberley",
+    "district": "Frances Baard",
+    "municipality": "Sol Plaatje",
+    "latitude": -28.7282,
+    "longitude": 24.7499,
+    "category": "Knowledge Hub",
+    "icon": "★",
+    "summary": "Provincial capital and ICT knowledge hub anchored by Sol Plaatje University, mLab, TVET capacity and business-support institutions.",
+    "opportunities": [
+      "Data science",
+      "Government digitalisation",
+      "SMME digital services",
+      "Incubation"
+    ],
+    "assets": [
+      "Sol Plaatje University",
+      "mLab Northern Cape",
+      "NC Urban TVET",
+      "NC Rural TVET",
+      "DEDaT",
+      "SEDA"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 3"
+  },
+  {
+    "id": "upington",
+    "name": "Upington",
+    "district": "ZF Mgcawu",
+    "municipality": "Dawid Kruiper",
+    "latitude": -28.4478,
+    "longitude": 21.2561,
+    "category": "GreenTech",
+    "icon": "☀",
+    "summary": "Solar Valley and GreenTech opportunity zone linked to renewable-energy operations and the Orange River agricultural corridor.",
+    "opportunities": [
+      "Solar monitoring",
+      "Smart-grid platforms",
+      "Precision agriculture",
+      "Environmental analytics"
+    ],
+    "assets": [
+      "NC Rural TVET Upington",
+      "Solar operators",
+      "Orange River agriculture",
+      "SEDA",
+      "NYDA"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 4"
+  },
+  {
+    "id": "kathu",
+    "name": "Kathu",
+    "district": "John Taolo Gaetsewe",
+    "municipality": "Gamagara",
+    "latitude": -27.6917,
+    "longitude": 23.0403,
+    "category": "Mining 4.0",
+    "icon": "⛏",
+    "summary": "Mining and Industry 4.0 centre for IoT, predictive maintenance, mine safety, fleet systems and automation support.",
+    "opportunities": [
+      "Industrial IoT",
+      "Predictive maintenance",
+      "Fleet management",
+      "Mine safety"
+    ],
+    "assets": [
+      "Kumba Iron Ore",
+      "Assmang",
+      "CFERIS",
+      "NC Rural TVET Kathu",
+      "Mining SLPs"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 5"
+  },
+  {
+    "id": "postmasburg",
+    "name": "Postmasburg",
+    "district": "John Taolo Gaetsewe",
+    "municipality": "Tsantsabane",
+    "latitude": -28.3326,
+    "longitude": 23.0807,
+    "category": "Mining 4.0",
+    "icon": "●",
+    "summary": "Iron-ore town within the mining belt, suited to remote operations, logistics, maintenance and supplier digitalisation.",
+    "opportunities": [
+      "Remote monitoring",
+      "Mine logistics",
+      "Supplier platforms",
+      "Maintenance systems"
+    ],
+    "assets": [
+      "Mining activity",
+      "Industrial suppliers",
+      "Haulage networks"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 2; nc_maps.py"
+  },
+  {
+    "id": "carnarvon",
+    "name": "Carnarvon",
+    "district": "Pixley ka Seme",
+    "municipality": "Kareeberg",
+    "latitude": -30.9568,
+    "longitude": 22.1269,
+    "category": "SKA / Data",
+    "icon": "◉",
+    "summary": "SKA and MeerKAT data-economy corridor focused on data engineering, AI/ML, remote sensing and rural connectivity.",
+    "opportunities": [
+      "Data pipelines",
+      "AI and anomaly detection",
+      "Remote sensing",
+      "Last-mile broadband"
+    ],
+    "assets": [
+      "SARAO / SKA",
+      "MeerKAT",
+      "Research infrastructure",
+      "Karoo communities"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 6"
+  },
+  {
+    "id": "de-aar",
+    "name": "De Aar",
+    "district": "Pixley ka Seme",
+    "municipality": "Emthanjeni",
+    "latitude": -30.6502,
+    "longitude": 24.0115,
+    "category": "Logistics",
+    "icon": "◆",
+    "summary": "Rail junction and southern Northern Cape digital gateway for logistics technology, agriculture and remote digital services.",
+    "opportunities": [
+      "Rail tracking",
+      "Digital freight",
+      "Agri services",
+      "E-learning and public Wi-Fi"
+    ],
+    "assets": [
+      "Transnet junction",
+      "NC Rural TVET De Aar",
+      "CFERIS",
+      "Southern Karoo economy"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 7"
+  },
+  {
+    "id": "kuruman",
+    "name": "Kuruman",
+    "district": "John Taolo Gaetsewe",
+    "municipality": "Ga-Segonyana",
+    "latitude": -27.4629,
+    "longitude": 23.4399,
+    "category": "Skills / Education",
+    "icon": "▲",
+    "summary": "Regional skills and service point associated with NC Rural TVET and the wider mining-economy corridor.",
+    "opportunities": [
+      "Technical training",
+      "Mining support services",
+      "Digital administration",
+      "Youth entrepreneurship"
+    ],
+    "assets": [
+      "NC Rural TVET Kuruman",
+      "Regional service economy",
+      "Mining corridor access"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 2; nc_maps.py"
+  },
+  {
+    "id": "springbok",
+    "name": "Springbok",
+    "district": "Namakwa",
+    "municipality": "Nama Khoi",
+    "latitude": -29.6651,
+    "longitude": 17.8837,
+    "category": "Rural / Remote",
+    "icon": "●",
+    "summary": "Namaqua service centre with opportunities in remote connectivity, IoT, renewable-energy maintenance and precision farming.",
+    "opportunities": [
+      "Remote connectivity",
+      "Solar maintenance",
+      "IoT sensors",
+      "Precision farming"
+    ],
+    "assets": [
+      "Namaqualand campus",
+      "Renewable-energy corridor",
+      "Agriculture and tourism"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 2; infographic; nc_maps.py"
+  },
+  {
+    "id": "calvinia",
+    "name": "Calvinia",
+    "district": "Namakwa",
+    "municipality": "Hantam",
+    "latitude": -31.4706,
+    "longitude": 19.7757,
+    "category": "Rural / Remote",
+    "icon": "●",
+    "summary": "Remote Karoo location suited to rural communications, digital public services, agricultural platforms and distance learning.",
+    "opportunities": [
+      "Remote communications",
+      "Digital public services",
+      "Agri platforms",
+      "Distance learning"
+    ],
+    "assets": [
+      "Karoo agriculture",
+      "Remote communities",
+      "Regional service networks"
+    ],
+    "verification_status": "Source-derived — verify before public launch",
+    "source": "NC ICT Ecosystem Presentation, page 2; nc_maps.py"
+  }
+]

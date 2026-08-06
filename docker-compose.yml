@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: sa-ict-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ictmap
+      POSTGRES_PASSWORD: ictmap_dev_password
+      POSTGRES_DB: sa_ict_ecosystem
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./scripts/init-postgis.sql:/docker-entrypoint-initdb.d/01-postgis.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ictmap -d sa_ict_ecosystem"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgis_data:

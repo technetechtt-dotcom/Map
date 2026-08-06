@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  role           String   @default("CONTRIBUTOR")
+  provinceId     String?
+  province       Province? @relation(fields: [provinceId], references: [id])
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  active         Boolean  @default(true)
+  locale         String   @default("en")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  auditLogs      AuditLog[]
+  locationsOwned Location[] @relation("LocationOwner")
+  locationsReviewed Location[] @relation("LocationReviewer")
+  submissions    Submission[]
+  sources        SourceRecord[]
+}
+
+model Province {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   @unique
+  nameAf      String?
+  nameXh      String?
+  nameZu      String?
+  slug        String   @unique
+  centerLat   Float
+  centerLng   Float
+  defaultZoom Int      @default(6)
+  geojson     String?
+  districts   District[]
+  locations   Location[]
+  organisations Organisation[]
+  fundingCalls FundingCall[]
+  events      EcosystemEvent[]
+  programmes  Programme[]
+  procurements Procurement[]
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model District {
+  id             String   @id @default(cuid())
+  code           String
+  name           String
+  nameAf         String?
+  provinceId     String
+  province       Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  geojson        String?
+  municipalities Municipality[]
+  locations      Location[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([provinceId, code])
+}
+
+model Municipality {
+  id         String   @id @default(cuid())
+  code       String
+  name       String
+  nameAf     String?
+  districtId String
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  geojson    String?
+  locations  Location[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([districtId, code])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String   @unique
+  nameAf      String?
+  color       String
+  icon        String   @default("•")
+  description String?
+  locations   Location[]
+}
+
+model Location {
+  id                 String   @id @default(cuid())
+  slug               String   @unique
+  name               String
+  nameAf             String?
+  summary            String
+  summaryAf          String?
+  description        String?
+  latitude           Float
+  longitude          Float
+  categoryId         String
+  category           Category @relation(fields: [categoryId], references: [id])
+  provinceId         String
+  province           Province @relation(fields: [provinceId], references: [id])
+  districtId         String?
+  district           District? @relation(fields: [districtId], references: [id])
+  municipalityId     String?
+  municipality       Municipality? @relation(fields: [municipalityId], references: [id])
+  opportunitiesJson  String   @default("[]")
+  assetsJson         String   @default("[]")
+  tagsJson           String   @default("[]")
+  website            String?
+  email              String?
+  phone              String?
+  address            String?
+  imageUrl           String?
+  status             String   @default("DRAFT")
+  verificationNotes  String?
+  lastVerifiedAt     DateTime?
+  verificationSource String?
+  ownerId            String?
+  owner              User?    @relation("LocationOwner", fields: [ownerId], references: [id])
+  reviewedById       String?
+  reviewedBy         User?    @relation("LocationReviewer", fields: [reviewedById], references: [id])
+  organisationId     String?
+  organisation       Organisation? @relation(fields: [organisationId], references: [id])
+  sources            SourceRecord[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  publishedAt        DateTime?
+}
+
+model Organisation {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  type         String
+  description  String?
+  website      String?
+  email        String?
+  phone        String?
+  logoUrl      String?
+  locationSlugsJson String @default("[]")
+  sourcePage   String?
+  latitude     Float?
+  longitude    Float?
+  address      String?
+  hostTownSlug String?
+  coordQuality String?
+  coordSource  String?
+  provinceId   String?
+  province     Province? @relation(fields: [provinceId], references: [id])
+  verified     Boolean  @default(false)
+  status       String   @default("DRAFT")
+  users        User[]
+  locations    Location[]
+  fundingCalls FundingCall[]
+  events       EcosystemEvent[]
+  programmes   Programme[]
+  procurements Procurement[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SourceRecord {
+  id           String    @id @default(cuid())
+  locationId   String?
+  location     Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  title        String
+  url          String?
+  documentRef  String?
+  notes        String?
+  capturedById String?
+  capturedBy   User?     @relation(fields: [capturedById], references: [id])
+  capturedAt   DateTime  @default(now())
+}
+
+model FundingCall {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  summary        String
+  description    String?
+  amount         String?
+  deadline       DateTime?
+  url            String?
+  status         String    @default("DRAFT")
+  provinceId     String?
+  province       Province? @relation(fields: [provinceId], references: [id])
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  tagsJson       String    @default("[]")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  publishedAt    DateTime?
+}
+
+model EcosystemEvent {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  summary        String
+  description    String?
+  startsAt       DateTime
+  endsAt         DateTime?
+  venue          String?
+  onlineUrl      String?
+  latitude       Float?
+  longitude      Float?
+  status         String    @default("DRAFT")
+  provinceId     String?
+  province       Province? @relation(fields: [provinceId], references: [id])
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  tagsJson       String    @default("[]")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Programme {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  summary        String
+  description    String?
+  status         String    @default("DRAFT")
+  provinceId     String?
+  province       Province? @relation(fields: [provinceId], references: [id])
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  tagsJson       String    @default("[]")
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Procurement {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  summary        String
+  description    String?
+  closingDate    DateTime?
+  budget         String?
+  url            String?
+  status         String    @default("DRAFT")
+  provinceId     String?
+  province       Province? @relation(fields: [provinceId], references: [id])
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  tagsJson       String    @default("[]")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Submission {
+  id             String   @id @default(cuid())
+  type           String
+  payloadJson    String
+  status         String   @default("SUBMITTED")
+  submitterName  String
+  submitterEmail String
+  notes          String?
+  reviewedNotes  String?
+  submittedById  String?
+  submittedBy    User?    @relation(fields: [submittedById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadataJson String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  eventType  String
+  path       String?
+  provinceId String?
+  locationId String?
+  metadataJson String?
+  createdAt  DateTime @default(now())
+}
+
+model AppSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model BackupRecord {
+  id        String   @id @default(cuid())
+  filename  String
+  path      String
+  sizeBytes Int
+  notes     String?
+  createdAt DateTime @default(now())
+}

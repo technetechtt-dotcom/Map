@@ -1,0 +1,375 @@
+/**
+ * Physical map coordinates for PDF key contacts & organisations.
+ * Datum: WGS84 (same as Google Maps). Prefer street / campus place-centres
+ * when known; otherwise host-town CBD. National HQs outside NC stay off the map
+ * (directory only) unless a real NC office pin is recorded.
+ *
+ * Fields:
+ *   latitude, longitude  – pin position
+ *   address              – published physical address (or town if proxy)
+ *   hostTown             – PDF opportunity town for association
+ *   quality              – "place" | "street" | "town" | "site"
+ *   source               – short provenance
+ */
+module.exports = {
+  // —— Kimberley ——
+  "sol-plaatje-university": {
+    latitude: -28.745118,
+    longitude: 24.764276,
+    address: "Chapel St & Bultfontein Rd, Civic Centre, Kimberley, 8301",
+    hostTown: "kimberley",
+    quality: "place",
+    source: "SPU main campus (Google Maps / Wikipedia / uni directories)",
+  },
+  "mlab-northern-cape": {
+    latitude: -28.723657,
+    longitude: 24.747396,
+    address: "Galeshewe, Kimberley (cnr Tyala & Hulana Rds area — mLab NC digital hub)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "mLab NC launched in Galeshewe; place-centre Galeshewe (OSM/Photon)",
+  },
+  "codetribe-academy": {
+    latitude: -28.7238,
+    longitude: 24.7475,
+    address: "Galeshewe, Kimberley — mLab / CodeTribe Academy (co-located)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Same facility as mLab NC Galeshewe",
+  },
+  "dedat-northern-cape": {
+    latitude: -28.73678,
+    longitude: 24.76612,
+    address: "Metlife Towers, 13th Floor, Cnr Stead & Knight Streets, Kimberley, 8301",
+    hostTown: "kimberley",
+    quality: "street",
+    source: "Provincial gov directory + Stead/Knight intersection (OSM)",
+  },
+  "seda-nc": {
+    latitude: -28.74307,
+    longitude: 24.71977,
+    address: "41 Schmidtsdrift Road, Carters Glen, Kimberley, 8300 (SEDA NC Provincial Office)",
+    hostTown: "kimberley",
+    quality: "street",
+    source: "SEDA official NC provincial address; Schmidtsdrift Rd, Carters Glen (OSM)",
+  },
+  "nc-cetc": {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Kimberley — NC Community Education & Training (provincial contact)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Town centre proxy (street not published in PDF)",
+  },
+  "tia-center-kimberley": {
+    latitude: -28.7345,
+    longitude: 24.761,
+    address: "Kimberley — TIA Center listing (PDF p.3; VUT-linked contact number 054 is Upington region)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "PDF hosts in Kimberley knowledge hub; pin near CBD",
+  },
+  "nc-urban-tvet": {
+    latitude: -28.73226,
+    longitude: 24.76232,
+    address: "Kimberley — Northern Cape Urban TVET College (provincial urban campuses)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Town CBD proxy pending campus street geocode",
+  },
+  "sol-plaatje-municipality-led": {
+    latitude: -28.7415,
+    longitude: 24.7638,
+    address: "Sol Plaatje Local Municipality, Kimberley civic / CBD area",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Municipality seat Kimberley CBD (OSM place)",
+  },
+  "nocci": {
+    latitude: -28.7418,
+    longitude: 24.7645,
+    address: "Kimberley CBD — Northern Cape Chamber of Commerce (NOCCI)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Kimberley CBD proxy (053 area)",
+  },
+  "kioji-kidja": {
+    latitude: -28.7412,
+    longitude: 24.7632,
+    address: "Kimberley (053 831 1867 — Kidja / business support)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Phone area / Kimberley CBD proxy",
+  },
+  "smme-trust": {
+    latitude: -28.74529,
+    longitude: 24.77296,
+    address: "Du Toitspan Road corridor, Kimberley (NC SMME Trust listing)",
+    hostTown: "kimberley",
+    quality: "street",
+    source: "Du Toitspan Rd, Kimberley (OSM); aligns with common CBD offices",
+  },
+  "mme-reka-thusa": {
+    latitude: -28.7405,
+    longitude: 24.7628,
+    address: "Kimberley (053 831 4583)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Phone area CBD proxy",
+  },
+  "standard-bank": {
+    latitude: -28.743767,
+    longitude: 24.763238,
+    address: "Standard Bank, Lennox Street, New Park, Kimberley",
+    hostTown: "kimberley",
+    quality: "place",
+    source: "OSM / Google place Standard Bank Kimberley",
+  },
+  "atti-kimberley": {
+    latitude: -28.7408,
+    longitude: 24.7635,
+    address: "Kimberley — ATTI Kimberley digital skills training",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "053 Kimberley contact; CBD proxy",
+  },
+  "ncdev": {
+    latitude: -28.7385,
+    longitude: 24.764,
+    address: "Kimberley — NCDEV digital skills / events",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "PDF associates with Kimberley knowledge hub",
+  },
+  "ktsc": {
+    latitude: -28.739,
+    longitude: 24.7635,
+    address: "Kimberley — KTSC (training listing)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Town CBD proxy",
+  },
+  "sefa": {
+    latitude: -28.74422,
+    longitude: 24.75005,
+    address: "Business Partners Building corridor, 72 Long Street, Albertynshof, Kimberley",
+    hostTown: "kimberley",
+    quality: "street",
+    source: "Long Street / Albertynshof SEDFA cluster; sefa NC phone 053 832 2275",
+  },
+  "dfa-newspaper": {
+    latitude: -28.741,
+    longitude: 24.7642,
+    address: "Kimberley — Diamond Fields Advertiser",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Kimberley media CBD proxy",
+  },
+  "kimberley-website": {
+    latitude: -28.73226,
+    longitude: 24.76232,
+    address: "Kimberley city centre",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "City place-centre",
+  },
+  "francis-baard-gew": {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Frances Baard District / Kimberley entrepreneurship week host area",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Frances Baard – Kimberley district seat",
+  },
+  "de-beers-zimele": {
+    latitude: -28.7335,
+    longitude: 24.77425,
+    address: "De Beers suburb / historic De Beers Kimberley precinct",
+    hostTown: "kimberley",
+    quality: "place",
+    source: "OSM place 'De Beers', Kimberley; Zimele NC contact",
+  },
+  "idc-nc": {
+    latitude: -28.7402,
+    longitude: 24.763,
+    address: "Kimberley — IDC Northern Cape (053 807 1053)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "053 Kimberley IDC line; CBD proxy",
+  },
+  "nyda": {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Kimberley — NYDA NC (053 807 1020); also listed Upington/De Aar in PDF",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Primary NC contact number is Kimberley-area 053",
+  },
+  "nceda": {
+    latitude: -28.7405,
+    longitude: 24.7635,
+    address: "Kimberley — Northern Cape Economic Development Agency (053 833 1503)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "053 Kimberley agency contact; CBD proxy",
+  },
+
+  // —— Upington ——
+  "nc-rural-tvet-upington": {
+    latitude: -28.459775,
+    longitude: 21.238936,
+    address: "16 Weideman Street, Upington, 8800 (NCR TVET HQ / campus)",
+    hostTown: "upington",
+    quality: "street",
+    source: "NCR TVET official Upington HQ; Weideman Street (OSM)",
+  },
+  "globeleq": {
+    latitude: -28.44776,
+    longitude: 21.25612,
+    address: "Upington Solar Valley operational focus (Globeleq SA head office is Cape Town)",
+    hostTown: "upington",
+    quality: "town",
+    source: "PDF Solar Valley context; town CBD (HQ phone 021 not mapped)",
+  },
+  "fetola": {
+    latitude: -28.44776,
+    longitude: 21.25612,
+    address: "Upington — entrepreneur support listing (PDF p.4)",
+    hostTown: "upington",
+    quality: "town",
+    source: "PDF associates with Upington opportunity zone",
+  },
+  "vut": {
+    latitude: -28.44776,
+    longitude: 21.25612,
+    address: "Upington area — VUT/TIA-linked contact 054 331 3268 (PDF p.9)",
+    hostTown: "upington",
+    quality: "town",
+    source: "054 dialling code is Upington region, not Kimberley",
+  },
+
+  // —— Mining belt ——
+  "nc-rural-tvet-kathu-cferis": {
+    latitude: -27.705985,
+    longitude: 23.055046,
+    address: "Hans Coetzee Street / Avenue, Kathu, 8446 (NCR TVET Kathu · CFERIS)",
+    hostTown: "kathu",
+    quality: "street",
+    source: "NCR TVET Kathu campus; Hans Coetzee St (OSM/Waze)",
+  },
+  "anglo-smme-toolkit": {
+    latitude: -27.69569,
+    longitude: 23.04929,
+    address: "Kathu mining belt — Anglo / SMME Toolkit NC contact",
+    hostTown: "kathu",
+    quality: "town",
+    source: "Kathu town place-centre",
+  },
+  "khathu-industrial-park": {
+    latitude: -27.692,
+    longitude: 23.0515,
+    address: "Kathu Industrial Park / SLP industrial area",
+    hostTown: "kathu",
+    quality: "town",
+    source: "Industrial park at Kathu town environs",
+  },
+  "transnet-enterprise": {
+    latitude: -30.64966,
+    longitude: 24.0123,
+    address: "De Aar — Transnet rail junction / Enterprise Centre support (PDF p.5,7)",
+    hostTown: "de-aar",
+    quality: "town",
+    source: "De Aar historic rail junction place-centre",
+  },
+
+  // —— Carnarvon / SKA ——
+  sarao: {
+    latitude: -30.711619,
+    longitude: 21.434688,
+    address: "MeerKAT / SKA site, Kareeberg (Carnarvon corridor)",
+    hostTown: "carnarvon",
+    quality: "site",
+    source: "OSM/Photon MeerKAT telescope site WGS84",
+  },
+  tia: {
+    latitude: -30.96827,
+    longitude: 22.13303,
+    address: "Carnarvon — TIA listing for SKA/data corridor (national HQ Pretoria not mapped)",
+    hostTown: "carnarvon",
+    quality: "town",
+    source: "PDF p.6 hosts TIA against Carnarvon data corridor",
+  },
+
+  // —— De Aar ——
+  "nc-rural-tvet-de-aar-cferis": {
+    latitude: -30.663498,
+    longitude: 24.006557,
+    address: "1 Van Riebeek Street, De Aar, 7000 (NCR TVET campus · CFERIS)",
+    hostTown: "de-aar",
+    quality: "street",
+    source: "NCR TVET De Aar campus address; Van Riebeek St (OSM)",
+  },
+
+  // —— Postmasburg (mining belt) ——
+  // SEDA/IDC multi-listings use Kimberley HQ above
+
+  // —— Province / media with NC seat ——
+  "ncnn-live": {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Kimberley — NCNN Live (provincial media)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Provincial media seat approximation",
+  },
+  pingtvsa: {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Kimberley — PingTVSa listing",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Town centre proxy",
+  },
+  dcvh: {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Kimberley — DCVH professional services",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Town centre proxy",
+  },
+  edgf: {
+    latitude: -28.7383,
+    longitude: 24.76423,
+    address: "Northern Cape / Kimberley contact (PDF funding listing)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "054 funding contact; Kimberley provincial seat proxy",
+  },
+  "afrisam-dev-centre": {
+    latitude: -28.53537,
+    longitude: 24.52151,
+    address: "Dikgatlong / Barkly West area — AfriSam development centre (PDF p.8)",
+    hostTown: "kimberley",
+    quality: "town",
+    source: "Barkly West place-centre (Dikgatlong municipal seat corridor)",
+  },
+  "petra-mines": {
+    latitude: -28.381,
+    longitude: 23.436,
+    address: "Finsch Diamond Mine / Petra (Lime Acres–Postmasburg corridor)",
+    hostTown: "postmasburg",
+    quality: "site",
+    source: "Petra Finsch approximate mine site near Lime Acres",
+  },
+
+  // —— National only (no NC map pin) ——
+  // map: false keeps directory entry but omits misleading NC pins
+  dsi: { map: false, address: "Meiring Naudé Rd / Pretoria national HQ", source: "Outside NC — directory only" },
+  nef: { map: false, address: "Johannesburg — NEF national HQ", source: "Outside NC — directory only" },
+  dsbd: { map: false, address: "Pretoria — DSBD national HQ", source: "Outside NC — directory only" },
+  dti: { map: false, address: "Pretoria — the dtic national HQ", source: "Outside NC — directory only" },
+  "seda-sioc": { map: false, address: "National SEDA SIOC listing", source: "Outside NC street pin — directory only" },
+  cipc: { map: false, address: "Pretoria — CIPC", source: "Outside NC — directory only" },
+  "sais-bootup": { map: false, address: "National SAIS / mLab programme", source: "Programme network — directory only" },
+};

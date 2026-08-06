@@ -1,0 +1,690 @@
+pages 14
+
+---PAGE 1---
+Northern Cape
+ICT Ecosystem Map
+Startups · Skills · Hubs · Entrepreneurship · Innovation · Funding
+Updated 2025  ·  Building on the original mLab NC ecosystem map
+Developed with community members to guide investors and entrepreneurs.
+Province facts
+30.5% of SA landmass
+Largest province by area
+95% of SA diamond output
+80% world iron ore & manganese
+Most IPPs of any SA province
+SKA / MeerKAT radio telescope
+Solar & renewable energy hub
+Population ~1.3 million
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 1 / 14
+
+---PAGE 2---
+Province overview — towns & ICT opportunity zones
+Geo-pin map showing ICT presence, sector zones, and connectivity across the Northern Cape
+Solar Valley
+GreenTech
+Mining belt
+Industry 4.0
+SKA / Data
+corridor
+Knowledge
+hub
+Orange River
+Upington
+Solar · GreenTech
+Kathu
+Mining · IoT
+Postmasburg
+Iron ore
+Carnarvon
+SKA / MeerKAT
+Kimberley ★
+Capital · Hub
+De Aar
+TVET campus
+Kuruman
+NC Rural TVET
+Springbok
+Namaqua
+Calvinia
+Remote comms
+N
+~300 km
+Legend
+Kimberley — capital & knowledge hub
+Upington — Solar Valley / GreenTech
+Kathu / Postmasburg — Mining belt
+Carnarvon — SKA / data corridor
+Secondary town with TVET campus
+Opportunity zones
+Solar Valley / GreenTech (Upington)
+Mining / Industry 4.0 (Kathu)
+SKA Data corridor (Carnarvon)
+Knowledge hub (Kimberley)
+Click a geo-pin slide to explore each town in detail →
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 2 / 14
+
+---PAGE 3---
+🌟  Kimberley — Provincial capital & ICT knowledge hub
+Francis Baard District · Sol Plaatje Municipality · -28.7282° S, 24.7499° E
+📍
+SPU
+Sol Plaatje
+University
+mLab
+Digital &
+Innovation hub
+2 TVETs
+Urban &
+Rural college
+DEDaT
+Investment
+office
+SEDA
+SMME
+support
+ICT startup opportunities
+⭐  Home to Sol Plaatje University — BSc Data Science, ICT diplomas & research
+💻  mLab NC CodeTribe Academy — mobile app and web development training
+🏛  Government ICT services digitalisation — DEDaT, DSBD, CIPC, NOCCI
+📡  Digital services for SMMEs — web dev, e-commerce, digital marketing
+🎓  NCDEV Hack, National Science Week, Francis Baard GEW annual events
+Strategic opportunity
+Establish a flagship Kimberley ICT Innovation Hub — co-working, incubation, and acceleration —
+anchored by SPU and mLab NC. This single intervention would transform Kimberley into the gravitational
+centre of the NC digital economy and attract national DSI and TIA programme investment.
+Key contacts & organisations
+ Sol Plaatje University
+information@spu.ac.za
+053 491 0000
+https://www.spu.ac.za/
+mLab Northern Cape
+northerncape@mlab.co.za
++27 012 844 0240
+www.mlab.co.za/nc
+DEDaT
+tradeleadbulletin@thedti.gov.za
+053 8394 000
+http://www.northern-cape.gov.za/
+SEDA NC
+info@seda.org.za
+0860 103 703
+http://www.seda.org.za/
+NC Community Ed & Training
+info@nccetc.edu.za
+087 310 5250
+http://nccetc.edu.za/
+TIA Center Kimberley
+martinusl@vut.ac.za
+054 331 3268
+https://www.tia.org.za/
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 3 / 14
+
+---PAGE 4---
+☀  Upington — Solar Valley & GreenTech opportunity zone
+ZF Mgcawu District · Orange River corridor · -28.4478° S, 21.2561° E
+📍
+SA #1
+Solar energy
+corridor
+Most IPPs
+Province-wide
+renewable
+Raisins
+Orange River
+AgriTech
+TVET
+Rural
+campus
+ICT startup opportunities
+⚡  Solar farm management software — monitoring, fault detection, output optimisation
+🌐  Smart grid platforms — energy trading, load balancing, grid analytics for IPPs
+🌾  Precision agriculture — irrigation apps, soil sensors, crop management
+📦  Supply chain software for wine and raisin production (Orange River)
+📊  Environmental monitoring — weather data, river flow sensors, climate analytics
+Strategic opportunity
+Establish a "Solar Valley Tech Incubator" in Upington co-located with major solar operators. A TVET-
+linked GreenTech programme could produce software solutions for the entire SA renewable energy
+sector and attract DSI, TIA, and energy-sector CSI funding.
+Key contacts & organisations
+NC Rural TVET — Upington campus
+info@ncutvet.edu.za
+053 839-2063
+http://www.ncutvet.edu.za/
+Globaleq (Solar operator)
+021 180 4500
+https://www.globeleq.com/
+SEDA NC
+info@seda.org.za
+0860 103 703
+http://www.seda.org.za/
+DEDaT
+tradeleadbulletin@thedti.gov.za
+053 8394 000
+http://www.northern-cape.gov.za/
+NYDA
+053 807 1020
+http://www.nyda.gov.za/
+Fetola (Entrepreneur support)
+info@fetola.co.za
+082 9097234
+https://fetola.co.za/
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 4 / 14
+
+---PAGE 5---
+⛏  Kathu & Postmasburg — Mining belt & Industry 4.0 corridor
+John Taolo Gaetsewe District · Iron ore & manganese belt · -27.6917° S, 23.0403° E
+📍
+Kumba
+Kolomela
+Mine SLP
+Assmang
+Iron &
+Manganese
+IoT
+Fleet &
+safety tech
+CFERIS
+Incubator
+on campus
+ICT startup opportunities
+🔩  Industry 4.0 — IoT sensors, digital twin solutions, predictive maintenance
+🚛  Fleet management software — tracking, scheduling, compliance for haulage
+⛑  Mine safety platforms — wearable monitoring, gas detection, compliance tools
+📡  Remote monitoring dashboards — real-time ops and logistics for Kumba & Assmang
+🤖  Robotics & automation support software for deep mining operations
+Strategic opportunity
+"Mining 4.0 Incubation Corridor" co-funded by Kumba Iron Ore and Assmang SLPs, hosted at CFERIS —
+Kathu TVET campus. ICT startups get a built-in corporate customer base from day one and access to
+SLP ring-fenced funding as their primary revenue and runway.
+Key contacts & organisations
+NC Rural TVET — Kathu (CFERIS)
+info@ncutvet.edu.za
+053 839-2063
+http://www.ncutvet.edu.za/
+Anglo America / SMMM Toolkit
+admin@smmetoolkit.com
+053 313 7615
+smmetoolkit.com
+De Beers Zimele Hub
+jade@triopluse.co.za
+053 839 4364
+https://www.debeersgroup.com/
+IDC NC
+RodneyB@idc.co.za
+053 807 1053
+https://www.idc.co.za/
+SEDA NC
+info@seda.org.za
+0860 103 703
+http://www.seda.org.za/
+Transnet Enterprise Centre
+enquiries@transnet.net
+011 308 3000
+https://www.transnet.net/
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 5 / 14
+
+---PAGE 6---
+🔭  Carnarvon — SKA / MeerKAT & the data economy corridor
+Pixley ka Seme District · Global science infrastructure · -30.9568° S, 22.1269° E
+📍
+SKA
+Global radio
+telescope
+MeerKAT
+64-dish
+array
+SARAO
+SA Radio
+Astronomy Obs
+Petabytes
+Big data
+at scale
+ICT startup opportunities
+🔭  Data pipeline & engineering tools for radio astronomy at petabyte scale
+🧠  AI / ML platforms — pattern detection, anomaly flagging in radio frequency data
+🌐  Last-mile fibre & broadband connectivity for Karoo communities
+🛰  Remote sensing — satellite data analytics, environmental & land monitoring
+🏘  Community digital services — tourism, agri, logistics for Carnarvon town
+Strategic opportunity
+"Karoo Data Economy Cluster" — startups serving SKA data processing needs and the broader African
+data economy. SARAO is a ready anchor tenant. Fibre infrastructure already deployed is a platform for
+digital services across the region, from tourism to precision agriculture.
+Key contacts & organisations
+SARAO (SKA)
+info@sarao.ac.za
+https://www.sarao.ac.za/
+TIA Center
+martinusl@vut.ac.za
+012 472 2700
+https://www.tia.org.za/
+DSI Innovation Fund
+012 843 6300
+https://www.dst.gov.za/
+NEF
+information@whistleblowing.co.za
+086 163 3627
+https://www.nefcorp.co.za/
+SEDA NC
+info@seda.org.za
+0860 103 703
+http://www.seda.org.za/
+Sol Plaatje University
+information@spu.ac.za
+053 491 0000
+https://www.spu.ac.za/
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 6 / 14
+
+---PAGE 7---
+🚉  De Aar — Rail junction & southern NC digital gateway
+Pixley ka Seme District · NC Rural TVET campus · -30.6502° S, 24.0115° E
+📍
+Rail hub
+Transnet
+junction
+CFERIS
+Incubator
+on campus
+TVET
+Rural
+campus
+Remote
+Digital
+services
+ICT startup opportunities
+🚂  Logistics software — rail tracking, scheduling, digital freight management
+🌾  Agricultural services — digital tools for Karoo sheep and grain farming
+💻  Digital services hub for small businesses in southern NC towns
+🏫  E-learning platforms — remote education for learners in isolated towns
+📶  Connectivity infrastructure — last-mile broadband, public wifi, digital access
+Strategic opportunity
+De Aar's strategic position as SA's central rail junction makes it ideal for logistics-tech startups serving
+both the mining belt north and the agricultural heartland south. A CFERIS-anchored digital skills
+programme could serve the isolated young population of the Karoo.
+Key contacts & organisations
+NC Rural TVET — De Aar (CFERIS)
+info@ncutvet.edu.za
+053 839-2063
+http://www.ncutvet.edu.za/
+Transnet Enterprise Centre
+enquiries@transnet.net
+011 308 3000
+https://www.transnet.net/
+SEDA NC
+info@seda.org.za
+0860 103 703
+http://www.seda.org.za/
+DSBD
+sbdinfo@dsbd.gov.za
+0861843384
+http://www.dsbd.gov.za/
+NCEDA
+info@nc-eda.co.za
+0538331503
+http://www.nceda.co.za/
+NYDA
+053 807 1020
+http://www.nyda.gov.za/
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 7 / 14
+
+---PAGE 8---
+Available support — government & business mentorship
+All organisations listed on the original mLab NC ecosystem map · Updated with contact details
+Government support
+Sol Plaatje Municipality (LED)
+smathebula@mlab.co.za
+https://www.gov.za/
+DEDaT
+tradeleadbulletin@thedti.gov.za
+053 8394 000
+http://www.northern-cape.gov.za/
+DTI
+tradeleadbulletin@thedti.gov.za
+27 (12) 394 5792
+https://www.thedti.gov.za/
+DSBD
+sbdinfo@dsbd.gov.za
+0861843384
+http://www.dsbd.gov.za/
+NCEDA
+info@nc-eda.co.za
+0538331503
+http://www.nceda.co.za/
+SEDA SIOC
+info@seda.org.za
+012 441 1000
+http://www.seda.org.za/
+Business support & mentorship
+Fetola
+info@fetola.co.za
+082 9097234
+https://fetola.co.za/
+Kioji + Kidja
+admin@kidja.co.za
+053 831 1867
+http://kidja.co.za
+SMME Trust
+info@ncsmmetrust.org.za
+053 831 6696
+https://ncsmmetrust.weebly.com/
+Anglo America / SMME Toolkit
+admin@smmetoolkit.com
+053 313 7615
+smmetoolkit.com
+De Beers Zimele Hub
+jade@triopluse.co.za
+053 839 4364
+https://www.debeersgroup.com/
+Standard Bank
+086 014 1141
+https://www.afrisam.co.za/
+NOCCI
+info@nocci.co.za
+053 831 1081
+http://www.nocci.co.za/
+NYDA
+053 807 1020
+http://www.nyda.gov.za/
+MME Reka Thusa
+053 831 4583
+Transnet Enterprise Centre
+enquiries@transnet.net
+011 308 3000
+https://www.transnet.net/
+Afri Sam Dev Centre (Dikyatlong)
+customer.service@za.afrisam.com
+27 (12) 394 5792
+Khathu Industrial Park
+info@seda.org.za
++27 53 831 6696
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 8 / 14
+
+---PAGE 9---
+Skills accelerators, training providers & funding
+From the mLab NC ecosystem map · Training institutions, digital skills trainers, and funding sources
+Training providers
+Sol Plaatje University
+information@spu.ac.za
+053 491 0000
+https://www.spu.ac.za/
+CodeTribe Academy (mLab)
+northerncape@mlab.co.za
+012 844 0240
+https://mlab.co.za/codetribe-academy/
+NC Community Ed & Training
+info@nccetc.edu.za
+087 310 5250
+http://nccetc.edu.za/
+NC Urban TVET College
+info@ncutvet.edu.za
+053 839-2063
+http://www.ncutvet.edu.za/
+VUT
+martinusl@vut.ac.za
+054 331 3268
+https://www.vut.ac.za/
+KTSC
+INFOR@KTSC.CO.ZA
+087 310 5269
+Venomi
+Digital skills trainers
+NCDEV
+info@ncdev.co.za
+https://www.ncdev.co.za/
+ATTI Kimberley
+lucille@atti.co.za
+053 831 3367
+http://attikimberley.co.za/
+Sol Plaatje University
+information@spu.ac.za
+053 491 0000
+https://www.spu.ac.za/
+mLab NC (Digital Emp. Programme)
+northerncape@mlab.co.za
+012 844 0240
+https://www.mlab.ac.za/nc
+NC Community Ed & Training
+info@nccetc.edu.za
+087 310 5250
+http://nccetc.edu.za/
+ATTI
+lucille@atti.co.za
+053 831 3367
+http://attikimberley.co.za/
+Funding sources
+TIA (Technology Innovation Agency)
+info@tia.org.za
+012 472 2700
+https://www.tia.org.za/
+SEFA
+helpline@sefa.org.za
+053 832 2275
+http://www.sefa.org.za/
+NEF
+information@whistleblowing.co.za
+086 163 3627
+https://www.nefcorp.co.za/
+IDC
+RodneyB@idc.co.za
+053 807 1053
+https://www.idc.co.za/
+SEDA
+info@seda.org.za
+0860 103 703
+http://www.seda.org.za/
+Globaleq (Energy CSI)
+021 180 4500
+https://www.globeleq.com/
+Petra Mines (CSI)
+https://www.petradiamonds.com/
+EDGF
+Smithm@ncpq.gov.za
+054 082 1646
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 9 / 14
+
+---PAGE 10---
+NC ICT ecosystem actor map
+Who plays what role: education · support · funders · industry · entrepreneurs · media
+ICT
+Entrepreneurs
+& Startups
+mLab NC
+Digital hub
+SEDA NC
+SMME support
+DEDaT
+Investment
+CFERIS
+Incubation
+DSBD
+Policy
+NC Govt
+Provincial
+Sol Plaatje Univ.
+BSc Data · ICT
+NC Urban TVET
+IT diploma · 3 campuses
+NC Rural TVET
+9+ campuses province
+TIA
+Grant/R&D
+DSI
+Innovation
+SEFA
+Finance
+NEF
+Dev finance
+IDC
+Industrial
+Mining SLPs
+CSI/SLP
+Mining sector
+Kumba · Assmang · DeBeers
+Energy sector
+Solar · Wind · IPPs
+SARAO / SKA
+Data · Research
+Agri sector
+Orange River corridor
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 10 / 14
+
+---PAGE 11---
+Skills pipeline — learner to ICT founder
+The Northern Cape pathway from school through TVET/SPU, digital training, internship to startup
+School
+Gr 10–12 IT
+Maths & Science
+1
+TVET / SPU
+ICT diploma
+BSc Data Science
+2
+mLab / CFERIS
+Digital skills
+6-week programme
+3
+Internship
+12-month
+placement
+4
+Employment
+Local firms
+Govt ICT
+5
+ICT Startup
+AgriTech · Mining
+Data · GreenTech
+6
+Typical journey: 4–6 years from Grade 12 to founding an ICT startup
+Gap: limited ICT
+capacity at TVET/SPU
+Gap: few digital
+training programmes
+Gap: funding &
+mentoring at startup
+📚  Expand TVET/SPU ICT course capacity — enrolment targets
+and bursaries
+ 💡  mLab NC Digital Empowerment Programme — scale to all major towns
+💰  Startup funding & mentoring — TIA/SEFA incubation grants at
+graduation
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 11 / 14
+
+---PAGE 12---
+Information ecosystem — media, events & professional services
+Key platforms, events, and service providers to reach entrepreneurs across the Northern Cape
+Media platforms
+NCNN Live
+thabo@ncnn.live
+https://ncnn.live/
+PingTVSa.com
+https://pingtvsa.com/
+Kimberley Website
+info@kimberley.co.za
+053 004 0214
+https://www.kimberley.co.za/
+DFA Newspaper
+johan.duplessis@inl.co.za
+82 376 6851
+https://www.dfa.co.za/
+Solom Star Newspaper
+Customerservices@solomonstar.com.sb
++677 22062
+https://www.solomonstarnews.com/
+Events & programmes
+NCDEV Hack
+info@ncdev.co.za
+https://www.ncdev.co.za/
+National Science Week (SPU)
+information@spu.ac.za
+053 491 0000
+https://www.gov.za/NationalScienceWeek2019
+Francis Baard GEW
+info@fbdmentrepreneurweek.co.za
+fbdmentrepreneurweek.co.za
+DSD Career Day
+https://www.careersportal.co.za/
+Business Clinic – DCVH
+ematiwane@dcvhsa.co.za
+(081) 544 3464
+http://www.dcvhsa.co.za/
+SAIS Bootup
+info@mlab.co.za
+https://www.saisprogramme.org/networking
+Professional services
+DCVH
+info@dcvhsa.co.za
+081-544-3464
+http://www.dcvhsa.co.za/
+TIA Center
+012 472 2700
+https://www.tia.org.za/
+CIPC
+0861002472
+http://www.cipc.co.za/
+NOCCI
+info@nocci.co.za
+053 831 1081
+http://www.nocci.co.za/
+mLab NC  ·  northerncape@mlab.co.za  ·  www.mlab.co.za/nc
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 12 / 14
+
+---PAGE 13---
+Strategic opportunities — NC ICT ecosystem 2025–2030
+Six priority interventions to build a thriving digital economy in the Northern Cape province
+1
+Kimberley ICT Innovation Hub
+Flagship co-working + incubation hub anchored by SPU and mLab NC. Transforms Kimberley into
+the gravitational centre of the NC digital economy. Attracts DSI and TIA investment.
+2
+Karoo Data Economy Cluster
+Data engineering, AI, and analytics startups in the Carnarvon–Kimberley corridor, anchored by
+SARAO/SKA. Fibre infrastructure already in place as the platform.
+3
+Solar Valley Tech Incubator — Upington
+GreenTech incubator co-located with solar operators in Upington. Smart grid ICT, energy
+management software, and sustainability analytics serving the national renewable energy sector.
+4
+Rural Digital Economy Programme
+Mobile-first platforms, e-commerce for farm produce, and digital government services for the
+province's dispersed rural population. Aligned to SA's Digital Economy Master Plan (DEMP).
+5
+Mining 4.0 Incubation Corridor — Kathu
+Startup programme co-funded by Kumba and Assmang SLPs at the Kathu CFERIS incubator. ICT
+startups get a built-in corporate customer base and ring-fenced SLP funding from day one.
+6
+Women & Youth ICT Entrepreneur Track
+Female founders and youth programme linked to mLab NC and SPU. Designed to attract national
+and international NGO/DFI funding while addressing NC's inequality and unemployment.
+Northern Cape ICT Ecosystem Map  ·  mLab NC  ·  northerncape@mlab.co.za 13 / 14
+
+---PAGE 14---
+Get involved
+Help us build the Northern Cape ICT ecosystem together
+📬 Add your organisation
+Email northerncape@mlab.co.za to add or update your listing in this ecosystem map.
+🤝 Partner with mLab NC
+Co-host programmes, sponsor training, or collaborate on digital empowerment initiatives.
+🚀 Join the next incubation cohort
+Apply to mLab NC CodeTribe Academy or the CFERIS incubator at your local TVET campus.
+💰 Invest in the ecosystem
+SLP/CSI funding, angel investment, or mentorship — contact DEDaT or SEDA NC to discuss.
+📊 Commission research
+Map your town or sector in detail — contact us to scope a focused ecosystem study.
+Key contacts
+mLab Northern Cape
+northerncape@mlab.co.za
+www.mlab.co.za/nc
+DEDaT
+tradeleadbulletin@thedti.gov.za
+www.northern-cape.gov.za
+SEDA NC
+info@seda.org.za
+www.seda.org.za
+Sol Plaatje Univ.
+information@spu.ac.za
+www.spu.ac.za
+TIA
+www.tia.org.za
+NCEDA
+info@nc-eda.co.za
+www.nceda.co.za
+Developed by mLab Northern Cape with community members  ·  Partnerships: DSI · DEDaT NC · Sol Plaatje Municipality · NC CETC 14 / 14

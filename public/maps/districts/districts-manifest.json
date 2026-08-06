@@ -1,0 +1,296 @@
+{
+  "source": "/maps/nc-district-municipalities-official.png",
+  "attribution": "© municipalities.co.za — Northern Cape district & local municipalities",
+  "sourceGeo": {
+    "west": 16.25,
+    "east": 25.55,
+    "north": -26.3,
+    "south": -32.55
+  },
+  "contentBox": {
+    "left": 2,
+    "top": 2,
+    "right": 798,
+    "bottom": 738
+  },
+  "imageWidth": 800,
+  "imageHeight": 743,
+  "hiresScale": 5,
+  "districts": {
+    "DC9": {
+      "slug": "frances-baard",
+      "name": "Frances Baard",
+      "color": "#C9B3E0",
+      "path": "/maps/districts/frances-baard.png",
+      "crop": {
+        "left": 625,
+        "top": 140,
+        "width": 172,
+        "height": 265
+      },
+      "geo": {
+        "west": 23.528768844221105,
+        "east": 25.538316582914575,
+        "north": -27.471875,
+        "south": -29.722214673913044
+      },
+      "paintInset": {
+        "left": 24,
+        "top": 24,
+        "width": 860,
+        "height": 1325
+      },
+      "imageWidth": 908,
+      "imageHeight": 1373,
+      "labels": [
+        {
+          "name": "PHOKWANE",
+          "x": 557.2,
+          "y": 262.5
+        },
+        {
+          "name": "MAGARENG",
+          "x": 522.8,
+          "y": 580.5
+        },
+        {
+          "name": "DIKGATLONG",
+          "x": 213.2,
+          "y": 660
+        },
+        {
+          "name": "SOL PLAATJE",
+          "x": 471.2,
+          "y": 1057.5
+        }
+      ]
+    },
+    "DC45": {
+      "slug": "john-taolo-gaetsewe",
+      "name": "John Taolo Gaetsewe",
+      "color": "#8EC4E8",
+      "path": "/maps/districts/john-taolo-gaetsewe.png",
+      "crop": {
+        "left": 515,
+        "top": 18,
+        "width": 200,
+        "height": 185
+      },
+      "geo": {
+        "west": 22.24359296482412,
+        "east": 24.58027638190955,
+        "north": -26.43586956521739,
+        "south": -28.006861413043477
+      },
+      "paintInset": {
+        "left": 24,
+        "top": 24,
+        "width": 1000,
+        "height": 925
+      },
+      "imageWidth": 1048,
+      "imageHeight": 973,
+      "labels": [
+        {
+          "name": "JOE MOROLONG",
+          "x": 444,
+          "y": 283
+        },
+        {
+          "name": "GA-SEGONYANA",
+          "x": 744,
+          "y": 532.75
+        },
+        {
+          "name": "GAMAGARA",
+          "x": 504,
+          "y": 745.5
+        }
+      ]
+    },
+    "DC6": {
+      "slug": "namakwa",
+      "name": "Namakwa",
+      "color": "#E8C84A",
+      "path": "/maps/districts/namakwa.png",
+      "crop": {
+        "left": 4,
+        "top": 95,
+        "width": 410,
+        "height": 635
+      },
+      "geo": {
+        "west": 16.273366834170854,
+        "east": 21.06356783919598,
+        "north": -27.089741847826087,
+        "south": -32.4820652173913
+      },
+      "paintInset": {
+        "left": 24,
+        "top": 24,
+        "width": 2050,
+        "height": 3175
+      },
+      "imageWidth": 2098,
+      "imageHeight": 3223,
+      "labels": [
+        {
+          "name": "RICHTERSVELD",
+          "x": 393,
+          "y": 405
+        },
+        {
+          "name": "NAMA KHOI",
+          "x": 598,
+          "y": 1040
+        },
+        {
+          "name": "KAMIESBERG",
+          "x": 475,
+          "y": 1548
+        },
+        {
+          "name": "HANTAM",
+          "x": 1008,
+          "y": 1770.2500000000002
+        },
+        {
+          "name": "KAROO HOOGLAND",
+          "x": 1295,
+          "y": 2310
+        },
+        {
+          "name": "KHÂI-MA",
+          "x": 1151.5,
+          "y": 913.0000000000001
+        }
+      ]
+    },
+    "DC7": {
+      "slug": "pixley-ka-seme",
+      "name": "Pixley ka Seme",
+      "color": "#A8D08D",
+      "path": "/maps/districts/pixley-ka-seme.png",
+      "crop": {
+        "left": 400,
+        "top": 300,
+        "width": 395,
+        "height": 430
+      },
+      "geo": {
+        "west": 20.9,
+        "east": 25.514949748743717,
+        "north": -28.83057065217391,
+        "south": -32.4820652173913
+      },
+      "paintInset": {
+        "left": 24,
+        "top": 24,
+        "width": 1975,
+        "height": 2150
+      },
+      "imageWidth": 2023,
+      "imageHeight": 2198,
+      "labels": [
+        {
+          "name": "SIYANCUMA",
+          "x": 1110.25,
+          "y": 497
+        },
+        {
+          "name": "THEMBELIHLE",
+          "x": 853.5,
+          "y": 841
+        },
+        {
+          "name": "SIYATHEMBA",
+          "x": 1367,
+          "y": 927
+        },
+        {
+          "name": "EMTHANJENI",
+          "x": 1110.25,
+          "y": 1206.5
+        },
+        {
+          "name": "RENOSTERBERG",
+          "x": 1446,
+          "y": 1271
+        },
+        {
+          "name": "UBUNTU",
+          "x": 774.5,
+          "y": 1486
+        },
+        {
+          "name": "UMSOBOMVU",
+          "x": 1564.5,
+          "y": 1572
+        },
+        {
+          "name": "KAREEBERG",
+          "x": 577,
+          "y": 1701
+        }
+      ]
+    },
+    "DC8": {
+      "slug": "zf-mgcawu",
+      "name": "ZF Mgcawu",
+      "color": "#7A9EAD",
+      "path": "/maps/districts/zf-mgcawu.png",
+      "crop": {
+        "left": 270,
+        "top": 35,
+        "width": 380,
+        "height": 310
+      },
+      "geo": {
+        "west": 19.381155778894474,
+        "east": 23.820854271356783,
+        "north": -26.58023097826087,
+        "south": -29.212703804347825
+      },
+      "paintInset": {
+        "left": 24,
+        "top": 24,
+        "width": 1900,
+        "height": 1550
+      },
+      "imageWidth": 1948,
+      "imageHeight": 1598,
+      "labels": [
+        {
+          "name": "DAWID KRUIPER",
+          "x": 746,
+          "y": 458.00000000000006
+        },
+        {
+          "name": "!KHARA HAIS",
+          "x": 936,
+          "y": 675
+        },
+        {
+          "name": "!KHEIS",
+          "x": 1069,
+          "y": 922.9999999999999
+        },
+        {
+          "name": "TSANTSABANE",
+          "x": 1392,
+          "y": 768
+        },
+        {
+          "name": "KGATELOPELE",
+          "x": 1582,
+          "y": 566.5
+        },
+        {
+          "name": "KAI !GARIB",
+          "x": 442,
+          "y": 830
+        }
+      ]
+    }
+  }
+}

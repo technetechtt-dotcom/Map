@@ -1,0 +1,1019 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sol Plaatje",
+        "code": "NC091",
+        "fill": "#B89CD4",
+        "districtCode": "DC9",
+        "district": "Frances Baard"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              24.5,
+              -29.05
+            ],
+            [
+              25.05,
+              -29
+            ],
+            [
+              25.15,
+              -28.55
+            ],
+            [
+              24.75,
+              -28.45
+            ],
+            [
+              24.45,
+              -28.65
+            ],
+            [
+              24.45,
+              -28.95
+            ],
+            [
+              24.5,
+              -29.05
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Dikgatlong",
+        "code": "NC092",
+        "fill": "#C5AEDB",
+        "districtCode": "DC9",
+        "district": "Frances Baard"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              24.05,
+              -28.95
+            ],
+            [
+              24.55,
+              -28.95
+            ],
+            [
+              24.55,
+              -28.45
+            ],
+            [
+              24.2,
+              -28.3
+            ],
+            [
+              24,
+              -28.55
+            ],
+            [
+              24.05,
+              -28.95
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Magareng",
+        "code": "NC093",
+        "fill": "#D1BFE3",
+        "districtCode": "DC9",
+        "district": "Frances Baard"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              24.7,
+              -28.55
+            ],
+            [
+              25.2,
+              -28.5
+            ],
+            [
+              25.3,
+              -28.05
+            ],
+            [
+              24.9,
+              -27.95
+            ],
+            [
+              24.6,
+              -28.15
+            ],
+            [
+              24.7,
+              -28.55
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Phokwane",
+        "code": "NC094",
+        "fill": "#DCCFEA",
+        "districtCode": "DC9",
+        "district": "Frances Baard"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              24.5,
+              -28.15
+            ],
+            [
+              25.15,
+              -28.1
+            ],
+            [
+              25.3,
+              -27.55
+            ],
+            [
+              24.75,
+              -27.5
+            ],
+            [
+              24.4,
+              -27.8
+            ],
+            [
+              24.5,
+              -28.15
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Joe Morolong",
+        "code": "NC451",
+        "fill": "#6BA9D4",
+        "districtCode": "DC45",
+        "district": "John Taolo Gaetsewe"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              21.55,
+              -27.45
+            ],
+            [
+              22.95,
+              -27.25
+            ],
+            [
+              23.65,
+              -26.7
+            ],
+            [
+              22.85,
+              -26.5
+            ],
+            [
+              21.65,
+              -26.65
+            ],
+            [
+              21.55,
+              -27.45
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ga-Segonyana",
+        "code": "NC452",
+        "fill": "#86BCE0",
+        "districtCode": "DC45",
+        "district": "John Taolo Gaetsewe"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.05,
+              -27.85
+            ],
+            [
+              23.9,
+              -27.7
+            ],
+            [
+              24.05,
+              -27.15
+            ],
+            [
+              23.35,
+              -26.95
+            ],
+            [
+              22.95,
+              -27.35
+            ],
+            [
+              23.05,
+              -27.85
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Gamagara",
+        "code": "NC453",
+        "fill": "#A0CEE9",
+        "districtCode": "DC45",
+        "district": "John Taolo Gaetsewe"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22.55,
+              -28.15
+            ],
+            [
+              23.5,
+              -28.05
+            ],
+            [
+              23.6,
+              -27.45
+            ],
+            [
+              22.95,
+              -27.3
+            ],
+            [
+              22.45,
+              -27.7
+            ],
+            [
+              22.55,
+              -28.15
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Dawid Kruiper",
+        "code": "NC086",
+        "fill": "#688999",
+        "districtCode": "DC8",
+        "district": "ZF Mgcawu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              19.1,
+              -28.35
+            ],
+            [
+              21.35,
+              -28.05
+            ],
+            [
+              21.75,
+              -26.7
+            ],
+            [
+              20.1,
+              -26.5
+            ],
+            [
+              19,
+              -27.15
+            ],
+            [
+              19.1,
+              -28.35
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kai !Garib",
+        "code": "NC082",
+        "fill": "#7A98A6",
+        "districtCode": "DC8",
+        "district": "ZF Mgcawu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              19.35,
+              -29.35
+            ],
+            [
+              20.95,
+              -29.2
+            ],
+            [
+              21.25,
+              -28.4
+            ],
+            [
+              19.95,
+              -28.3
+            ],
+            [
+              19.25,
+              -28.7
+            ],
+            [
+              19.35,
+              -29.35
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "!Kheis",
+        "code": "NC083",
+        "fill": "#8BA7B3",
+        "districtCode": "DC8",
+        "district": "ZF Mgcawu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.95,
+              -29.4
+            ],
+            [
+              22.25,
+              -29.2
+            ],
+            [
+              22.45,
+              -28.55
+            ],
+            [
+              21.45,
+              -28.4
+            ],
+            [
+              20.9,
+              -28.8
+            ],
+            [
+              20.95,
+              -29.4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tsantsabane",
+        "code": "NC085",
+        "fill": "#9BB5C0",
+        "districtCode": "DC8",
+        "district": "ZF Mgcawu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22.35,
+              -28.85
+            ],
+            [
+              23.5,
+              -28.55
+            ],
+            [
+              23.55,
+              -27.75
+            ],
+            [
+              22.65,
+              -27.75
+            ],
+            [
+              22.25,
+              -28.25
+            ],
+            [
+              22.35,
+              -28.85
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kgatelopele",
+        "code": "NC084",
+        "fill": "#ACC4CD",
+        "districtCode": "DC8",
+        "district": "ZF Mgcawu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.1,
+              -28.55
+            ],
+            [
+              23.65,
+              -28.5
+            ],
+            [
+              23.65,
+              -28.1
+            ],
+            [
+              23.2,
+              -28.05
+            ],
+            [
+              23.1,
+              -28.55
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Siyancuma",
+        "code": "NC071",
+        "fill": "#8FC078",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22.85,
+              -29.7
+            ],
+            [
+              24.05,
+              -29.55
+            ],
+            [
+              24.2,
+              -28.95
+            ],
+            [
+              23.15,
+              -28.95
+            ],
+            [
+              22.85,
+              -29.3
+            ],
+            [
+              22.85,
+              -29.7
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Thembelihle",
+        "code": "NC072",
+        "fill": "#9BC986",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.9,
+              -30.1
+            ],
+            [
+              24.6,
+              -29.95
+            ],
+            [
+              24.65,
+              -29.45
+            ],
+            [
+              24.05,
+              -29.4
+            ],
+            [
+              23.9,
+              -30.1
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Emthanjeni",
+        "code": "NC073",
+        "fill": "#A7D194",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.5,
+              -31.2
+            ],
+            [
+              24.65,
+              -31.05
+            ],
+            [
+              24.75,
+              -30.25
+            ],
+            [
+              23.7,
+              -30.15
+            ],
+            [
+              23.5,
+              -31.2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kareeberg",
+        "code": "NC074",
+        "fill": "#B3D9A2",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              21.35,
+              -31.4
+            ],
+            [
+              22.75,
+              -31.25
+            ],
+            [
+              22.9,
+              -30.5
+            ],
+            [
+              21.55,
+              -30.5
+            ],
+            [
+              21.35,
+              -31.4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Umsobomvu",
+        "code": "NC075",
+        "fill": "#BFE1B0",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              24.6,
+              -31.4
+            ],
+            [
+              25.45,
+              -31.2
+            ],
+            [
+              25.45,
+              -30.35
+            ],
+            [
+              24.7,
+              -30.35
+            ],
+            [
+              24.6,
+              -31.4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Renosterberg",
+        "code": "NC076",
+        "fill": "#97C37F",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              24.2,
+              -30.6
+            ],
+            [
+              25.1,
+              -30.45
+            ],
+            [
+              25.15,
+              -29.85
+            ],
+            [
+              24.3,
+              -29.8
+            ],
+            [
+              24.2,
+              -30.6
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Siyathemba",
+        "code": "NC077",
+        "fill": "#86B56E",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22,
+              -30.4
+            ],
+            [
+              23.25,
+              -30.2
+            ],
+            [
+              23.35,
+              -29.45
+            ],
+            [
+              22.15,
+              -29.5
+            ],
+            [
+              22,
+              -30.4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ubuntu",
+        "code": "NC078",
+        "fill": "#A3CD8F",
+        "districtCode": "DC7",
+        "district": "Pixley ka Seme"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22.35,
+              -32.2
+            ],
+            [
+              23.9,
+              -32.05
+            ],
+            [
+              24,
+              -31.25
+            ],
+            [
+              22.45,
+              -31.2
+            ],
+            [
+              22.35,
+              -32.2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Richtersveld",
+        "code": "NC061",
+        "fill": "#D9B638",
+        "districtCode": "DC6",
+        "district": "Namakwa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              16.5,
+              -29.4
+            ],
+            [
+              17.55,
+              -29.15
+            ],
+            [
+              17.6,
+              -28.3
+            ],
+            [
+              16.55,
+              -28.4
+            ],
+            [
+              16.5,
+              -29.4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Nama Khoi",
+        "code": "NC062",
+        "fill": "#E0C04F",
+        "districtCode": "DC6",
+        "district": "Namakwa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              17.25,
+              -30.2
+            ],
+            [
+              18.6,
+              -30
+            ],
+            [
+              18.65,
+              -29.1
+            ],
+            [
+              17.4,
+              -29.15
+            ],
+            [
+              17.25,
+              -30.2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kamiesberg",
+        "code": "NC064",
+        "fill": "#E6CA66",
+        "districtCode": "DC6",
+        "district": "Namakwa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              17.35,
+              -31.1
+            ],
+            [
+              18.75,
+              -30.95
+            ],
+            [
+              18.8,
+              -30.1
+            ],
+            [
+              17.5,
+              -30.15
+            ],
+            [
+              17.35,
+              -31.1
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hantam",
+        "code": "NC065",
+        "fill": "#EDD47D",
+        "districtCode": "DC6",
+        "district": "Namakwa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              19.05,
+              -32.2
+            ],
+            [
+              20.75,
+              -32.05
+            ],
+            [
+              20.9,
+              -30.55
+            ],
+            [
+              19.25,
+              -30.55
+            ],
+            [
+              19.05,
+              -32.2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Karoo Hoogland",
+        "code": "NC066",
+        "fill": "#DEB740",
+        "districtCode": "DC6",
+        "district": "Namakwa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.15,
+              -32.5
+            ],
+            [
+              21.15,
+              -32.35
+            ],
+            [
+              21.2,
+              -31
+            ],
+            [
+              20.2,
+              -30.95
+            ],
+            [
+              20.15,
+              -32.5
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Khai-Ma",
+        "code": "NC067",
+        "fill": "#D5AD30",
+        "districtCode": "DC6",
+        "district": "Namakwa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.55,
+              -29.6
+            ],
+            [
+              19.8,
+              -29.45
+            ],
+            [
+              19.9,
+              -28.7
+            ],
+            [
+              18.7,
+              -28.7
+            ],
+            [
+              18.55,
+              -29.6
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
