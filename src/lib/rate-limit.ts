@@ -143,13 +143,31 @@ export function rateLimit(
   return memoryLimit(key, opts);
 }
 
-/** Async limit that tries Upstash first, then memory */
+/** Async limit that tries Upstash first. Production fails closed if Redis is required and missing. */
 export async function rateLimitAsync(
   key: string,
   opts: { limit: number; windowMs: number }
 ): Promise<RateLimitResult> {
   const remote = await upstashLimit(key, opts);
   if (remote) return remote;
+  const prod = process.env.NODE_ENV === "production";
+  const redisConfigured = Boolean(process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL);
+  if (prod && redisConfigured && process.env.RATE_LIMIT_FAIL_OPEN !== "1") {
+    return {
+      ok: false,
+      remaining: 0,
+      resetAt: Date.now() + 30_000,
+      retryAfterSec: 30,
+    };
+  }
+  if (prod && !redisConfigured && process.env.RATE_LIMIT_ALLOW_MEMORY !== "1") {
+    return {
+      ok: false,
+      remaining: 0,
+      resetAt: Date.now() + 30_000,
+      retryAfterSec: 30,
+    };
+  }
   return rateLimit(key, opts);
 }
 

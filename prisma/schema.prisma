@@ -3,8 +3,44 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PROVINCIAL_ADMIN
+  ORG_ADMIN
+  CONTRIBUTOR
+}
+
+enum RecordStatus {
+  DRAFT
+  PENDING_REVIEW
+  VERIFIED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ImportStatus {
+  STAGED
+  APPLIED
+  REJECTED
+}
+
+enum WorkflowStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  REJECTED
 }
 
 model User {
@@ -12,18 +48,21 @@ model User {
   email              String    @unique
   name               String
   passwordHash       String
-  role               String    @default("CONTRIBUTOR")
+  role               UserRole  @default(CONTRIBUTOR)
   provinceId         String?
   province           Province? @relation(fields: [provinceId], references: [id])
   organisationId     String?
   organisation       Organisation? @relation(fields: [organisationId], references: [id])
   active             Boolean   @default(true)
   locale             String    @default("en")
-  /// Increment to revoke all JWTs immediately
   sessionVersion     Int       @default(0)
   mustChangePassword Boolean   @default(false)
   mfaEnabled         Boolean   @default(false)
+  /// AES-256-GCM ciphertext (never store plaintext TOTP secrets)
   mfaSecret          String?
+  mfaKeyVersion      Int       @default(1)
+  /// bcrypt hashes of one-time recovery codes
+  mfaRecoveryHashes  Json      @default("[]")
   failedLoginCount   Int       @default(0)
   lockedUntil        DateTime?
   lastLoginAt        DateTime?
@@ -38,8 +77,23 @@ model User {
   sources            SourceRecord[]
   passwordResetTokens PasswordResetToken[]
   invitationsSent    AdminInvitation[] @relation("InvitationInviter")
+  passwordHistories  PasswordHistory[]
+
+  @@index([role, active])
+  @@index([provinceId])
+  @@index([organisationId])
+  @@index([lastLoginAt])
 }
 
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
 
 model Province {
   id          String   @id @default(cuid())
@@ -52,7 +106,7 @@ model Province {
   centerLat   Float
   centerLng   Float
   defaultZoom Int      @default(6)
-  geojson     String?
+  geojson     Json?
   districts   District[]
   locations   Location[]
   organisations Organisation[]
@@ -73,13 +127,14 @@ model District {
   nameAf         String?
   provinceId     String
   province       Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
-  geojson        String?
+  geojson        Json?
   municipalities Municipality[]
   locations      Location[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([provinceId, code])
+  @@index([provinceId])
 }
 
 model Municipality {
@@ -89,12 +144,14 @@ model Municipality {
   nameAf     String?
   districtId String
   district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
-  geojson    String?
+  geojson    Json?
   locations  Location[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([districtId, code])
+  @@index([districtId])
+  @@index([code])
 }
 
 model Category {
@@ -126,25 +183,22 @@ model Location {
   district           District? @relation(fields: [districtId], references: [id])
   municipalityId     String?
   municipality       Municipality? @relation(fields: [municipalityId], references: [id])
-  opportunitiesJson  String   @default("[]")
-  assetsJson         String   @default("[]")
-  tagsJson           String   @default("[]")
+  opportunitiesJson  Json     @default("[]")
+  assetsJson         Json     @default("[]")
+  tagsJson           Json     @default("[]")
   website            String?
   email              String?
   phone              String?
   address            String?
   imageUrl           String?
-  status             String   @default("DRAFT")
+  status             RecordStatus @default(DRAFT)
   verificationNotes  String?
   lastVerifiedAt     DateTime?
   verificationSource String?
-  // verified | estimated | town-centre | unknown
   coordQuality       String   @default("unknown")
   coordSource        String?
-  // When current verification review expires and needs re-check
   verificationExpiresAt DateTime?
-  // JSON: [{ title, url, capturedAt }] evidence sources
-  evidenceJson       String   @default("[]")
+  evidenceJson       Json     @default("[]")
   ownerId            String?
   owner              User?    @relation("LocationOwner", fields: [ownerId], references: [id])
   reviewedById       String?
@@ -155,6 +209,16 @@ model Location {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   publishedAt        DateTime?
+
+  @@index([provinceId, status])
+  @@index([districtId, status])
+  @@index([municipalityId])
+  @@index([organisationId])
+  @@index([categoryId])
+  @@index([verificationExpiresAt])
+  @@index([createdAt])
+  @@index([status])
+  @@index([coordQuality])
 }
 
 model Organisation {
@@ -167,7 +231,7 @@ model Organisation {
   email        String?
   phone        String?
   logoUrl      String?
-  locationSlugsJson String @default("[]")
+  locationSlugsJson Json @default("[]")
   sourcePage   String?
   latitude     Float?
   longitude    Float?
@@ -178,7 +242,7 @@ model Organisation {
   provinceId   String?
   province     Province? @relation(fields: [provinceId], references: [id])
   verified     Boolean  @default(false)
-  status       String   @default("DRAFT")
+  status       RecordStatus @default(DRAFT)
   users        User[]
   locations    Location[]
   fundingCalls FundingCall[]
@@ -188,6 +252,9 @@ model Organisation {
   submissions  Submission[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([provinceId, status])
+  @@index([status])
 }
 
 model SourceRecord {
@@ -201,6 +268,8 @@ model SourceRecord {
   capturedById String?
   capturedBy   User?     @relation(fields: [capturedById], references: [id])
   capturedAt   DateTime  @default(now())
+
+  @@index([locationId])
 }
 
 model FundingCall {
@@ -212,15 +281,18 @@ model FundingCall {
   amount         String?
   deadline       DateTime?
   url            String?
-  status         String    @default("DRAFT")
+  status         RecordStatus @default(DRAFT)
   provinceId     String?
   province       Province? @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       String    @default("[]")
+  tagsJson       Json      @default("[]")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   publishedAt    DateTime?
+
+  @@index([provinceId, status])
+  @@index([deadline])
 }
 
 model EcosystemEvent {
@@ -235,14 +307,17 @@ model EcosystemEvent {
   onlineUrl      String?
   latitude       Float?
   longitude      Float?
-  status         String    @default("DRAFT")
+  status         RecordStatus @default(DRAFT)
   provinceId     String?
   province       Province? @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       String    @default("[]")
+  tagsJson       Json      @default("[]")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([provinceId, status])
+  @@index([startsAt])
 }
 
 model Programme {
@@ -251,16 +326,18 @@ model Programme {
   title          String
   summary        String
   description    String?
-  status         String    @default("DRAFT")
+  status         RecordStatus @default(DRAFT)
   provinceId     String?
   province       Province? @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       String    @default("[]")
+  tagsJson       Json      @default("[]")
   startDate      DateTime?
   endDate        DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([provinceId, status])
 }
 
 model Procurement {
@@ -272,22 +349,25 @@ model Procurement {
   closingDate    DateTime?
   budget         String?
   url            String?
-  status         String    @default("DRAFT")
+  status         RecordStatus @default(DRAFT)
   provinceId     String?
   province       Province? @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       String    @default("[]")
+  tagsJson       Json      @default("[]")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([provinceId, status])
+  @@index([closingDate])
 }
 
 model Submission {
   id                String    @id @default(cuid())
   type              String
-  payloadJson       String
+  payloadJson       Json
   payloadHash       String?
-  status            String    @default("SUBMITTED")
+  status            SubmissionStatus @default(SUBMITTED)
   submitterName     String
   submitterEmail    String
   notes             String?
@@ -317,7 +397,7 @@ model AuditLog {
   action         String
   entityType     String
   entityId       String?
-  metadataJson   String?
+  metadataJson   Json?
   ipAddress      String?
   provinceId     String?
   organisationId String?
@@ -326,6 +406,7 @@ model AuditLog {
   @@index([provinceId, createdAt])
   @@index([userId, createdAt])
   @@index([entityType, entityId])
+  @@index([action, createdAt])
 }
 
 model AnalyticsEvent {
@@ -334,7 +415,7 @@ model AnalyticsEvent {
   path         String?
   provinceId   String?
   locationId   String?
-  metadataJson String?
+  metadataJson Json?
   createdAt    DateTime @default(now())
 
   @@index([provinceId, createdAt])
@@ -356,7 +437,7 @@ model PasswordResetToken {
 model AdminInvitation {
   id             String    @id @default(cuid())
   email          String
-  role           String
+  role           UserRole
   provinceId     String?
   organisationId String?
   tokenHash      String    @unique
@@ -392,7 +473,7 @@ model StoredObject {
   contentType    String
   sizeBytes      Int
   sha256         String
-  access         String   @default("private") // private | public
+  access         String   @default("private")
   driver         String   @default("local")
   organisationId String?
   uploadedById   String?
@@ -404,8 +485,8 @@ model StoredObject {
 
 model DataSubjectRequest {
   id          String   @id @default(cuid())
-  type        String   // access | correction | deletion | withdraw_consent
-  status      String   @default("OPEN")
+  type        String
+  status      WorkflowStatus @default(OPEN)
   requesterEmail String
   requesterName  String?
   details     String?
@@ -413,32 +494,35 @@ model DataSubjectRequest {
   handledNotes String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt])
 }
 
 model CorrectionRequest {
   id             String   @id @default(cuid())
-  targetType     String   // location | organisation
+  targetType     String
   targetId       String?
   targetSlug     String?
-  status         String   @default("OPEN")
+  status         WorkflowStatus @default(OPEN)
   submitterName  String
   submitterEmail String
   message        String
   provinceId     String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([status, createdAt])
 }
 
-// Staged bulk import (CSV/JSON dry-run + apply). Never auto-publishes.
 model ImportBatch {
   id             String   @id @default(cuid())
-  source         String   // national_csv | manual | other
-  status         String   @default("STAGED") // STAGED | APPLIED | REJECTED
+  source         String
+  status         ImportStatus @default(STAGED)
   provinceId     String?
   rowCount       Int      @default(0)
   appliedCount   Int      @default(0)
-  payloadJson    String   // raw staged rows
-  reportJson     String?  // validation / duplicate report
+  payloadJson    Json
+  reportJson     Json?
   createdById    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -447,4 +531,3 @@ model ImportBatch {
   @@index([status, createdAt])
   @@index([provinceId])
 }
-

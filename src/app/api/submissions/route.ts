@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { writeAudit } from "@/lib/audit";
 import {
   canModerateSubmissions,
@@ -47,13 +47,13 @@ export async function GET() {
       reviewedById: s.reviewedById,
       reviewedAt: s.reviewedAt,
       createdAt: s.createdAt,
-      payload: JSON.parse(s.payloadJson),
+      payload: s.payloadJson,
     })),
   });
 }
 
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "submission", { limit: 8, windowMs: 15 * 60_000 });
+  const limited = await enforceRateLimitAsync(req, "submission", { limit: 8, windowMs: 15 * 60_000 });
   if (limited) return limited;
 
   const parsed = await readJsonLimited(req);
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
   const created = await prisma.submission.create({
     data: {
       type: body.type || "location",
-      payloadJson: JSON.stringify(body.payload),
+      payloadJson: body.payload,
       payloadHash: hash,
       submitterName: body.submitterName,
       submitterEmail: body.submitterEmail.toLowerCase(),
@@ -196,7 +196,7 @@ export async function PATCH(req: NextRequest) {
       let createdLocationId = existing.createdLocationId;
 
       if (body.status === "APPROVED" && existing.type === "location") {
-        const payload = JSON.parse(existing.payloadJson) as Record<string, unknown>;
+        const payload = (existing.payloadJson || {}) as Record<string, unknown>;
         if (payload.name && payload.latitude != null && payload.longitude != null) {
           const cat = await tx.category.findFirst({
             where: payload.categorySlug
@@ -263,7 +263,7 @@ export async function PATCH(req: NextRequest) {
       const updated = await tx.submission.update({
         where: { id: existing.id },
         data: {
-          status: body.status,
+          status: body.status as SubmissionStatus,
           reviewedNotes: body.reviewedNotes || null,
           reviewedById: auth.user.id,
           reviewedAt: new Date(),

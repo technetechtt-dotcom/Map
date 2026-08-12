@@ -1,16 +1,23 @@
 import { NextRequest } from "next/server";
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { requiresMfa } from "@/lib/policy";
 import { revokeUserSessions } from "@/lib/auth";
 import { generateTotpSecret, otpauthUri, totpCode, verifyTotp } from "@/lib/totp";
+import { decryptSecret, encryptSecret } from "@/lib/secret-box";
+import { notify } from "@/lib/notify";
 import bcrypt from "bcryptjs";
+
+function recoveryCodes(n = 10): string[] {
+  return Array.from({ length: n }, () => randomBytes(5).toString("hex"));
+}
 
 /** Start MFA enrollment — returns base32 secret + otpauth URI (authenticator apps). */
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "mfa-setup", { limit: 10, windowMs: 60_000 });
+  const limited = await enforceRateLimitAsync(req, "mfa-setup", { limit: 10, windowMs: 60_000 });
   if (limited) return limited;
 
   const auth = await requireSession();
@@ -19,7 +26,7 @@ export async function POST(req: NextRequest) {
   const secret = generateTotpSecret();
   await prisma.user.update({
     where: { id: auth.user.id },
-    data: { mfaSecret: secret, mfaEnabled: false },
+    data: { mfaSecret: encryptSecret(secret), mfaEnabled: false, mfaKeyVersion: 1 },
   });
 
   await writeAudit({
@@ -62,12 +69,17 @@ export async function PUT(req: NextRequest) {
     if (!body.password || !(await bcrypt.compare(body.password, user.passwordHash))) {
       return jsonError("Password required to disable MFA", 400);
     }
-    if (requiresMfa(auth.user) && process.env.MFA_ENFORCE === "1") {
+    if (requiresMfa(auth.user) && process.env.MFA_ENFORCE !== "0") {
       return jsonError("MFA is mandatory for your role", 403);
     }
     await prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
+      data: {
+        mfaEnabled: false,
+        mfaSecret: null,
+        mfaRecoveryHashes: [],
+        sessionVersion: { increment: 1 },
+      },
     });
     await revokeUserSessions(user.id);
     await writeAudit({
@@ -77,17 +89,31 @@ export async function PUT(req: NextRequest) {
       entityType: "User",
       entityId: user.id,
     });
+    await notify({
+      type: "mfa.disabled",
+      to: user.email,
+      subject: "MFA disabled on your SA ICT Map account",
+      body: "Multi-factor authentication was disabled on your account.",
+    });
     return jsonOk({ mfaEnabled: false });
   }
 
   if (!user.mfaSecret) return jsonError("Call POST to start MFA setup first", 400);
-  if (!verifyTotp(user.mfaSecret, body.code || "")) {
+  let plain: string;
+  try {
+    plain = decryptSecret(user.mfaSecret);
+  } catch {
+    return jsonError("MFA secret could not be decrypted — contact an administrator", 500);
+  }
+  if (!verifyTotp(plain, body.code || "")) {
     return jsonError("Invalid MFA code", 400);
   }
 
+  const codes = recoveryCodes();
+  const hashes = await Promise.all(codes.map((c) => bcrypt.hash(c, 10)));
   await prisma.user.update({
     where: { id: user.id },
-    data: { mfaEnabled: true },
+    data: { mfaEnabled: true, mfaRecoveryHashes: hashes },
   });
   await writeAudit({
     user: auth.user,
@@ -96,7 +122,17 @@ export async function PUT(req: NextRequest) {
     entityType: "User",
     entityId: user.id,
   });
-  return jsonOk({ mfaEnabled: true });
+  await notify({
+    type: "mfa.enabled",
+    to: user.email,
+    subject: "MFA enabled on your SA ICT Map account",
+    body: "Multi-factor authentication is now enabled.",
+  });
+  return jsonOk({
+    mfaEnabled: true,
+    recoveryCodes: codes,
+    note: "Store recovery codes offline. They are shown once.",
+  });
 }
 
 export async function GET() {

@@ -4,28 +4,30 @@
 
 | Env | Purpose | Notes |
 |-----|---------|-------|
-| local | Dev SQLite | `npm run db:setup:dev` with seed |
+| local | Dev PostgreSQL/PostGIS | `docker compose up -d` then `npm run db:setup:dev` |
 | staging | Pre-prod Postgres | parity with production config |
-| production | Live | **Never** run destructive seed without `ALLOW_DATABASE_RESET=1` |
+| production | Live PostgreSQL + PostGIS | **Never** run destructive seed without `ALLOW_DATABASE_RESET=1` |
 
-`npm run db:setup` = generate + push only (non-destructive).  
-`npm run db:setup:dev` = includes seed for local only.
+`npm run db:setup` = generate + `prisma migrate deploy`.  
+`npm run db:setup:dev` = migrate + seed for local only.  
+Do not use `prisma db push` in production.
 
 ## Critical env vars
 
 See `.env.example`. Production must set:
 
-- `NEXTAUTH_SECRET`, `DATABASE_URL`, `BACKUP_ENCRYPTION_KEY`
+- `NEXTAUTH_SECRET` (32+ chars), `NEXTAUTH_URL`, `DATABASE_URL` (postgresql://), `BACKUP_ENCRYPTION_KEY`, `MFA_ENCRYPTION_KEY`
+- Redis/Upstash for rate limits
 - `TRUST_PROXY=1` behind reverse proxy only
-- CAPTCHA secrets; `CAPTCHA_DISABLED` must be off
+- CAPTCHA secrets; `CAPTCHA_DISABLED` is forbidden in production
 - `STORAGE_DRIVER=s3` with credentials; do not set `STORAGE_ALLOW_LOCAL_FALLBACK` in production
-- `MFA_ENFORCE=1` for elevated roles (enable MFA on accounts)
+- `MFA_ENFORCE=1` for elevated roles
 - Tile provider: `NEXT_PUBLIC_MAP_TILE_URL` (do not use public OSM for high traffic without policy)
 
 ## Release & rollback
 
 1. Merge to main after green CI (lint, typecheck, tests, build, audit).  
-2. Deploy artifact with `prisma migrate deploy` / `db push` for schema.  
+2. Deploy artifact with `prisma migrate deploy`.  
 3. Smoke: login, map load, admin locations, submission.  
 4. Rollback: redeploy previous image; restore DB from last good `pg_dump` or encrypted app backup.
 

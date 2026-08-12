@@ -67,16 +67,21 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next();
   const isProd = process.env.NODE_ENV === "production";
-  const strictCsp = process.env.CSP_STRICT === "1";
+  const strictCsp = process.env.CSP_STRICT === "1" || (isProd && process.env.CSP_STRICT !== "0");
 
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
+  const tileConnect =
+    process.env.MAP_TILE_CONNECT_SRC ||
+    "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
+  const tileImg = process.env.MAP_TILE_IMG_SRC || "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
+
   const scriptSrc = strictCsp
-    ? `'self' 'nonce-${nonce}' https://challenges.cloudflare.com`
-    : `'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com`;
+    ? `'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com`
+    : `'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com`;
 
   res.headers.set(
     "Content-Security-Policy",
@@ -84,14 +89,15 @@ export async function middleware(req: NextRequest) {
       "default-src 'self'",
       `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline' https://unpkg.com",
-      "img-src 'self' data: blob: https: http:",
+      `img-src 'self' data: blob: ${tileImg}`,
       "font-src 'self' data:",
-      "connect-src 'self' https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://challenges.cloudflare.com",
+      `connect-src 'self' ${tileConnect} https://challenges.cloudflare.com`,
       "frame-src 'self' https://challenges.cloudflare.com https://www.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
       process.env.CSP_REPORT_URI ? `report-uri ${process.env.CSP_REPORT_URI}` : "",
+      process.env.CSP_REPORT_URI ? `report-to csp-endpoint` : "",
     ]
       .filter(Boolean)
       .join("; ")

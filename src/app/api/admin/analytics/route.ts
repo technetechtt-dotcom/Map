@@ -36,7 +36,7 @@ export async function GET() {
 
   const submissionWhere = {
     ...submissionTenantWhere(auth.user),
-    status: "SUBMITTED",
+    status: "SUBMITTED" as const,
   };
   const auditWhere = auditTenantWhere(auth.user);
 
@@ -86,7 +86,7 @@ export async function GET() {
     prisma.programme.count({ where: { status: "PUBLISHED", ...ecoFilter } }),
     prisma.procurement.count({ where: { status: "PUBLISHED", ...ecoFilter } }),
     canShowSubmissions(auth.user)
-      ? prisma.submission.count({ where: submissionWhere })
+      ? prisma.submission.count({ where: submissionWhere as never })
       : Promise.resolve(0),
     prisma.analyticsEvent.count({ where: analyticsWhere }),
     canShowAudit(auth.user)

@@ -1,24 +1,33 @@
-export function parseJsonArray(value?: string | null): string[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
+import type { RecordStatus } from "@prisma/client";
+
+export function parseJsonArray(value?: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
   }
+  return [];
 }
 
-export function parseJson<T>(value?: string | null, fallback?: T): T | undefined {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
+export function parseJson<T>(value?: unknown, fallback?: T): T | undefined {
+  if (value == null) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
   }
+  return value as T;
 }
 
-export function serializeArray(arr: string[] | undefined): string {
-  return JSON.stringify(arr || []);
+export function serializeArray(arr: string[] | undefined): string[] {
+  return arr || [];
 }
 
 export type PublicLocation = {
@@ -76,14 +85,7 @@ export function shapeLocation(loc: any): PublicLocation {
     verificationExpiresAt: loc.verificationExpiresAt
       ? new Date(loc.verificationExpiresAt).toISOString()
       : null,
-    evidence: (() => {
-      try {
-        const e = JSON.parse(loc.evidenceJson || "[]");
-        return Array.isArray(e) ? e : [];
-      } catch {
-        return [];
-      }
-    })(),
+    evidence: (parseJson<PublicLocation["evidence"]>(loc.evidenceJson, []) || []) as PublicLocation["evidence"],
     opportunities: parseJsonArray(loc.opportunitiesJson),
     assets: parseJsonArray(loc.assetsJson),
     tags: parseJsonArray(loc.tagsJson),
@@ -110,4 +112,4 @@ export function shapeLocation(loc: any): PublicLocation {
   };
 }
 
-export const PUBLIC_STATUSES = ["PUBLISHED", "VERIFIED"];
+export const PUBLIC_STATUSES: RecordStatus[] = ["PUBLISHED", "VERIFIED"];

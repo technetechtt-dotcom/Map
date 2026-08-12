@@ -24,7 +24,7 @@ export async function writeAudit(params: {
       action: params.action,
       entityType: params.entityType,
       entityId: params.entityId || null,
-      metadataJson: params.metadata ? JSON.stringify(params.metadata) : null,
+      metadataJson: params.metadata ? (params.metadata as object) : undefined,
       ipAddress: params.ipAddress || null,
       provinceId,
       organisationId,
@@ -56,7 +56,7 @@ export async function trackEvent(params: {
       path: params.path,
       provinceId: params.provinceId,
       locationId: params.locationId,
-      metadataJson: params.metadata ? JSON.stringify(params.metadata) : null,
+      metadataJson: params.metadata ? (params.metadata as object) : undefined,
     },
   });
 }

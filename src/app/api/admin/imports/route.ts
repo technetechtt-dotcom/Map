@@ -199,8 +199,8 @@ export async function POST(req: NextRequest) {
       status: "STAGED",
       provinceId: canManageAllProvinces(auth.user) ? null : auth.user.provinceId,
       rowCount: staged.length,
-      payloadJson: JSON.stringify(staged),
-      reportJson: JSON.stringify({ okCount, total: staged.length, rows: report }),
+      payloadJson: staged,
+      reportJson: { okCount, total: staged.length, rows: report },
       createdById: auth.user.id,
     },
   });
@@ -240,12 +240,9 @@ async function applyBatch(
     return jsonError("Forbidden", 403);
   }
 
-  let rows: ImportRow[] = [];
-  try {
-    rows = JSON.parse(batch.payloadJson) as ImportRow[];
-  } catch {
-    return jsonError("Corrupt batch payload", 500);
-  }
+  const rows = Array.isArray(batch.payloadJson)
+    ? (batch.payloadJson as ImportRow[])
+    : [];
 
   const defaultCategory = await prisma.category.findFirst();
   let applied = 0;
@@ -294,7 +291,7 @@ async function applyBatch(
           website: row.website ? String(row.website).slice(0, 500) : null,
           email: row.email ? String(row.email).slice(0, 200) : null,
           phone: row.phone ? String(row.phone).slice(0, 80) : null,
-          tagsJson: JSON.stringify(Array.isArray(row.tags) ? row.tags.slice(0, 20) : []),
+          tagsJson: Array.isArray(row.tags) ? row.tags.slice(0, 20) : [],
           provinceId,
           categoryId,
           status: "DRAFT",
@@ -310,12 +307,10 @@ async function applyBatch(
     }
   }
 
-  let priorReport: Record<string, unknown> = {};
-  try {
-    priorReport = batch.reportJson ? (JSON.parse(batch.reportJson) as Record<string, unknown>) : {};
-  } catch {
-    priorReport = {};
-  }
+  const priorReport =
+    batch.reportJson && typeof batch.reportJson === "object"
+      ? (batch.reportJson as Record<string, unknown>)
+      : {};
 
   await prisma.importBatch.update({
     where: { id: batchId },
@@ -323,11 +318,11 @@ async function applyBatch(
       status: "APPLIED",
       appliedCount: applied,
       appliedAt: new Date(),
-      reportJson: JSON.stringify({
+      reportJson: {
         ...priorReport,
         applyErrors: errors.slice(0, 100),
         applied,
-      }),
+      },
     },
   });
 
@@ -368,8 +363,11 @@ export async function GET(req: NextRequest) {
       appliedCount: batch.appliedCount,
       createdAt: batch.createdAt,
       appliedAt: batch.appliedAt,
-      payloadHash: createHash("sha256").update(batch.payloadJson).digest("hex").slice(0, 16),
-      report: batch.reportJson ? JSON.parse(batch.reportJson) : null,
+      payloadHash: createHash("sha256")
+        .update(JSON.stringify(batch.payloadJson))
+        .digest("hex")
+        .slice(0, 16),
+      report: batch.reportJson,
     });
   }
 

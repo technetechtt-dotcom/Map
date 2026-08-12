@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return jsonError(parsed.error, 413);
   const body = parsed.data as Record<string, unknown>;
   const type = String(body.type || "funding");
-  const tagsJson = JSON.stringify(body.tags || []);
+  const tagsJson = Array.isArray(body.tags) ? body.tags : [];
 
   if (!body.slug || !body.title || !body.summary) {
     return jsonError("slug, title, summary required");

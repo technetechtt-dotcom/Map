@@ -106,6 +106,7 @@ export async function PATCH(req: NextRequest) {
     provinceId?: string | null;
     organisationId?: string | null;
     revokeSessions?: boolean;
+    resetMfa?: boolean;
   };
   if (!body.id) return jsonError("id required");
 
@@ -127,6 +128,15 @@ export async function PATCH(req: NextRequest) {
     data.provinceId = body.provinceId;
   }
   if (body.organisationId !== undefined) data.organisationId = body.organisationId;
+  if (body.resetMfa) {
+    if (!isSuperAdmin(auth.user) && !canManageUsers(auth.user)) {
+      return jsonError("Forbidden", 403);
+    }
+    data.mfaEnabled = false;
+    data.mfaSecret = null;
+    data.mfaRecoveryHashes = [];
+    data.mustChangePassword = true;
+  }
 
   // Always bump session version when privileges or tenant change
   const sensitive =
@@ -134,7 +144,8 @@ export async function PATCH(req: NextRequest) {
     body.role ||
     body.provinceId !== undefined ||
     body.organisationId !== undefined ||
-    body.revokeSessions;
+    body.revokeSessions ||
+    body.resetMfa;
   if (sensitive) {
     data.sessionVersion = { increment: 1 };
   }

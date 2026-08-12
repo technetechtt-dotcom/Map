@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { RecordStatus } from "@prisma/client";
 import { parseJsonArray, shapeLocation } from "@/lib/shape";
 import { OPPORTUNITY_CHAPTERS } from "@/lib/opportunity-chapters";
 
@@ -12,7 +13,7 @@ export async function getBookData(provinceSlug?: string) {
     : null;
 
   const locationWhere = {
-    status: { in: ["PUBLISHED", "VERIFIED"] },
+    status: { in: ["PUBLISHED", "VERIFIED"] as RecordStatus[] },
     ...(province ? { provinceId: province.id } : {}),
   };
 

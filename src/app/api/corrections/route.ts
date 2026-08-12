@@ -5,6 +5,7 @@ import { canModerateSubmissions, isSuperAdmin } from "@/lib/policy";
 import { clientIp, readJsonLimited, verifyCaptcha } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { z } from "zod";
+import type { WorkflowStatus } from "@prisma/client";
 
 const createSchema = z.object({
   targetType: z.enum(["location", "organisation"]),
@@ -90,7 +91,7 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await prisma.correctionRequest.update({
     where: { id: body.id },
-    data: { status: body.status },
+    data: { status: body.status as WorkflowStatus },
   });
   await writeAudit({
     user: auth.user,

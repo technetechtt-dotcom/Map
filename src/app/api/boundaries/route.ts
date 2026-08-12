@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     if (type === "provinces") {
       const rows = await prisma.province.findMany({ orderBy: { name: "asc" } });
       const features = rows
-        .map((p) => (p.geojson ? JSON.parse(p.geojson) : null))
+        .map((p) => (p.geojson ? p.geojson : null))
         .filter(Boolean);
       return NextResponse.json({
         type: "FeatureCollection",
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
       const features = muns
         .map((m) => {
           try {
-            return m.geojson ? JSON.parse(m.geojson) : null;
+            return m.geojson || null;
           } catch {
             return null;
           }
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
     const features = districts
       .map((d) => {
         try {
-          return d.geojson ? JSON.parse(d.geojson) : null;
+          return d.geojson || null;
         } catch {
           return null;
         }

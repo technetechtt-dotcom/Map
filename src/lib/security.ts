@@ -1,5 +1,5 @@
 /**
- * Client IP helper — only trusts X-Forwarded-For when TRUST_PROXY=1.
+ * Client IP helper — never trusts forwarding headers unless TRUST_PROXY=1.
  */
 
 const HTML_ESCAPE: Record<string, string> = {
@@ -67,7 +67,7 @@ export async function verifyCaptcha(input: {
       secret: turnstile,
       response: token,
     });
-    if (input.remoteIp) body.set("remoteip", input.remoteIp);
+    if (input.remoteIp && input.remoteIp !== "unknown") body.set("remoteip", input.remoteIp);
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       body,
@@ -82,7 +82,7 @@ export async function verifyCaptcha(input: {
       secret: recaptcha,
       response: token,
     });
-    if (input.remoteIp) body.set("remoteip", input.remoteIp);
+    if (input.remoteIp && input.remoteIp !== "unknown") body.set("remoteip", input.remoteIp);
     const res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
       method: "POST",
       body,
@@ -95,15 +95,48 @@ export async function verifyCaptcha(input: {
   return { ok: false, error: "CAPTCHA not configured" };
 }
 
-export function clientIp(req: Request): string {
-  // Only trust proxy headers when behind a known reverse proxy
-  if (process.env.TRUST_PROXY === "1") {
-    const xf = req.headers.get("x-forwarded-for");
-    if (xf) return xf.split(",")[0].trim();
-    const real = req.headers.get("x-real-ip");
-    if (real) return real.trim();
+function looksLikeIp(value: string): boolean {
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value) || /^[0-9a-fA-F:]+$/.test(value);
+}
+
+function headerGet(
+  headers: Headers | Record<string, string | string[] | undefined> | undefined,
+  name: string
+): string | null {
+  if (!headers) return null;
+  if (typeof (headers as Headers).get === "function") {
+    return (headers as Headers).get(name);
   }
+  const rec = headers as Record<string, string | string[] | undefined>;
+  const v = rec[name] ?? rec[name.toLowerCase()];
+  if (Array.isArray(v)) return v[0] || null;
+  return v || null;
+}
+
+/**
+ * Resolve client IP. X-Forwarded-For / X-Real-IP are ignored unless TRUST_PROXY=1.
+ * With a single trusted hop, use the left-most forwarded address after validating shape.
+ */
+export function clientIpFromHeaders(
+  headers: Headers | Record<string, string | string[] | undefined> | undefined
+): string {
+  if (process.env.TRUST_PROXY !== "1") return "unknown";
+  const xf = headerGet(headers, "x-forwarded-for");
+  if (xf) {
+    const hops = xf.split(",").map((s) => s.trim()).filter(Boolean);
+    const idx = Math.max(0, hops.length - Number(process.env.TRUST_PROXY_HOPS || 1) - 0);
+    // Default: first (client) when the proxy appends; override with TRUST_PROXY_USE_LAST=1
+    const candidate = process.env.TRUST_PROXY_USE_LAST === "1" ? hops[hops.length - 1] : hops[0];
+    void idx;
+    if (candidate && looksLikeIp(candidate)) return candidate;
+  }
+  const real = headerGet(headers, "x-real-ip");
+  if (real && looksLikeIp(real.trim())) return real.trim();
   return "unknown";
+}
+
+export function clientIp(req: Request): string {
+  return clientIpFromHeaders(req.headers);
 }
 
 /** Stable hash for duplicate submission detection */

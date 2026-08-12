@@ -31,6 +31,11 @@ export async function POST(req: NextRequest) {
     return jsonError("Cannot invite super admin", 403);
   }
 
+  const allowed = ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] as const;
+  if (!allowed.includes(body.role as (typeof allowed)[number])) {
+    return jsonError("Invalid role", 400);
+  }
+
   let provinceId = body.provinceId ?? null;
   if (!isSuperAdmin(auth.user)) {
     provinceId = auth.user.provinceId || null;
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
   const inv = await prisma.adminInvitation.create({
     data: {
       email: body.email.toLowerCase(),
-      role: body.role,
+      role: body.role as (typeof allowed)[number],
       provinceId,
       organisationId: body.organisationId || null,
       tokenHash: hashToken(token),

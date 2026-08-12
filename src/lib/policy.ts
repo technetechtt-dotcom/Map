@@ -3,6 +3,8 @@
  * All mutating routes must use assertLocationAccess / tenantWhere — deny on null tenants.
  */
 
+import type { RecordStatus, SubmissionStatus } from "@prisma/client";
+
 export const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",
   PROVINCIAL_ADMIN: "PROVINCIAL_ADMIN",
@@ -24,26 +26,26 @@ export type AuthUser = {
   active?: boolean;
 };
 
-export const PUBLIC_LOCATION_STATUSES = ["PUBLISHED", "VERIFIED"] as const;
-export const PUBLIC_ORG_STATUSES = ["PUBLISHED"] as const;
+export const PUBLIC_LOCATION_STATUSES: RecordStatus[] = ["PUBLISHED", "VERIFIED"];
+export const PUBLIC_ORG_STATUSES: RecordStatus[] = ["PUBLISHED"];
 
-export const PUBLISHABLE_STATUSES = [
+export const PUBLISHABLE_STATUSES: RecordStatus[] = [
   "DRAFT",
   "PENDING_REVIEW",
   "VERIFIED",
   "PUBLISHED",
   "ARCHIVED",
-] as const;
-export type LocationStatus = (typeof PUBLISHABLE_STATUSES)[number];
+];
+export type LocationStatus = RecordStatus;
 
-export const SUBMISSION_STATUSES = [
+export const SUBMISSION_STATUSES: SubmissionStatus[] = [
   "SUBMITTED",
   "UNDER_REVIEW",
   "APPROVED",
   "REJECTED",
   "WITHDRAWN",
-] as const;
-export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+];
+export type { SubmissionStatus };
 
 export type LocationRecord = {
   id?: string;
@@ -107,13 +109,13 @@ export function canModerateSubmissions(user?: AuthUser | null) {
   return isSuperAdmin(user) || isProvincialAdmin(user);
 }
 
-/** MFA required for elevated roles when MFA_ENFORCE=1 (production). */
+/** MFA required for elevated roles in production (or MFA_ENFORCE=1). */
 export function requiresMfa(user?: AuthUser | null) {
+  if (process.env.MFA_ENFORCE === "0") return false;
   if (process.env.MFA_ENFORCE !== "1" && process.env.NODE_ENV !== "production") {
     return false;
   }
-  if (process.env.MFA_ENFORCE === "0") return false;
-  return isSuperAdmin(user) || isProvincialAdmin(user);
+  return isSuperAdmin(user) || isProvincialAdmin(user) || isOrgAdmin(user);
 }
 
 /**
@@ -303,9 +305,9 @@ export function assertPublishableQuality(coordQuality?: string | null): PolicyRe
   };
 }
 
-export function coerceCreateStatus(user: AuthUser | null | undefined, requested?: string): string {
+export function coerceCreateStatus(user: AuthUser | null | undefined, requested?: string): RecordStatus {
   if (canPublish(user) && requested && PUBLISHABLE_STATUSES.includes(requested as LocationStatus)) {
-    return requested;
+    return requested as RecordStatus;
   }
   if (requested === "PENDING_REVIEW") return "PENDING_REVIEW";
   return "DRAFT";

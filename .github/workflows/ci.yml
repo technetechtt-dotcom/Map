@@ -5,38 +5,60 @@ on:
     branches: [main, master]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ictmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      DATABASE_URL: "file:./ci.db"
-      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use-32ch"
       NEXTAUTH_URL: "http://localhost:3000"
       CAPTCHA_DISABLED: "1"
       BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
+      MFA_ENCRYPTION_KEY: "ci-mfa-encryption-key-min-16"
       ALLOW_DEMO_USERS: "0"
       SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
       ALLOW_DATABASE_RESET: "1"
       NODE_ENV: test
       TRUST_PROXY: "0"
+      CSP_STRICT: "0"
+      HIBP_DISABLED: "1"
+      RATE_LIMIT_ALLOW_MEMORY: "1"
+      SKIP_ENV_VALIDATION: "1"
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install
         run: npm ci
 
       - name: Dependency audit (high+)
-        run: npm audit --audit-level=high
-        continue-on-error: false
+        run: npm run audit:deps
 
-      - name: Prisma generate + schema push
-        run: npx prisma generate && npx prisma db push --skip-generate
+      - name: Prisma generate + migrate deploy
+        run: npx prisma generate && npx prisma migrate deploy
 
       - name: Seed smoke (destructive allowed in CI)
         run: node prisma/seed.js
@@ -56,12 +78,27 @@ jobs:
       - name: Backup encrypt smoke
         run: node scripts/restore-backup-smoke.js
 
+      - name: PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: PostgreSQL backup/restore smoke
+        run: node scripts/postgres-backup-smoke.js
+
       - name: Docs present
         run: |
           test -f docs/ops-runbook.md
           test -f docs/popia-governance.md
           test -f docs/next15-upgrade.md
           test -f docs/data-quality.md
+          test -f docs/branch-protection.md
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright smoke
+        run: npm run test:e2e
+        env:
+          CI: "1"
 
   postgres-postgis:
     runs-on: ubuntu-latest
@@ -79,15 +116,23 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
     steps:
       - uses: actions/checkout@v4
-      - name: PostGIS + coordinate sync trigger
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install + migrate + PostGIS trigger
         run: |
+          npm ci
+          npx prisma generate
+          npx prisma migrate deploy
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
-          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -f prisma/migrations/20260326_postgis_init.sql
           PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT PostGIS_Version();"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT to_regclass('public.Location') IS NOT NULL;"
       - name: Docs present
         run: |
           test -f scripts/restore-backup.md

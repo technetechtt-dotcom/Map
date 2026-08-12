@@ -142,7 +142,7 @@ export async function PATCH(
       : null;
   }
   if (body.evidence) {
-    data.evidenceJson = JSON.stringify(body.evidence);
+    data.evidenceJson = body.evidence;
   }
 
   if (body.status) {

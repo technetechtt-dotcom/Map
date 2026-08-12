@@ -4,7 +4,7 @@ import { PUBLIC_STATUSES, shapeLocation } from "@/lib/shape";
 import { trackEvent } from "@/lib/audit";
 import { requireSession } from "@/lib/api";
 import { tenantWhere } from "@/lib/policy";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitAsync } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/security";
 import { log } from "@/lib/logger";
 
@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const rl = rateLimit(`locations:${clientIp(req)}`, { limit: 120, windowMs: 60_000 });
+    const rl = await rateLimitAsync(`locations:${clientIp(req)}`, { limit: 120, windowMs: 60_000 });
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Too many requests", retryAfterSec: rl.retryAfterSec },
@@ -65,13 +65,37 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // DB-side text filter (SQLite: contains is case-sensitive unless COLLATE NOCASE)
     if (q) {
       where.OR = [
-        { name: { contains: q } },
-        { summary: { contains: q } },
-        { description: { contains: q } },
+        { name: { contains: q, mode: "insensitive" } },
+        { summary: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
       ];
+    }
+
+    const lat = Number(sp.get("lat"));
+    const lng = Number(sp.get("lng"));
+    const radiusKm = Number(sp.get("radiusKm") || 0);
+    if (radiusKm > 0 && Number.isFinite(lat) && Number.isFinite(lng)) {
+      const radiusM = Math.min(Math.max(radiusKm, 0.1), 250) * 1000;
+      try {
+        const ids = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "Location"
+          WHERE geom IS NOT NULL
+            AND ST_DWithin(
+              geom::geography,
+              ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+              ${radiusM}
+            )
+          LIMIT ${limit}
+        `;
+        where.id = { in: ids.map((r) => r.id) };
+      } catch {
+        // PostGIS geom not available — fall back to bounding box approximation (~111km/deg)
+        const d = radiusKm / 111;
+        where.latitude = { gte: lat - d, lte: lat + d };
+        where.longitude = { gte: lng - d, lte: lng + d };
+      }
     }
 
     const total = await prisma.location.count({ where });

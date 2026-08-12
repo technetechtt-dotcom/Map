@@ -2,12 +2,14 @@ import { createHash, randomBytes } from "crypto";
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, enforceRateLimit } from "@/lib/api";
+import { jsonError, jsonOk, enforceRateLimitAsync } from "@/lib/api";
 import { passwordResetRequestSchema, passwordResetSchema } from "@/lib/validation";
 import { readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { revokeUserSessions } from "@/lib/auth";
 import { log } from "@/lib/logger";
+import { assertStrongPassword } from "@/lib/password";
+import { notify } from "@/lib/notify";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -15,7 +17,7 @@ function hashToken(token: string) {
 
 /** Request password reset — always returns ok to avoid email enumeration */
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "pwd-reset", { limit: 5, windowMs: 15 * 60_000 });
+  const limited = await enforceRateLimitAsync(req, "pwd-reset", { limit: 5, windowMs: 15 * 60_000 });
   if (limited) return limited;
 
   const parsed = await readJsonLimited(req);
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
 
 /** Complete password reset with token */
 export async function PUT(req: NextRequest) {
-  const limited = enforceRateLimit(req, "pwd-reset-complete", { limit: 10, windowMs: 15 * 60_000 });
+  const limited = await enforceRateLimitAsync(req, "pwd-reset-complete", { limit: 10, windowMs: 15 * 60_000 });
   if (limited) return limited;
 
   const parsed = await readJsonLimited(req);
@@ -71,6 +73,9 @@ export async function PUT(req: NextRequest) {
   if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
     return jsonError("Invalid or expired token", 400);
   }
+
+  const strength = await assertStrongPassword(body.data.password);
+  if (!strength.ok) return jsonError(strength.error, 400);
 
   const passwordHash = await bcrypt.hash(body.data.password, 12);
   await prisma.$transaction([
@@ -97,6 +102,13 @@ export async function PUT(req: NextRequest) {
     action: "PASSWORD_RESET",
     entityType: "User",
     entityId: row.userId,
+  });
+
+  await notify({
+    type: "password.reset",
+    subject: "SA ICT Map password was reset",
+    body: "A password reset completed for this account.",
+    meta: { userId: row.userId },
   });
 
   return jsonOk({ ok: true });

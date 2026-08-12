@@ -14,9 +14,11 @@ import {
   isSuperAdmin,
   type AuthUser,
 } from "./policy";
-import { rateLimit } from "./rate-limit";
+import { rateLimitAsync } from "./rate-limit";
 import { log } from "./logger";
 import { verifyTotp } from "./totp";
+import { clientIpFromHeaders } from "./security";
+import { decryptSecret } from "./secret-box";
 
 const MAX_FAILED = Number(process.env.LOGIN_MAX_FAILED || 5);
 const LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
@@ -39,10 +41,13 @@ export const authOptions: NextAuthOptions = {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const headers = (req as any)?.headers;
-        const ip =
-          headers?.["x-forwarded-for"]?.toString?.()?.split(",")[0]?.trim() || "unknown";
-        const rl = rateLimit(`login:${ip}:${email}`, { limit: 20, windowMs: 15 * 60_000 });
-        if (!rl.ok) {
+        const ip = clientIpFromHeaders(headers);
+        const rlIp = await rateLimitAsync(`login:ip:${ip}`, { limit: 20, windowMs: 15 * 60_000 });
+        const rlEmail = await rateLimitAsync(`login:email:${email}`, {
+          limit: 10,
+          windowMs: 15 * 60_000,
+        });
+        if (!rlIp.ok || !rlEmail.ok) {
           log.warn("login.rate_limited", { email, ip });
           return null;
         }
@@ -84,9 +89,51 @@ export const authOptions: NextAuthOptions = {
           await new Promise((r) => setTimeout(r, Math.min(2000, user.failedLoginCount * 200)));
         }
 
+        const inactivityDays = Number(process.env.ADMIN_INACTIVITY_DAYS || 90);
+        if (
+          user.lastLoginAt &&
+          inactivityDays > 0 &&
+          Date.now() - user.lastLoginAt.getTime() > inactivityDays * 24 * 3600 * 1000 &&
+          (user.role === "SUPER_ADMIN" || user.role === "PROVINCIAL_ADMIN")
+        ) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lockedUntil: new Date(Date.now() + 24 * 3600 * 1000) },
+          });
+          log.warn("login.inactivity_lock", { email });
+          return null;
+        }
+
         if (user.mfaEnabled) {
           const code = (credentials?.mfaCode || "").trim();
-          if (!user.mfaSecret || !verifyTotp(user.mfaSecret, code)) return null;
+          let totpOk = false;
+          if (user.mfaSecret) {
+            try {
+              totpOk = verifyTotp(decryptSecret(user.mfaSecret), code);
+            } catch {
+              totpOk = false;
+            }
+          }
+          if (!totpOk) {
+            const hashes = Array.isArray(user.mfaRecoveryHashes)
+              ? (user.mfaRecoveryHashes as string[])
+              : [];
+            let recovered = false;
+            const remaining: string[] = [];
+            for (const h of hashes) {
+              if (!recovered && h && (await bcrypt.compare(code, h))) {
+                recovered = true;
+              } else {
+                remaining.push(h);
+              }
+            }
+            if (!recovered) return null;
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { mfaRecoveryHashes: remaining },
+            });
+            log.warn("login.mfa_recovery_used", { email });
+          }
         }
 
         await prisma.user.update({

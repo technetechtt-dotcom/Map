@@ -120,6 +120,8 @@ async function main() {
     console.warn("WARNING: wiping all application data (ALLOW_DATABASE_RESET=1).");
   }
 
+  await prisma.importBatch.deleteMany().catch(() => undefined);
+  await prisma.passwordHistory.deleteMany().catch(() => undefined);
   await prisma.analyticsEvent.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.submission.deleteMany();
@@ -157,7 +159,7 @@ async function main() {
         centerLat: lat,
         centerLng: lng,
         defaultZoom: zoom,
-        geojson: feature ? JSON.stringify(feature) : null,
+        geojson: feature || null,
       },
     });
     provinceMap[code] = p;
@@ -181,7 +183,7 @@ async function main() {
         name: d.name,
         nameAf: d.nameAf,
         provinceId: nc.id,
-        geojson: feat ? JSON.stringify(feat) : null,
+        geojson: feat || null,
       },
     });
     districtMap[d.code] = district;
@@ -197,7 +199,7 @@ async function main() {
           code: m.code,
           name: m.name,
           districtId: district.id,
-          geojson: mfeat ? JSON.stringify(mfeat) : null,
+          geojson: mfeat || null,
         },
       });
       munMap[m.code] = mun;
@@ -267,7 +269,7 @@ async function main() {
         website: o.website || null,
         email: o.email || null,
         phone: o.phone || null,
-        locationSlugsJson: JSON.stringify(o.locationSlugs || ["province"]),
+        locationSlugsJson: o.locationSlugs || ["province"],
         sourcePage: o.sourcePage || null,
         latitude,
         longitude,
@@ -326,9 +328,9 @@ async function main() {
         provinceId: nc.id,
         districtId: district.id,
         municipalityId: municipality?.id,
-        opportunitiesJson: JSON.stringify(opps),
-        assetsJson: JSON.stringify(assets),
-        tagsJson: JSON.stringify([catSlug, dCode, "pdf-source"]),
+        opportunitiesJson: opps,
+        assetsJson: assets,
+        tagsJson: [catSlug, dCode, "pdf-source"],
         status,
         lastVerifiedAt: verified ? new Date("2025-01-15") : null,
         verificationSource: verified ? sourceRef : null,
@@ -342,15 +344,15 @@ async function main() {
           ? new Date("2026-01-15")
           : null,
         evidenceJson: verified
-          ? JSON.stringify([
+          ? [
               {
                 title: "NC ICT Ecosystem Presentation (mLab NC)",
                 url: null,
                 documentRef: sourceRef || "NC_ICT_Ecosystem_Presentation.pptx.pdf",
                 capturedAt: "2025-01-15",
               },
-            ])
-          : "[]",
+            ]
+          : [],
         ownerId: ncAdmin?.id || superAdmin?.id || null,
         reviewedById: verified ? ncAdmin?.id || superAdmin?.id || null : null,
         organisationId: primaryOrgId,
@@ -384,7 +386,7 @@ async function main() {
         status: "PUBLISHED",
         provinceId: nc.id,
         organisationId: org.id,
-        tagsJson: JSON.stringify(["funding", "TIA", "R&D"]),
+        tagsJson: ["funding", "TIA", "R&D"],
         publishedAt: new Date(),
       },
       {
@@ -395,7 +397,7 @@ async function main() {
         url: "http://www.sefa.org.za/",
         status: "PUBLISHED",
         provinceId: nc.id,
-        tagsJson: JSON.stringify(["funding", "SEFA"]),
+        tagsJson: ["funding", "SEFA"],
         publishedAt: new Date(),
       },
       {
@@ -406,7 +408,7 @@ async function main() {
         url: "https://www.idc.co.za/",
         status: "PUBLISHED",
         provinceId: nc.id,
-        tagsJson: JSON.stringify(["funding", "IDC"]),
+        tagsJson: ["funding", "IDC"],
         publishedAt: new Date(),
       },
     ],
@@ -423,7 +425,7 @@ async function main() {
         status: "PUBLISHED",
         provinceId: nc.id,
         organisationId: org.id,
-        tagsJson: JSON.stringify(["events", "hackathon"]),
+        tagsJson: ["events", "hackathon"],
         onlineUrl: "https://www.ncdev.co.za/",
       },
       {
@@ -436,7 +438,7 @@ async function main() {
         longitude: 24.7499,
         status: "PUBLISHED",
         provinceId: nc.id,
-        tagsJson: JSON.stringify(["events", "science"]),
+        tagsJson: ["events", "science"],
       },
       {
         slug: "francis-baard-gew",
@@ -448,7 +450,7 @@ async function main() {
         longitude: 24.7499,
         status: "PUBLISHED",
         provinceId: nc.id,
-        tagsJson: JSON.stringify(["events", "entrepreneurship"]),
+        tagsJson: ["events", "entrepreneurship"],
         onlineUrl: "https://fbdmentrepreneurweek.co.za",
       },
     ],
@@ -464,7 +466,7 @@ async function main() {
         status: "PUBLISHED",
         provinceId: nc.id,
         organisationId: org.id,
-        tagsJson: JSON.stringify(["skills", "mLab"]),
+        tagsJson: ["skills", "mLab"],
       },
       {
         slug: "mlab-digital-empowerment",
@@ -473,7 +475,7 @@ async function main() {
         status: "PUBLISHED",
         provinceId: nc.id,
         organisationId: org.id,
-        tagsJson: JSON.stringify(["skills", "empowerment"]),
+        tagsJson: ["skills", "empowerment"],
       },
       {
         slug: "cferis-incubation",
@@ -481,7 +483,7 @@ async function main() {
         summary: "Incubation on TVET campuses including Kathu and De Aar (PDF p.5,7,10).",
         status: "PUBLISHED",
         provinceId: nc.id,
-        tagsJson: JSON.stringify(["incubation", "TVET"]),
+        tagsJson: ["incubation", "TVET"],
       },
     ],
   });
@@ -497,7 +499,7 @@ async function main() {
         status: "PUBLISHED",
         provinceId: nc.id,
         organisationId: org.id,
-        tagsJson: JSON.stringify(["partnership", "mLab"]),
+        tagsJson: ["partnership", "mLab"],
       },
     ],
   });
@@ -518,11 +520,11 @@ async function main() {
       action: "SEED",
       entityType: "System",
       entityId: "pdf-only",
-      metadataJson: JSON.stringify({
+      metadataJson: {
         verifiedCount,
         totalLocations: locations.length,
         source: "NC_ICT_Ecosystem_Presentation.pptx.pdf",
-      }),
+      },
     },
   });
 

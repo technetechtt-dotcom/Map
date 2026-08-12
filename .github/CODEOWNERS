@@ -1,0 +1,8 @@
+# Default reviewers for production-critical paths.
+* @technetechtt-dotcom
+
+/.github/ @technetechtt-dotcom
+/prisma/ @technetechtt-dotcom
+/src/lib/auth.ts @technetechtt-dotcom
+/src/lib/policy.ts @technetechtt-dotcom
+/src/middleware.ts @technetechtt-dotcom
