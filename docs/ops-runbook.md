@@ -4,7 +4,7 @@
 
 | Env | Purpose | Notes |
 |-----|---------|-------|
-| local | Dev PostgreSQL/PostGIS | `docker compose up -d` then `npm run db:setup:dev` |
+| local | Dev PostgreSQL/PostGIS | Neon (or any Postgres) via `DATABASE_URL` + `DIRECT_URL` then `npm run db:setup:dev` |
 | staging | Pre-prod Postgres | parity with production config |
 | production | Live PostgreSQL + PostGIS | **Never** run destructive seed without `ALLOW_DATABASE_RESET=1` |
 

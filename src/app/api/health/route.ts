@@ -1,5 +1,5 @@
+import { collectMetrics } from "@/lib/metrics";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
 /**
  * Liveness/readiness probe (no auth, no PII).
@@ -8,17 +8,9 @@ export async function GET() {
   const started = Date.now();
   let db: "ok" | "error" = "ok";
   let redis: "ok" | "skipped" | "error" = "skipped";
-  let dbLatencyMs: number | null = null;
-  let queue: { pending: number; failed: number } | null = null;
+  let metrics: Awaited<ReturnType<typeof collectMetrics>> | null = null;
   try {
-    const dbStarted = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
-    dbLatencyMs = Date.now() - dbStarted;
-    const [pending, failed] = await Promise.all([
-      prisma.backgroundJob.count({ where: { status: "PENDING" } }),
-      prisma.backgroundJob.count({ where: { status: "FAILED" } }),
-    ]);
-    queue = { pending, failed };
+    metrics = await collectMetrics();
   } catch {
     db = "error";
   }
@@ -37,19 +29,37 @@ export async function GET() {
 
   const maintenance =
     process.env.MAINTENANCE_MODE === "1" || process.env.MAINTENANCE_MODE === "true";
+  const backupStale = Boolean(metrics?.backup.stale);
 
   const body = {
-    status: db === "ok" && redis !== "error" && !maintenance ? "ok" : maintenance ? "maintenance" : "degraded",
+    status:
+      db === "ok" && redis !== "error" && !maintenance
+        ? backupStale
+          ? "degraded"
+          : "ok"
+        : maintenance
+          ? "maintenance"
+          : "degraded",
     db,
-    dbLatencyMs,
+    dbLatencyMs: metrics?.dbLatencyMs ?? null,
     redis,
-    storage: { driver: process.env.STORAGE_DRIVER || "local", configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true },
-    queue,
+    storage: {
+      driver: process.env.STORAGE_DRIVER || "local",
+      configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true,
+    },
+    queue: metrics?.queue ?? null,
+    backup: metrics?.backup ?? null,
+    worker: metrics?.worker ?? null,
+    verification: metrics?.verification ?? null,
     maintenance,
-    version: process.env.npm_package_version || "1.2.0",
+    version: process.env.npm_package_version || "1.3.0",
     uptimeSec: Math.floor(process.uptime()),
     latencyMs: Date.now() - started,
     ts: new Date().toISOString(),
+    alerts: {
+      backupStale,
+      workerUnhealthy: metrics ? metrics.worker.healthy === false : true,
+    },
   };
 
   return NextResponse.json(body, {

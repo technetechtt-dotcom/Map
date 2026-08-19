@@ -25,14 +25,23 @@ jobs:
           test -n "$BACKUP_DESTINATION"
       - name: Dump and encrypt database
         env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+          FALLBACK_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
-          pg_dump --format=custom --no-owner --file=database.dump "$DATABASE_URL"
+          URL="${DATABASE_URL:-$FALLBACK_DATABASE_URL}"
+          pg_dump --format=custom --no-owner --file=database.dump "$URL"
           printf '%s' "$BACKUP_ENCRYPTION_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 --output database.dump.gpg database.dump
-      - name: Export object-storage manifest
+          sha256sum database.dump | tee database.dump.sha256
+      - name: Export object-storage manifest and copy objects
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           mkdir -p data
@@ -41,10 +50,25 @@ jobs:
           FROM (SELECT id, filename, url, "contentType", "sizeBytes", sha256, access, driver, "organisationId", "uploadedById", "createdAt"
                 FROM "StoredObject" ORDER BY "createdAt") objects;
           SQL
-      - name: Upload off-site database and object-storage manifest
+          node -e "console.log('manifest bytes', require('fs').statSync('data/object-storage-manifest.json').size)"
+      - name: Upload off-site database, checksums and object-storage manifest
         env:
           BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
         run: |
-          rclone copy database.dump.gpg "$BACKUP_DESTINATION/database/$(date -u +%Y-%m-%d)/"
-          rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$(date -u +%Y-%m-%d)/"
+          DATE=$(date -u +%Y-%m-%d)
+          rclone copy database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/"
+          rclone copy database.dump.sha256 "$BACKUP_DESTINATION/database/$DATE/"
+          rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
+      - name: Alert on backup failure
+        if: failure()
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+        run: |
+          if [ -n "$NOTIFY_WEBHOOK_URL" ]; then
+            curl -sS -X POST "$NOTIFY_WEBHOOK_URL" -H 'Content-Type: application/json' \
+              -d '{"type":"backup.failed","subject":"Production backup failed","body":"The scheduled encrypted backup workflow failed. Investigate immediately."}'
+          fi
+          echo "Backup failed — paging operators"
+          exit 1
+

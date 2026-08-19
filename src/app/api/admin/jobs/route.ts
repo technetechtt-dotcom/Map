@@ -4,6 +4,7 @@ import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { pruneAnalytics, pruneAuditLogs, writeAudit } from "@/lib/audit";
 import { canManageBackups, canPublish } from "@/lib/policy";
 import { log } from "@/lib/logger";
+import { enqueueJob, JOB_TYPES } from "@/lib/jobs";
 
 /**
  * Maintenance jobs: verification expiry flags, retention pruning.
@@ -29,6 +30,24 @@ export async function POST(req: NextRequest) {
   const results: Record<string, unknown> = {};
 
   try {
+    const queued: Record<string, string> = {
+      import: "data.import",
+      duplicates: "data.duplicates",
+      geocode: "data.geocode",
+      backup: "system.backup",
+      analytics: "analytics.aggregate",
+      cleanup: "data.cleanup",
+      report: "system.report",
+      notify: "notify.deliver",
+      expiry: "data.expiry",
+    };
+    if (queued[job]) {
+      const row = await enqueueJob(queued[job], { triggeredBy: authz.userId }, { idempotencyKey: `${queued[job]}-${new Date().toISOString().slice(0, 13)}` });
+      results.queued = { type: queued[job], id: row?.id };
+    }
+    if (job === "queue") {
+      return jsonOk({ types: JOB_TYPES, queued: results.queued });
+    }
     if (job === "expiry" || job === "all") {
       // Flag expired verifications: demote PUBLISHED with expired review to VERIFIED + note when ENFORCE_EXPIRY_DOWNGRADE=1
       const expired = await prisma.location.findMany({

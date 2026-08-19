@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -109,6 +110,9 @@ model User {
   organisationClaims   OrganisationClaim[]
   notifications        Notification[]
   apiKeys              ApiKey[]
+  mfaRecoveryRequests  MfaRecoveryRequest[] @relation("MfaRecoverySubject")
+  mfaRecoveriesOpened  MfaRecoveryRequest[] @relation("MfaRecoveryRequester")
+  mfaRecoveriesApproved MfaRecoveryRequest[] @relation("MfaRecoveryApprover")
 
   @@index([role, active])
   @@index([provinceId])
@@ -228,6 +232,9 @@ model Location {
   verificationSource    String?
   coordQuality          String         @default("unknown")
   coordSource           String?
+  sourceConfidence      String?
+  boundaryValid         String?
+  staleAt               DateTime?
   verificationExpiresAt DateTime?
   evidenceJson          Json           @default("[]")
   ownerId               String?
@@ -282,6 +289,12 @@ model Organisation {
   companySize              String?
   cipcNumber               String?
   beeLevel                 String?
+  aliasesJson              Json                       @default("[]")
+  sourceConfidence         String?
+  confidenceScore          Float?
+  mergedIntoId             String?
+  mergedInto               Organisation?              @relation("OrganisationMergeTarget", fields: [mergedIntoId], references: [id])
+  mergedFrom               Organisation[]             @relation("OrganisationMergeTarget")
   provinceId               String?
   province                 Province?                  @relation(fields: [provinceId], references: [id])
   verified                 Boolean                    @default(false)
@@ -376,6 +389,16 @@ model FundingCall {
   summary        String
   description    String?
   amount         String?
+  fundingType    String?
+  minAmount      String?
+  maxAmount      String?
+  eligibleSectorsJson Json     @default("[]")
+  businessStage  String?
+  geography      String?
+  ownershipCriteria String?
+  applicationRequirements String?
+  instrument     String?
+  openingDate    DateTime?
   deadline       DateTime?
   url            String?
   status         RecordStatus  @default(DRAFT)
@@ -445,6 +468,13 @@ model Procurement {
   description    String?
   closingDate    DateTime?
   budget         String?
+  referenceNumber String?
+  issuingAuthority String?
+  procurementCategory String?
+  briefingAt     DateTime?
+  closingTime    String?
+  valueRange     String?
+  documentsJson  Json          @default("[]")
   url            String?
   status         RecordStatus  @default(DRAFT)
   provinceId     String?
@@ -554,13 +584,18 @@ model AppSetting {
 }
 
 model BackupRecord {
-  id          String   @id @default(cuid())
-  filename    String
-  path        String
-  sizeBytes   Int
-  notes       String?
-  createdById String?
-  createdAt   DateTime @default(now())
+  id             String    @id @default(cuid())
+  filename       String
+  path           String
+  sizeBytes      Int
+  notes          String?
+  checksumSha256 String?
+  objectsCopied  Int       @default(0)
+  lastVerifiedAt DateTime?
+  rpoMinutes     Int?
+  rtoMinutes     Int?
+  createdById    String?
+  createdAt      DateTime  @default(now())
 }
 
 model StoredObject {
@@ -661,6 +696,10 @@ model Notification {
   sentAt       DateTime?
   lastError    String?
   metadataJson Json?
+  channel      String    @default("email")
+  provider     String?
+  bouncedAt    DateTime?
+  receiptId    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -681,22 +720,28 @@ model NotificationPreference {
 }
 
 model BackgroundJob {
-  id          String    @id @default(cuid())
-  type        String
-  status      JobStatus @default(PENDING)
-  payloadJson Json
-  attempts    Int       @default(0)
-  maxAttempts Int       @default(5)
-  runAfter    DateTime  @default(now())
-  lockedAt    DateTime?
-  lockedBy    String?
-  lastError   String?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  type           String
+  status         JobStatus @default(PENDING)
+  payloadJson    Json
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  runAfter       DateTime  @default(now())
+  lockedAt       DateTime?
+  lockedBy       String?
+  lastError      String?
+  completedAt    DateTime?
+  idempotencyKey String?   @unique
+  deadLetter     Boolean   @default(false)
+  maxRuntimeMs   Int       @default(300000)
+  leaseExpiresAt DateTime?
+  heartbeatAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([status, runAfter])
   @@index([type, createdAt])
+  @@index([leaseExpiresAt])
 }
 
 model ApiKey {
@@ -710,9 +755,60 @@ model ApiKey {
   scopesJson     Json      @default("[]")
   rateLimit      Int       @default(600)
   active         Boolean   @default(true)
-  expiresAt      DateTime?
-  lastUsedAt     DateTime?
-  createdAt      DateTime  @default(now())
+  expiresAt        DateTime?
+  lastUsedAt       DateTime?
+  allowedCidrsJson Json      @default("[]")
+  rotatedFromId    String?
+  createdAt        DateTime  @default(now())
 
   @@index([organisationId, active])
+}
+
+model MfaRecoveryRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation("MfaRecoverySubject", fields: [userId], references: [id], onDelete: Cascade)
+  requestedById  String
+  requestedBy    User      @relation("MfaRecoveryRequester", fields: [requestedById], references: [id])
+  approvedById   String?
+  approvedBy     User?     @relation("MfaRecoveryApprover", fields: [approvedById], references: [id])
+  reason         String
+  status         String    @default("PENDING")
+  tokenHash      String?   @unique
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+model SearchSynonym {
+  id           String   @id @default(cuid())
+  term         String
+  locale       String   @default("en")
+  synonymsJson Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([term, locale])
+}
+
+model WorkerHeartbeat {
+  id          String   @id @default(cuid())
+  workerId    String   @unique
+  lastSeenAt  DateTime
+  queueDepth  Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model OrganisationMerge {
+  id            String   @id @default(cuid())
+  sourceId      String
+  targetId      String
+  performedById String?
+  payloadJson   Json
+  createdAt     DateTime @default(now())
+
+  @@index([targetId, createdAt])
 }

@@ -26,6 +26,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "backup:restore-test": "node scripts/restore-backup-smoke.js",
     "backup:pg-smoke": "node scripts/postgres-backup-smoke.js",
+    "backup:dr": "node scripts/disaster-recovery-smoke.js",
+    "neon:verify": "node scripts/neon-verify.js",
     "mfa:rotate": "tsx scripts/rotate-mfa-secrets.ts",
     "sbom": "node scripts/generate-sbom.js",
     "jobs:worker": "tsx scripts/job-worker.ts",

@@ -28,6 +28,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
       NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use-32ch"
       NEXTAUTH_URL: "http://localhost:3000"
       CAPTCHA_DISABLED: "1"
@@ -60,6 +61,9 @@ jobs:
       - name: Prisma generate + migrate deploy
         run: npx prisma generate && npx prisma migrate deploy
 
+      - name: Verify PostGIS, pg_trgm, pooling URLs
+        run: node scripts/neon-verify.js
+
       - name: Seed smoke (destructive allowed in CI)
         run: node prisma/seed.js
 
@@ -84,6 +88,9 @@ jobs:
       - name: PostgreSQL backup/restore smoke
         run: node scripts/postgres-backup-smoke.js
 
+      - name: Disaster recovery smoke (dump, encryption key failure, PostGIS objects)
+        run: node scripts/disaster-recovery-smoke.js
+
       - name: Docs present
         run: |
           test -f docs/ops-runbook.md
@@ -91,6 +98,8 @@ jobs:
           test -f docs/next15-upgrade.md
           test -f docs/data-quality.md
           test -f docs/branch-protection.md
+          test -f docs/backup-rpo-rto.md
+          test -f docs/staging.md
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
@@ -118,6 +127,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -132,6 +142,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
           PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT PostGIS_Version();"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT extversion FROM pg_extension WHERE extname='pg_trgm';"
           PGPASSWORD=postgres psql -h localhost -U postgres -d ictmap -c "SELECT to_regclass('public.Location') IS NOT NULL;"
       - name: Docs present
         run: |

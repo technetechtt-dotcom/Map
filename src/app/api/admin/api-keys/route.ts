@@ -13,6 +13,8 @@ const createSchema = z.object({
   scopes: z.array(z.enum(["locations:read", "organisations:read", "ecosystem:read"])).min(1),
   rateLimit: z.number().int().min(10).max(10_000).default(600),
   expiresAt: z.string().datetime().optional(),
+  allowedCidrs: z.array(z.string().min(3).max(64)).max(20).optional(),
+  rotateId: z.string().optional(),
 });
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -47,10 +49,25 @@ export async function POST(req: NextRequest) {
       organisationId: body.data.organisationId,
       scopesJson: body.data.scopes,
       rateLimit: body.data.rateLimit,
+      allowedCidrsJson: body.data.allowedCidrs || [],
+      rotatedFromId: body.data.rotateId,
       expiresAt: body.data.expiresAt ? new Date(body.data.expiresAt) : undefined,
     },
   });
-  await writeAudit({ user: auth.user, action: "API_KEY_CREATE", entityType: "ApiKey", entityId: key.id, metadata: { name: key.name, prefix, scopes: body.data.scopes }, ipAddress: clientIp(req) });
+  if (body.data.rotateId) {
+    await prisma.apiKey.update({ where: { id: body.data.rotateId }, data: { active: false } });
+  }
+  await writeAudit({ user: auth.user, action: body.data.rotateId ? "API_KEY_ROTATE" : "API_KEY_CREATE", entityType: "ApiKey", entityId: key.id, metadata: { name: key.name, prefix, scopes: body.data.scopes }, ipAddress: clientIp(req) });
+  await import("@/lib/alerts").then(({ securityAlert }) =>
+    securityAlert({
+      type: body.data.rotateId ? "api_key.rotated" : "api_key.created",
+      subject: body.data.rotateId ? "API key rotated" : "New API key created",
+      body: `API key ${prefix} was ${body.data.rotateId ? "rotated" : "created"}.`,
+      userId: auth.user.id,
+      email: auth.user.email || undefined,
+      metadata: { prefix, organisationId: body.data.organisationId },
+    })
+  );
   return jsonOk({ key: { id: key.id, name: key.name, prefix }, secret, note: "The secret is shown once." }, 201);
 }
 
@@ -64,5 +81,15 @@ export async function DELETE(req: NextRequest) {
   if (!id) return jsonError("id required");
   const key = await prisma.apiKey.update({ where: { id }, data: { active: false } });
   await writeAudit({ user: auth.user, action: "API_KEY_REVOKE", entityType: "ApiKey", entityId: id, metadata: { prefix: key.prefix }, ipAddress: clientIp(req) });
+  await import("@/lib/alerts").then(({ securityAlert }) =>
+    securityAlert({
+      type: "api_key.revoked",
+      subject: "API key revoked",
+      body: `API key ${key.prefix} was revoked.`,
+      userId: auth.user.id,
+      email: auth.user.email || undefined,
+      metadata: { prefix: key.prefix },
+    })
+  );
   return jsonOk({ revoked: true });
 }

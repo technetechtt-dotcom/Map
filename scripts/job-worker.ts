@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../src/lib/prisma";
 import { deliverNotification } from "../src/lib/notify";
-import { claimJobs } from "../src/lib/jobs";
+import { claimJobs, heartbeatJob, recordWorkerHeartbeat } from "../src/lib/jobs";
+import { dispatchJob } from "../src/lib/jobs/handlers";
 import { log } from "../src/lib/logger";
 
 const workerId = `${process.env.HOSTNAME || "worker"}:${randomUUID()}`;
@@ -19,12 +20,19 @@ async function cycle() {
   }
 
   const jobs = await claimJobs(workerId);
+  await recordWorkerHeartbeat(workerId, jobs.length);
   for (const job of jobs) {
+    const beat = setInterval(() => {
+      void heartbeatJob(job.id, workerId, Math.max(60_000, job.maxRuntimeMs));
+    }, 20_000);
     try {
-      // Specialized workers can claim imports, geocoding, duplicates, backups,
-      // expiry, analytics and reports by type. Unknown jobs fail visibly and
-      // are retried with bounded exponential backoff.
-      throw new Error(`No handler registered for ${job.type}`);
+      const payload = job.payloadJson && typeof job.payloadJson === "object" ? (job.payloadJson as Record<string, unknown>) : {};
+      const result = await dispatchJob(job.type, job.id, payload);
+      log.info("worker.handled", { type: job.type, id: job.id, result });
+      await prisma.backgroundJob.update({
+        where: { id: job.id },
+        data: { status: "COMPLETED", completedAt: new Date(), lockedAt: null, lockedBy: null, leaseExpiresAt: null },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const terminal = job.attempts >= job.maxAttempts;
@@ -32,12 +40,16 @@ async function cycle() {
         where: { id: job.id },
         data: {
           status: terminal ? "FAILED" : "PENDING",
+          deadLetter: terminal,
           lastError: message.slice(0, 2000),
           runAfter: new Date(Date.now() + Math.min(60, 2 ** Math.max(0, job.attempts - 1)) * 60_000),
           lockedAt: null,
           lockedBy: null,
+          leaseExpiresAt: null,
         },
       });
+    } finally {
+      clearInterval(beat);
     }
   }
   log.info("worker.cycle", { notifications: notifications.length, jobs: jobs.length, workerId });

@@ -2,6 +2,7 @@
 import { prisma } from "./prisma";
 import { log } from "./logger";
 import type { Prisma } from "@prisma/client";
+import { renderEmail, sendViaResend } from "./email";
 
 export type NotifyEvent = {
   type: string;
@@ -58,12 +59,31 @@ export async function deliverNotification(id: string): Promise<void> {
     if (!event.email) {
       await prisma.notification.update({
         where: { id },
-        data: { status: "COMPLETED", sentAt: new Date() },
+        data: { status: "COMPLETED", sentAt: new Date(), provider: "in-app" },
+      });
+      return;
+    }
+    const rendered = renderEmail(event.type, event.body, event.subject);
+    const resend = await sendViaResend(event.email, rendered.subject, rendered.html, rendered.text).catch(() => null);
+    if (resend) {
+      await prisma.notification.update({
+        where: { id },
+        data: { status: "COMPLETED", sentAt: new Date(), provider: resend.provider, receiptId: resend.receiptId },
       });
       return;
     }
     const webhook = process.env.NOTIFY_WEBHOOK_URL;
-    if (!webhook) throw new Error("No notification delivery adapter configured");
+    if (!webhook) {
+      if (process.env.NODE_ENV !== "production") {
+        await prisma.notification.update({
+          where: { id },
+          data: { status: "COMPLETED", sentAt: new Date(), provider: "dev-log" },
+        });
+        log.info("notify.dev_delivered", { id, to: "[redacted]", type: event.type });
+        return;
+      }
+      throw new Error("No notification delivery adapter configured");
+    }
     const response = await fetch(webhook, {
       method: "POST",
       headers: {
@@ -77,6 +97,7 @@ export async function deliverNotification(id: string): Promise<void> {
         to: event.email,
         subject: event.subject,
         body: event.body,
+        html: rendered.html,
         meta: event.metadataJson || {},
       }),
       signal: AbortSignal.timeout(10_000),
@@ -84,7 +105,7 @@ export async function deliverNotification(id: string): Promise<void> {
     if (!response.ok) throw new Error(`Notification adapter returned ${response.status}`);
     await prisma.notification.update({
       where: { id },
-      data: { status: "COMPLETED", sentAt: new Date() },
+      data: { status: "COMPLETED", sentAt: new Date(), provider: "webhook", receiptId: response.headers.get("x-message-id") },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

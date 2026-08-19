@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import { parseJsonArray } from "./shape";
+import { clientIpFromHeaders, ipInCidr } from "./security";
 
 export async function authenticateApiKey(req: Request, requiredScope: string) {
   const raw = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || req.headers.get("x-api-key") || "";
@@ -12,6 +13,11 @@ export async function authenticateApiKey(req: Request, requiredScope: string) {
   const actual = Buffer.from(createHash("sha256").update(raw).digest("hex"), "hex");
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
   if (!parseJsonArray(row.scopesJson).includes(requiredScope)) return null;
+  const allowed = parseJsonArray(row.allowedCidrsJson);
+  if (allowed.length) {
+    const ip = clientIpFromHeaders(req.headers);
+    if (!allowed.some((cidr) => ipInCidr(ip, cidr))) return null;
+  }
   await prisma.apiKey.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } });
   return row;
 }

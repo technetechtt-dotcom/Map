@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { decryptSecret, encryptSecret, isEncryptedSecret, rotateSecret } from "@/lib/secret-box";
+import { wrapLocalDataKey, unwrapLocalDataKey } from "@/lib/kms";
 
 beforeAll(() => {
   process.env.MFA_ENCRYPTION_KEY = "unit-test-mfa-key-that-is-32-characters+";
@@ -37,5 +38,13 @@ describe("MFA secret box", () => {
     delete process.env.MFA_PREVIOUS_KEY_VERSION;
     delete process.env.MFA_ENCRYPTION_KEY_PREVIOUS;
     process.env.MFA_ENCRYPTION_KEY = "unit-test-mfa-key-that-is-32-characters+";
+  });
+});
+
+describe("KMS local wrapping", () => {
+  it("wraps and unwraps a data key", () => {
+    const key = Buffer.from("0123456789abcdef0123456789abcdef");
+    const wrapped = wrapLocalDataKey(key, "wrapping-secret-that-is-long-enough");
+    expect(unwrapLocalDataKey(wrapped, "wrapping-secret-that-is-long-enough").equals(key)).toBe(true);
   });
 });
