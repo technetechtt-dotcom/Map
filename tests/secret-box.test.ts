@@ -2,7 +2,7 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { decryptSecret, encryptSecret, isEncryptedSecret, rotateSecret } from "@/lib/secret-box";
 
 beforeAll(() => {
-  process.env.MFA_ENCRYPTION_KEY = "unit-test-mfa-key-16+";
+  process.env.MFA_ENCRYPTION_KEY = "unit-test-mfa-key-that-is-32-characters+";
 });
 
 describe("MFA secret box", () => {
@@ -21,7 +21,21 @@ describe("MFA secret box", () => {
     expect(decryptSecret(rotated)).toBe("abc123secret");
   });
 
-  it("reads legacy plaintext", () => {
-    expect(decryptSecret("legacy-plain")).toBe("legacy-plain");
+  it("rejects legacy plaintext", () => {
+    expect(() => decryptSecret("legacy-plain")).toThrow(/Plaintext/);
+  });
+
+  it("decrypts with the previous version during rotation", () => {
+    process.env.MFA_KEY_VERSION = "1";
+    const stored = encryptSecret("rotate-me");
+    process.env.MFA_KEY_VERSION = "2";
+    process.env.MFA_ENCRYPTION_KEY = "new-unit-test-mfa-key-that-is-32-characters+";
+    process.env.MFA_PREVIOUS_KEY_VERSION = "1";
+    process.env.MFA_ENCRYPTION_KEY_PREVIOUS = "unit-test-mfa-key-that-is-32-characters+";
+    expect(decryptSecret(stored, 1)).toBe("rotate-me");
+    delete process.env.MFA_KEY_VERSION;
+    delete process.env.MFA_PREVIOUS_KEY_VERSION;
+    delete process.env.MFA_ENCRYPTION_KEY_PREVIOUS;
+    process.env.MFA_ENCRYPTION_KEY = "unit-test-mfa-key-that-is-32-characters+";
   });
 });

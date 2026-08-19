@@ -1,0 +1,50 @@
+name: Encrypted production backup
+
+on:
+  schedule:
+    - cron: "25 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pg-dump:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate backup configuration
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$BACKUP_ENCRYPTION_KEY"
+          test -n "$BACKUP_DESTINATION"
+      - name: Dump and encrypt database
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          pg_dump --format=custom --no-owner --file=database.dump "$DATABASE_URL"
+          printf '%s' "$BACKUP_ENCRYPTION_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 --output database.dump.gpg database.dump
+      - name: Export object-storage manifest
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          mkdir -p data
+          psql "$DATABASE_URL" -At > data/object-storage-manifest.json <<'SQL'
+          SELECT COALESCE(json_agg(row_to_json(objects)), '[]'::json)
+          FROM (SELECT id, filename, url, "contentType", "sizeBytes", sha256, access, driver, "organisationId", "uploadedById", "createdAt"
+                FROM "StoredObject" ORDER BY "createdAt") objects;
+          SQL
+      - name: Upload off-site database and object-storage manifest
+        env:
+          BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          rclone copy database.dump.gpg "$BACKUP_DESTINATION/database/$(date -u +%Y-%m-%d)/"
+          rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$(date -u +%Y-%m-%d)/"

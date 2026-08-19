@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
-import { readJsonLimited } from "@/lib/security";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
+import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { canManageAllProvinces, canPublish } from "@/lib/policy";
 import { findDuplicateCandidates, findNearbyLocations } from "@/lib/duplicates";
+import { pointInGeoJson } from "@/lib/geo-validation";
 
 type ImportRow = {
   name?: string;
@@ -42,7 +43,7 @@ function parseCoord(v: unknown): number | null {
 
 /** Stage bulk import rows with duplicate report. Apply creates DRAFT locations only. */
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "import", { limit: 10, windowMs: 60_000 });
+  const limited = await enforceRateLimitAsync(req, "import", { limit: 10, windowMs: 60_000 });
   if (limited) return limited;
 
   const auth = await requireSession(["SUPER_ADMIN", "PROVINCIAL_ADMIN"]);
@@ -58,6 +59,10 @@ export async function POST(req: NextRequest) {
     rows?: ImportRow[];
     apply?: boolean;
     batchId?: string;
+    sourceUrl?: string;
+    sourceVersion?: string;
+    checksumSha256?: string;
+    licence?: string;
   };
 
   if (body.apply && body.batchId) {
@@ -67,14 +72,14 @@ export async function POST(req: NextRequest) {
         403
       );
     }
-    return applyBatch(body.batchId, auth.user);
+    return applyBatch(body.batchId, auth.user, clientIp(req));
   }
 
   const rows = Array.isArray(body.rows) ? body.rows.slice(0, MAX_ROWS) : [];
   if (!rows.length) return jsonError(`rows required (max ${MAX_ROWS})`, 400);
 
   const provinces = await prisma.province.findMany({
-    select: { id: true, slug: true, name: true },
+    select: { id: true, slug: true, name: true, geojson: true },
   });
   const categories = await prisma.category.findMany({
     select: { id: true, slug: true },
@@ -92,6 +97,10 @@ export async function POST(req: NextRequest) {
       latitude: true,
       longitude: true,
       slug: true,
+      website: true,
+      email: true,
+      phone: true,
+      address: true,
     },
   });
 
@@ -150,9 +159,13 @@ export async function POST(req: NextRequest) {
     ) {
       issues.push("coordinates outside SA bounds");
     }
+    if (lat != null && lng != null && provinceId) {
+      const boundaryResult = pointInGeoJson(lng, lat, provById.get(provinceId)?.geojson);
+      if (boundaryResult === false) issues.push("coordinates outside assigned province boundary");
+    }
 
     const duplicates = name
-      ? findDuplicateCandidates({ name, provinceId }, existingLocs, {
+      ? findDuplicateCandidates({ name, provinceId, website: row.website, email: row.email, phone: row.phone, address: row.address }, existingLocs, {
           threshold: 0.72,
           sameProvinceOnly: true,
         }).slice(0, 5)
@@ -193,9 +206,17 @@ export async function POST(req: NextRequest) {
   }
 
   const okCount = report.filter((r) => r.ok).length;
+  const calculatedChecksum = createHash("sha256").update(JSON.stringify(staged)).digest("hex");
+  if (body.checksumSha256 && body.checksumSha256.toLowerCase() !== calculatedChecksum) {
+    return jsonError("Dataset checksum does not match staged rows", 400);
+  }
   const batch = await prisma.importBatch.create({
     data: {
       source: body.source || "manual",
+      sourceUrl: body.sourceUrl,
+      sourceVersion: body.sourceVersion,
+      checksumSha256: body.checksumSha256 || calculatedChecksum,
+      licence: body.licence,
       status: "STAGED",
       provinceId: canManageAllProvinces(auth.user) ? null : auth.user.provinceId,
       rowCount: staged.length,
@@ -211,6 +232,8 @@ export async function POST(req: NextRequest) {
     action: "IMPORT_STAGE",
     entityType: "ImportBatch",
     entityId: batch.id,
+    provinceId: batch.provinceId,
+    ipAddress: clientIp(req),
     metadata: { rowCount: staged.length, okCount },
   });
 
@@ -226,7 +249,8 @@ export async function POST(req: NextRequest) {
 async function applyBatch(
   batchId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  user: any
+  user: any,
+  ipAddress?: string | null
 ) {
   const batch = await prisma.importBatch.findUnique({ where: { id: batchId } });
   if (!batch) return jsonError("Batch not found", 404);
@@ -332,6 +356,8 @@ async function applyBatch(
     action: "IMPORT_APPLY",
     entityType: "ImportBatch",
     entityId: batchId,
+    provinceId: batch.provinceId,
+    ipAddress,
     metadata: { applied, errors: errors.length },
   });
 

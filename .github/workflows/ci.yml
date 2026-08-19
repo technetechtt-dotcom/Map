@@ -32,16 +32,16 @@ jobs:
       NEXTAUTH_URL: "http://localhost:3000"
       CAPTCHA_DISABLED: "1"
       BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
-      MFA_ENCRYPTION_KEY: "ci-mfa-encryption-key-min-16"
+      MFA_ENCRYPTION_KEY: "ci-mfa-encryption-key-at-least-32-characters"
       ALLOW_DEMO_USERS: "0"
       SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
       ALLOW_DATABASE_RESET: "1"
       NODE_ENV: test
       TRUST_PROXY: "0"
-      CSP_STRICT: "0"
+      CSP_STRICT: "1"
       HIBP_DISABLED: "1"
       RATE_LIMIT_ALLOW_MEMORY: "1"
-      SKIP_ENV_VALIDATION: "1"
+      POSTGRES_INTEGRATION: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -92,8 +92,8 @@ jobs:
           test -f docs/data-quality.md
           test -f docs/branch-protection.md
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Playwright smoke
         run: npm run test:e2e

@@ -13,7 +13,8 @@ import {
   canVerify,
 } from "@/lib/policy";
 import { locationWriteSchema } from "@/lib/validation";
-import { readJsonLimited } from "@/lib/security";
+import { clientIp, readJsonLimited } from "@/lib/security";
+import { pointInGeoJson, validatePointAssignment } from "@/lib/geo-validation";
 import { log } from "@/lib/logger";
 
 export async function GET(
@@ -100,6 +101,54 @@ export async function PATCH(
   );
   if (!assign.ok) return jsonError(assign.reason, 403);
 
+  if (body.organisationId) {
+    const organisation = await prisma.organisation.findUnique({
+      where: { id: body.organisationId },
+      select: { id: true, provinceId: true },
+    });
+    if (!organisation) return jsonError("Organisation not found", 404);
+    const nextProvinceId = body.provinceId ?? existing.provinceId;
+    if (organisation.provinceId && organisation.provinceId !== nextProvinceId) {
+      return jsonError("Organisation and location must belong to the same province", 400);
+    }
+  }
+
+  const nextProvinceId = body.provinceId ?? existing.provinceId;
+  let districtGeojson: unknown = null;
+  let municipalityGeojson: unknown = null;
+  if (body.categoryId) {
+    const category = await prisma.category.findUnique({ where: { id: body.categoryId }, select: { id: true } });
+    if (!category) return jsonError("Category not found", 404);
+  }
+  if (body.districtId) {
+    const district = await prisma.district.findFirst({ where: { id: body.districtId, provinceId: nextProvinceId }, select: { id: true, geojson: true } });
+    if (!district) return jsonError("District is outside the selected province", 400);
+    districtGeojson = district.geojson;
+  }
+  if (body.municipalityId) {
+    const municipality = await prisma.municipality.findFirst({ where: { id: body.municipalityId, district: { provinceId: nextProvinceId } }, select: { id: true, geojson: true } });
+    if (!municipality) return jsonError("Municipality is outside the selected province", 400);
+    municipalityGeojson = municipality.geojson;
+  }
+  if (body.latitude !== undefined || body.longitude !== undefined || body.provinceId !== undefined) {
+    const province = await prisma.province.findUnique({ where: { id: nextProvinceId }, select: { geojson: true } });
+    if (!province) return jsonError("Province not found", 404);
+    const assignment = validatePointAssignment(
+      body.longitude ?? existing.longitude,
+      body.latitude ?? existing.latitude,
+      province.geojson
+    );
+    if (assignment === "invalid" && process.env.ENFORCE_GEO_BOUNDARIES === "1") {
+      return jsonError("Coordinates are outside the selected province boundary", 400);
+    }
+    if (process.env.ENFORCE_GEO_BOUNDARIES === "1" && districtGeojson && !pointInGeoJson(body.longitude ?? existing.longitude, body.latitude ?? existing.latitude, districtGeojson)) {
+      return jsonError("Coordinates are outside the selected district boundary", 400);
+    }
+    if (process.env.ENFORCE_GEO_BOUNDARIES === "1" && municipalityGeojson && !pointInGeoJson(body.longitude ?? existing.longitude, body.latitude ?? existing.latitude, municipalityGeojson)) {
+      return jsonError("Coordinates are outside the selected municipality boundary", 400);
+    }
+  }
+
   const statusCheck = assertStatusChange(auth.user, body.status, existing.status);
   if (!statusCheck.ok) return jsonError(statusCheck.reason, 403);
 
@@ -179,6 +228,7 @@ export async function PATCH(
     metadata: { fields: Object.keys(body) },
     provinceId: updated.provinceId,
     organisationId: updated.organisationId,
+    ipAddress: clientIp(req),
   });
 
   log.info("location.updated", { id: updated.id, by: auth.user.id });
@@ -213,6 +263,7 @@ export async function DELETE(
     entityId: existing.id,
     provinceId: existing.provinceId,
     organisationId: existing.organisationId,
+    ipAddress: clientIp(_req),
   });
   return jsonOk({ ok: true });
 }

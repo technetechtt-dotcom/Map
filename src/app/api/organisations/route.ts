@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/shape";
 import { layoutSpiralOffsets } from "@/lib/pin-layout";
+import { jsonError, jsonOk, requireSession } from "@/lib/api";
+import { assertProvinceAccess, canPublish, canVerify, isOrgAdmin, isSuperAdmin } from "@/lib/policy";
+import { clientIp, readJsonLimited } from "@/lib/security";
+import { writeAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,11 +32,28 @@ export async function GET(req: NextRequest) {
     const mapMode = req.nextUrl.searchParams.get("map") === "1";
     const q = (req.nextUrl.searchParams.get("q") || "").trim().toLowerCase();
     const province = req.nextUrl.searchParams.get("province") || "";
+    const manage = req.nextUrl.searchParams.get("scope") === "manage";
+    const auth = manage ? await requireSession() : null;
+    if (auth?.error) return auth.error;
+    const actor = auth && "user" in auth ? auth.user : null;
+    // Contributors do not have an organisation-management view.  In
+    // particular, never turn a contributor's organisationId into a query
+    // scope: doing so would expose every organisation record in that tenant
+    // instead of the contributor's own records.
+    const manageWhere = manage
+      ? isSuperAdmin(actor)
+        ? {}
+        : actor?.role === "PROVINCIAL_ADMIN"
+          ? { provinceId: actor.provinceId || "__none__" }
+          : actor?.role === "ORG_ADMIN"
+            ? { id: actor.organisationId || "__none__" }
+            : { id: "__none__" }
+      : { status: "PUBLISHED" as const };
 
     const [rows, towns] = await Promise.all([
       prisma.organisation.findMany({
         where: {
-          status: "PUBLISHED",
+          ...manageWhere,
           ...(province
             ? {
                 province: {
@@ -41,7 +62,18 @@ export async function GET(req: NextRequest) {
               }
             : {}),
         },
-        include: { province: true },
+        include: {
+          province: true,
+          category: true,
+          relationshipsFrom: {
+            where: { status: "PUBLISHED" },
+            include: { target: { select: { id: true, slug: true, name: true, type: true } } },
+          },
+          relationshipsTo: {
+            where: { status: "PUBLISHED" },
+            include: { source: { select: { id: true, slug: true, name: true, type: true } } },
+          },
+        },
         orderBy: [{ type: "asc" }, { name: "asc" }],
       }),
       prisma.location.findMany({
@@ -90,6 +122,22 @@ export async function GET(req: NextRequest) {
         hostTownName: hostTown?.name ?? null,
         coordQuality: o.coordQuality,
         coordSource: o.coordSource,
+        category: o.category,
+        services: parseJsonArray(o.servicesJson),
+        skills: parseJsonArray(o.skillsJson),
+        technologies: parseJsonArray(o.technologiesJson),
+        certifications: parseJsonArray(o.certificationsJson),
+        serviceAreas: parseJsonArray(o.serviceAreasJson),
+        industrySectors: parseJsonArray(o.industrySectorsJson),
+        portfolio: parseJsonArray(o.portfolioJson),
+        companySize: o.companySize,
+        cipcNumber: o.cipcNumber,
+        beeLevel: o.beeLevel,
+        verificationExpiresAt: o.verificationExpiresAt,
+        relationships: [
+          ...o.relationshipsFrom.map((r) => ({ id: r.id, type: r.type, direction: "outgoing", organisation: r.target })),
+          ...o.relationshipsTo.map((r) => ({ id: r.id, type: r.type, direction: "incoming", organisation: r.source })),
+        ],
         color: TYPE_COLORS[o.type] || TYPE_COLORS.default,
       };
     });
@@ -232,4 +280,89 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+  // Organisation administrators may edit their existing tenant record, but
+  // cannot create additional organisations or choose a second tenant.
+  if (!canVerify(auth.user)) return jsonError("Only provincial or super administrators may create organisations", 403);
+  const parsed = await readJsonLimited(req);
+  if (!parsed.ok) return jsonError(parsed.error, 413);
+  const body = parsed.data as Record<string, unknown>;
+  if (!body.name || !body.slug || !body.type) return jsonError("name, slug and type required");
+  const provinceId = String(body.provinceId || auth.user.provinceId || "") || null;
+  const access = assertProvinceAccess(auth.user, provinceId);
+  if (!access.ok) return jsonError(access.reason, 403);
+  const requestedStatus = String(body.status || "DRAFT");
+  const status = requestedStatus === "PUBLISHED" && canPublish(auth.user) ? "PUBLISHED" : "DRAFT";
+  const organisation = await prisma.organisation.create({
+    data: {
+      name: String(body.name), slug: String(body.slug), type: String(body.type),
+      description: body.description ? String(body.description) : null,
+      website: body.website ? String(body.website) : null,
+      email: body.email ? String(body.email) : null,
+      phone: body.phone ? String(body.phone) : null,
+      provinceId, status,
+      servicesJson: Array.isArray(body.services) ? body.services : [],
+      skillsJson: Array.isArray(body.skills) ? body.skills : [],
+      technologiesJson: Array.isArray(body.technologies) ? body.technologies : [],
+      certificationsJson: Array.isArray(body.certifications) ? body.certifications : [],
+      serviceAreasJson: Array.isArray(body.serviceAreas) ? body.serviceAreas : [],
+      industrySectorsJson: Array.isArray(body.industrySectors) ? body.industrySectors : [],
+      companySize: body.companySize ? String(body.companySize) : null,
+      cipcNumber: body.cipcNumber ? String(body.cipcNumber) : null,
+      beeLevel: body.beeLevel ? String(body.beeLevel) : null,
+    },
+  });
+  await writeAudit({ user: auth.user, action: "CREATE_ORGANISATION", entityType: "Organisation", entityId: organisation.id, metadata: { status }, ipAddress: clientIp(req) });
+  return jsonOk({ organisation }, 201);
+}
+
+export async function PATCH(req: NextRequest) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+  const parsed = await readJsonLimited(req);
+  if (!parsed.ok) return jsonError(parsed.error, 413);
+  const body = parsed.data as Record<string, unknown>;
+  const id = String(body.id || "");
+  if (!id) return jsonError("id required");
+  const current = await prisma.organisation.findUnique({ where: { id } });
+  if (!current) return jsonError("Not found", 404);
+  if (!isSuperAdmin(auth.user) && auth.user.role === "PROVINCIAL_ADMIN" && current.provinceId !== auth.user.provinceId) return jsonError("Outside your province scope", 403);
+  if (isOrgAdmin(auth.user) && current.id !== auth.user.organisationId) return jsonError("Outside your organisation scope", 403);
+  if (!canVerify(auth.user) && !isOrgAdmin(auth.user)) return jsonError("Forbidden", 403);
+  if (body.status !== undefined && !["DRAFT", "PENDING_REVIEW", "VERIFIED", "PUBLISHED", "ARCHIVED"].includes(String(body.status))) {
+    return jsonError("Invalid organisation status", 400);
+  }
+  if (
+    (body.status === "VERIFIED" || body.status === "PUBLISHED" || body.status === "ARCHIVED") &&
+    !canVerify(auth.user)
+  ) {
+    return jsonError("Only provincial or super administrators may verify, publish or archive", 403);
+  }
+  const allowed = ["name", "type", "description", "website", "email", "phone", "companySize", "cipcNumber", "beeLevel", "status"] as const;
+  const data: Record<string, unknown> = {};
+  for (const key of allowed) if (body[key] !== undefined) data[key] = body[key];
+  for (const [input, column] of [["services", "servicesJson"], ["skills", "skillsJson"], ["technologies", "technologiesJson"], ["certifications", "certificationsJson"], ["serviceAreas", "serviceAreasJson"], ["industrySectors", "industrySectorsJson"], ["portfolio", "portfolioJson"]] as const) {
+    if (Array.isArray(body[input])) data[column] = body[input];
+  }
+  const organisation = await prisma.organisation.update({ where: { id }, data });
+  await writeAudit({ user: auth.user, action: "UPDATE_ORGANISATION", entityType: "Organisation", entityId: id, metadata: { fields: Object.keys(data) }, provinceId: current.provinceId, ipAddress: clientIp(req) });
+  return jsonOk({ organisation });
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+  if (!canVerify(auth.user)) return jsonError("Forbidden", 403);
+  const id = req.nextUrl.searchParams.get("id") || "";
+  const current = await prisma.organisation.findUnique({ where: { id } });
+  if (!current) return jsonError("Not found", 404);
+  const access = assertProvinceAccess(auth.user, current.provinceId);
+  if (!access.ok) return jsonError(access.reason, 403);
+  const organisation = await prisma.organisation.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await writeAudit({ user: auth.user, action: "ARCHIVE_ORGANISATION", entityType: "Organisation", entityId: id, provinceId: current.provinceId, ipAddress: clientIp(req) });
+  return jsonOk({ organisation });
 }

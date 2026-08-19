@@ -67,14 +67,12 @@ export async function pruneAnalytics(retentionDays = 90) {
   return prisma.analyticsEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
 }
 
-/** Retention: archive audit logs older than N days into BackupRecord note count */
+/**
+ * Audit rows are append-only and must not be deleted by the application.
+ * Return the archival population so an off-site export job can retain it.
+ */
 export async function pruneAuditLogs(retentionDays = 365) {
   const cutoff = new Date(Date.now() - retentionDays * 24 * 3600 * 1000);
-  // Soft retention: keep security events; delete only high-volume SEARCH logs when implemented
-  return prisma.auditLog.deleteMany({
-    where: {
-      createdAt: { lt: cutoff },
-      action: { in: ["locations.search", "VIEW"] },
-    },
-  });
+  const count = await prisma.auditLog.count({ where: { createdAt: { lt: cutoff } } });
+  return { count, cutoff, archiveRequired: count > 0 };
 }

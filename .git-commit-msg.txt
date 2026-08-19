@@ -1,0 +1,8 @@
+Migrate to Neon PostGIS, fix CSP and auth security, seed map data
+
+- Migrated from local Docker PostGIS to Neon cloud database for stability
+- Added strict coordinate quality checks in Prisma schema
+- Hardened MFA re-enrollment, proxy IP tracking, and env validations
+- Fixed CSP issues blocking Next.js Fast Refresh in dev mode
+- Updated package overrides for nanoid security vulnerability
+- Seeded default Northern Cape boundary and organisation data

@@ -7,6 +7,7 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverComponentsExternalPackages: ["@prisma/client", "bcryptjs", "sharp"],
+    instrumentationHook: true,
   },
   poweredByHeader: false,
   // Security headers for all routes including static (middleware also sets CSP dynamically)

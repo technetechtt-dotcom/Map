@@ -44,7 +44,11 @@ export default function AccountSecurityPage() {
   }
 
   async function setupMfa() {
-    const r = await fetch("/api/auth/mfa", { method: "POST" });
+    const r = await fetch("/api/auth/mfa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
       setMsg(data.error || "MFA setup failed");
@@ -57,6 +61,46 @@ export default function AccountSecurityPage() {
       otpauthUrl: data.otpauthUrl,
     }));
     setMsg("Add the secret (or otpauth URI) to your authenticator, then enter the 6-digit code.");
+  }
+
+  async function resetMfa(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const r = await fetch("/api/auth/mfa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reset",
+        currentPassword: fd.get("currentPassword"),
+        existingMfaCode: fd.get("existingMfaCode"),
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return setMsg(data.error || "MFA reset failed");
+    setMfa((current) => ({
+      ...current,
+      secret: data.secret,
+      sampleCode: data.sampleCode,
+      otpauthUrl: data.otpauthUrl,
+    }));
+    setMsg("Confirm the replacement secret below. Existing MFA remains active until confirmation.");
+  }
+
+  async function disableMfa(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const r = await fetch("/api/auth/mfa", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "disable",
+        password: fd.get("password"),
+        existingMfaCode: fd.get("existingMfaCode"),
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    setMsg(r.ok ? "MFA disabled. Sign in again." : data.error || "MFA disable failed");
+    if (r.ok) setMfa((current) => ({ ...current, mfaEnabled: false }));
   }
 
   async function enableMfa(e: FormEvent<HTMLFormElement>) {
@@ -137,6 +181,30 @@ export default function AccountSecurityPage() {
               </form>
             )}
           </>
+        )}
+        {mfa.mfaEnabled && !mfa.mfaRequired && (
+          <div className="grid gap-4">
+            <form onSubmit={resetMfa} className="grid gap-3 border-t pt-3">
+              <h3 className="font-semibold">Reset MFA</h3>
+              <p className="text-xs text-muted">Your existing factor stays active until the replacement is confirmed.</p>
+              <input className="field" name="currentPassword" type="password" placeholder="Current password" required />
+              <input className="field" name="existingMfaCode" placeholder="Current MFA or recovery code" required />
+              <button className="btn" type="submit">Start MFA reset</button>
+            </form>
+            <form onSubmit={disableMfa} className="grid gap-3 border-t pt-3">
+              <h3 className="font-semibold">Disable MFA</h3>
+              <input className="field" name="password" type="password" placeholder="Current password" required />
+              <input className="field" name="existingMfaCode" placeholder="Current MFA or recovery code" required />
+              <button className="btn" type="submit">Disable MFA and revoke sessions</button>
+            </form>
+          </div>
+        )}
+        {mfa.mfaEnabled && mfa.secret && (
+          <form onSubmit={enableMfa} className="grid gap-3 border-t pt-3">
+            <p className="text-xs break-all">Replacement secret: <code>{mfa.secret}</code></p>
+            <input className="field" name="code" placeholder="Code from replacement authenticator" required minLength={6} />
+            <button className="btn" type="submit">Confirm MFA replacement</button>
+          </form>
         )}
       </section>
 

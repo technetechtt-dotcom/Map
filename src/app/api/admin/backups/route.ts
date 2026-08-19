@@ -117,6 +117,14 @@ export async function POST() {
       sources,
       invitations,
       storedObjects,
+      organisationCategories,
+      organisationRelationships,
+      organisationClaims,
+      translations,
+      notificationPreferences,
+      notifications,
+      backgroundJobs,
+      apiKeys,
     ] = await Promise.all([
       prisma.location.findMany({
         include: { category: true, province: true, district: true, municipality: true },
@@ -164,6 +172,14 @@ export async function POST() {
         },
       }),
       prisma.storedObject.findMany(),
+      prisma.organisationCategory.findMany(),
+      prisma.organisationRelationship.findMany(),
+      prisma.organisationClaim.findMany(),
+      prisma.translation.findMany(),
+      prisma.notificationPreference.findMany(),
+      prisma.notification.findMany(),
+      prisma.backgroundJob.findMany(),
+      prisma.apiKey.findMany(),
     ]);
 
     const payload = {
@@ -187,12 +203,28 @@ export async function POST() {
       passwordResetTokens: [] as unknown[],
       invitations,
       storedObjects,
+      organisationCategories,
+      organisationRelationships,
+      organisationClaims,
+      translations,
+      notificationPreferences,
+      notifications,
+      backgroundJobs,
+      apiKeys,
       note:
         "Off-site copy required. Local disk is not durable on serverless. Rotate BACKUP_ENCRYPTION_KEY with dual-key procedure only.",
     };
 
     const backupDir = path.join(process.cwd(), "data", "backups");
     await mkdir(backupDir, { recursive: true });
+    // Keep an off-site-restorable manifest for S3/object-storage content. The
+    // binary objects remain in the object store; checksums and ownership data
+    // make the restore verifiable and prevent silent orphaning.
+    await writeFile(
+      path.join(process.cwd(), "data", "object-storage-manifest.json"),
+      JSON.stringify({ exportedAt: payload.exportedAt, objects: storedObjects }, null, 2),
+      "utf8"
+    );
     const filename = `backup-${new Date().toISOString().replace(/[:.]/g, "-")}.enc`;
     const full = path.join(backupDir, filename);
     const encrypted = encryptBackupJson(JSON.stringify(payload));

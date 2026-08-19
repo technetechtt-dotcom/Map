@@ -2,21 +2,10 @@
  * Client IP helper — never trusts forwarding headers unless TRUST_PROXY=1.
  */
 
-const HTML_ESCAPE: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-export function escapeHtml(value: unknown): string {
-  return String(value ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPE[ch] || ch);
-}
-
-export function escapeAttr(value: unknown): string {
-  return escapeHtml(value).replace(/`/g, "&#96;");
-}
+import { createHash, timingSafeEqual } from "crypto";
+import { isIP } from "net";
+// Re-export for existing server-side callers and backwards compatibility.
+export { escapeAttr, escapeHtml } from "./escape";
 
 export const MAX_JSON_BYTES = 128 * 1024;
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -33,6 +22,7 @@ export async function readJsonLimited<T = unknown>(
   if (buf.byteLength > maxBytes) {
     return { ok: false, error: `Payload too large (max ${maxBytes} bytes)` };
   }
+  if (buf.byteLength === 0) return { ok: true, data: {} as T };
   try {
     return { ok: true, data: JSON.parse(buf.toString("utf8")) as T };
   } catch {
@@ -95,8 +85,17 @@ export async function verifyCaptcha(input: {
   return { ok: false, error: "CAPTCHA not configured" };
 }
 
-function looksLikeIp(value: string): boolean {
-  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value) || /^[0-9a-fA-F:]+$/.test(value);
+export function normalizeIp(value: string): string | null {
+  let candidate = value.trim();
+  if (!candidate) return null;
+  if (candidate.startsWith("[") && candidate.includes("]")) {
+    candidate = candidate.slice(1, candidate.indexOf("]"));
+  } else if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/.test(candidate)) {
+    candidate = candidate.slice(0, candidate.lastIndexOf(":"));
+  }
+  const zone = candidate.indexOf("%");
+  if (zone >= 0) candidate = candidate.slice(0, zone);
+  return isIP(candidate) ? candidate.toLowerCase() : null;
 }
 
 function headerGet(
@@ -113,25 +112,103 @@ function headerGet(
   return v || null;
 }
 
-/**
- * Resolve client IP. X-Forwarded-For / X-Real-IP are ignored unless TRUST_PROXY=1.
- * With a single trusted hop, use the left-most forwarded address after validating shape.
- */
+function safeEqual(a: string, b: string): boolean {
+  const aa = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return aa.length === bb.length && timingSafeEqual(aa, bb);
+}
+
+function ipv4Number(value: string): bigint | null {
+  const ip = normalizeIp(value);
+  if (!ip || isIP(ip) !== 4) return null;
+  return ip.split(".").reduce((out, octet) => (out << BigInt(8)) + BigInt(Number(octet)), BigInt(0));
+}
+
+function ipv6Number(value: string): bigint | null {
+  const ip = normalizeIp(value);
+  if (!ip || isIP(ip) !== 6) return null;
+  const [headRaw, tailRaw = ""] = ip.split("::");
+  const expandPart = (part: string): number[] => {
+    if (!part) return [];
+    const pieces = part.split(":");
+    const out: number[] = [];
+    for (const piece of pieces) {
+      if (piece.includes(".")) {
+        const v4 = ipv4Number(piece);
+        if (v4 == null) return [];
+        out.push(
+          Number((v4 >> BigInt(16)) & BigInt(0xffff)),
+          Number(v4 & BigInt(0xffff))
+        );
+      } else {
+        out.push(parseInt(piece || "0", 16));
+      }
+    }
+    return out;
+  };
+  const head = expandPart(headRaw);
+  const tail = expandPart(tailRaw);
+  const missing = 8 - head.length - tail.length;
+  const words = ip.includes("::")
+    ? [...head, ...Array(Math.max(0, missing)).fill(0), ...tail]
+    : head;
+  if (words.length !== 8 || words.some((word) => !Number.isInteger(word) || word < 0 || word > 0xffff)) {
+    return null;
+  }
+  return words.reduce((out, word) => (out << BigInt(16)) + BigInt(word), BigInt(0));
+}
+
+export function ipInCidr(ipValue: string, cidr: string): boolean {
+  const [networkValue, prefixValue] = cidr.trim().split("/");
+  const version = isIP(normalizeIp(ipValue) || "");
+  const networkVersion = isIP(normalizeIp(networkValue) || "");
+  if (!version || version !== networkVersion) return false;
+  const bits = version === 4 ? 32 : 128;
+  const prefix = prefixValue === undefined ? bits : Number(prefixValue);
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > bits) return false;
+  const ip = version === 4 ? ipv4Number(ipValue) : ipv6Number(ipValue);
+  const network = version === 4 ? ipv4Number(networkValue) : ipv6Number(networkValue);
+  if (ip == null || network == null) return false;
+  if (prefix === 0) return true;
+  const shift = BigInt(bits - prefix);
+  return (ip >> shift) === (network >> shift);
+}
+
+function proxyApproved(
+  headers: Headers | Record<string, string | string[] | undefined> | undefined,
+  remoteAddress?: string | null
+): boolean {
+  const cidrs = (process.env.TRUST_PROXY_CIDRS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const remote = remoteAddress ? normalizeIp(remoteAddress) : null;
+  if (remote && cidrs.some((cidr) => ipInCidr(remote, cidr))) return true;
+  const expectedSecret = process.env.TRUST_PROXY_HEADER_SECRET;
+  const suppliedSecret = headerGet(headers, "x-trusted-proxy-secret");
+  return Boolean(expectedSecret && suppliedSecret && safeEqual(expectedSecret, suppliedSecret));
+}
+
+/** Resolve the address immediately before the configured trusted proxy hops. */
 export function clientIpFromHeaders(
-  headers: Headers | Record<string, string | string[] | undefined> | undefined
+  headers: Headers | Record<string, string | string[] | undefined> | undefined,
+  options?: { remoteAddress?: string | null }
 ): string {
   if (process.env.TRUST_PROXY !== "1") return "unknown";
+  if (!proxyApproved(headers, options?.remoteAddress)) return "unknown";
+  const trustedHops = Number(process.env.TRUST_PROXY_HOPS || 1);
+  if (!Number.isInteger(trustedHops) || trustedHops < 1 || trustedHops > 16) return "unknown";
   const xf = headerGet(headers, "x-forwarded-for");
   if (xf) {
     const hops = xf.split(",").map((s) => s.trim()).filter(Boolean);
-    const idx = Math.max(0, hops.length - Number(process.env.TRUST_PROXY_HOPS || 1) - 0);
-    // Default: first (client) when the proxy appends; override with TRUST_PROXY_USE_LAST=1
-    const candidate = process.env.TRUST_PROXY_USE_LAST === "1" ? hops[hops.length - 1] : hops[0];
-    void idx;
-    if (candidate && looksLikeIp(candidate)) return candidate;
+    const idx = hops.length - trustedHops;
+    if (idx < 0) return "unknown";
+    const candidate = normalizeIp(hops[idx]);
+    if (candidate) return candidate;
   }
   const real = headerGet(headers, "x-real-ip");
-  if (real && looksLikeIp(real.trim())) return real.trim();
+  const normalized = real ? normalizeIp(real) : null;
+  if (normalized) return normalized;
   return "unknown";
 }
 
@@ -139,9 +216,35 @@ export function clientIp(req: Request): string {
   return clientIpFromHeaders(req.headers);
 }
 
+/** Avoid a single global `unknown` bucket when the deployment cannot expose IPs. */
+export function clientIdentity(req: Request): string {
+  return clientIdentityFromHeaders(req.headers);
+}
+
+/** Build a stable anonymous identity for framework adapters that expose only headers. */
+export function clientIdentityFromHeaders(
+  headers: Headers | Record<string, string | string[] | undefined>,
+  options?: { remoteAddress?: string | null }
+): string {
+  const ip = clientIpFromHeaders(headers, options);
+  if (ip !== "unknown") return `ip:${ip}`;
+  const anonymous =
+    headerGet(headers, "x-anonymous-id") ||
+    headerGet(headers, "cookie")?.match(/(?:^|;\s*)ict_anon=([^;]+)/)?.[1] ||
+    [
+      headerGet(headers, "user-agent") || "",
+      headerGet(headers, "accept-language") || "",
+      headerGet(headers, "sec-ch-ua-platform") || "",
+    ].join("|");
+  const digest = createHash("sha256")
+    .update(anonymous || "no-client-context")
+    .digest("hex")
+    .slice(0, 32);
+  return `anon:${digest}`;
+}
+
 /** Stable hash for duplicate submission detection */
 export async function hashPayload(payload: unknown): Promise<string> {
-  const { createHash } = await import("crypto");
   const canonical = JSON.stringify(payload ?? {});
   return createHash("sha256").update(canonical).digest("hex");
 }

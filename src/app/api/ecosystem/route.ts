@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { jsonOk, requireSession, jsonError, enforceRateLimit } from "@/lib/api";
+import { jsonOk, requireSession, jsonError, enforceRateLimitAsync } from "@/lib/api";
 import { writeAudit } from "@/lib/audit";
 import { parseJsonArray } from "@/lib/shape";
 import {
@@ -11,7 +11,7 @@ import {
   canPublish,
   coerceCreateStatus,
 } from "@/lib/policy";
-import { readJsonLimited } from "@/lib/security";
+import { clientIp, readJsonLimited } from "@/lib/security";
 
 export async function GET(req: NextRequest) {
   const type = req.nextUrl.searchParams.get("type") || "funding";
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "ecosystem-create", { limit: 40, windowMs: 60_000 });
+  const limited = await enforceRateLimitAsync(req, "ecosystem-create", { limit: 40, windowMs: 60_000 });
   if (limited) return limited;
 
   const auth = await requireSession();
@@ -180,6 +180,9 @@ export async function POST(req: NextRequest) {
     entityType: type,
     entityId: created.id,
     metadata: { status },
+    provinceId,
+    organisationId,
+    ipAddress: clientIp(req),
   });
   return jsonOk({ item: created }, 201);
 }

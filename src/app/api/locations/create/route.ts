@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { serializeArray, shapeLocation } from "@/lib/shape";
 import { writeAudit } from "@/lib/audit";
 import {
@@ -10,7 +10,8 @@ import {
   coerceCreateStatus,
 } from "@/lib/policy";
 import { locationCreateSchema } from "@/lib/validation";
-import { readJsonLimited } from "@/lib/security";
+import { clientIp, readJsonLimited } from "@/lib/security";
+import { pointInGeoJson, validatePointAssignment } from "@/lib/geo-validation";
 
 function slugify(s: string) {
   return s
@@ -21,7 +22,7 @@ function slugify(s: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "loc-create", { limit: 30, windowMs: 60_000 });
+  const limited = await enforceRateLimitAsync(req, "loc-create", { limit: 30, windowMs: 60_000 });
   if (limited) return limited;
 
   const auth = await requireSession();
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest) {
     categoryId = first?.id;
   }
   if (!categoryId) return jsonError("No category configured", 500);
+  if (!(await prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } }))) {
+    return jsonError("Category not found", 404);
+  }
 
   let provinceId = body.provinceId || auth.user.provinceId || undefined;
   if (!provinceId && body.provinceSlug) {
@@ -65,6 +69,40 @@ export async function POST(req: NextRequest) {
   }
   if (!provinceId) return jsonError("Province required", 400);
 
+  const province = await prisma.province.findUnique({
+    where: { id: provinceId },
+    select: { id: true, geojson: true },
+  });
+  if (!province) return jsonError("Province not found", 404);
+  let districtGeojson: unknown = null;
+  let municipalityGeojson: unknown = null;
+  if (body.districtId) {
+    const district = await prisma.district.findFirst({
+      where: { id: body.districtId, provinceId },
+      select: { id: true, geojson: true },
+    });
+    if (!district) return jsonError("District is outside the selected province", 400);
+    districtGeojson = district.geojson;
+  }
+  if (body.municipalityId) {
+    const municipality = await prisma.municipality.findFirst({
+      where: { id: body.municipalityId, district: { provinceId } },
+      select: { id: true, geojson: true },
+    });
+    if (!municipality) return jsonError("Municipality is outside the selected province", 400);
+    municipalityGeojson = municipality.geojson;
+  }
+  const assignment = validatePointAssignment(Number(body.longitude), Number(body.latitude), province.geojson);
+  if (assignment === "invalid" && process.env.ENFORCE_GEO_BOUNDARIES === "1") {
+    return jsonError("Coordinates are outside the selected province boundary", 400);
+  }
+  if (process.env.ENFORCE_GEO_BOUNDARIES === "1" && districtGeojson && !pointInGeoJson(Number(body.longitude), Number(body.latitude), districtGeojson)) {
+    return jsonError("Coordinates are outside the selected district boundary", 400);
+  }
+  if (process.env.ENFORCE_GEO_BOUNDARIES === "1" && municipalityGeojson && !pointInGeoJson(Number(body.longitude), Number(body.latitude), municipalityGeojson)) {
+    return jsonError("Coordinates are outside the selected municipality boundary", 400);
+  }
+
   const prov = assertProvinceAccess(auth.user, provinceId);
   if (!prov.ok) return jsonError(prov.reason, 403);
 
@@ -77,6 +115,14 @@ export async function POST(req: NextRequest) {
   if (organisationId) {
     const org = assertOrganisationAccess(auth.user, organisationId);
     if (!org.ok) return jsonError(org.reason, 403);
+    const organisation = await prisma.organisation.findUnique({
+      where: { id: organisationId },
+      select: { id: true, provinceId: true },
+    });
+    if (!organisation) return jsonError("Organisation not found", 404);
+    if (organisation.provinceId && organisation.provinceId !== provinceId) {
+      return jsonError("Organisation and location must belong to the same province", 400);
+    }
   }
   if (auth.user.role === "ORG_ADMIN" && !organisationId) {
     return jsonError("Organisation assignment required", 403);
@@ -146,6 +192,9 @@ export async function POST(req: NextRequest) {
     entityType: "Location",
     entityId: created.id,
     metadata: { name: created.name, status },
+    provinceId: created.provinceId,
+    organisationId: created.organisationId,
+    ipAddress: clientIp(req),
   });
 
   return jsonOk({ location: shapeLocation(created) }, 201);

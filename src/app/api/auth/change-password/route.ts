@@ -2,9 +2,8 @@ import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
-import { readJsonLimited } from "@/lib/security";
+import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
-import { revokeUserSessions } from "@/lib/auth";
 import { assertStrongPassword, PASSWORD_HISTORY_KEEP, wasPasswordReused } from "@/lib/password";
 import { notify } from "@/lib/notify";
 import { z } from "zod";
@@ -58,17 +57,18 @@ export async function POST(req: NextRequest) {
       },
     }),
   ]);
-  await revokeUserSessions(user.id);
   await writeAudit({
     user: auth.user,
     userId: user.id,
     action: "PASSWORD_CHANGE",
     entityType: "User",
     entityId: user.id,
+    ipAddress: clientIp(req),
   });
   await notify({
     type: "password.changed",
     to: user.email,
+    userId: user.id,
     subject: "Your SA ICT Map password was changed",
     body: "If you did not change your password, contact an administrator immediately.",
   });

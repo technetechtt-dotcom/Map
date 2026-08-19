@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "./auth";
 import type { AuthUser } from "./policy";
-import { clientIp } from "./security";
+import { clientIdentity } from "./security";
 import { rateLimit, rateLimitAsync } from "./rate-limit";
 import { prisma } from "./prisma";
 
@@ -18,8 +18,8 @@ export async function requireSession(roles?: string[]) {
     try {
       const { assertEnvOrLog } = await import("./env");
       assertEnvOrLog();
-    } catch {
-      // only throws when ENFORCE_ENV_VALIDATION=1 in production
+    } catch (error) {
+      if (process.env.NODE_ENV === "production") throw error;
     }
   }
 
@@ -95,8 +95,7 @@ export function enforceRateLimit(
   opts: { limit: number; windowMs: number },
   userId?: string | null
 ): NextResponse | null {
-  const ip = clientIp(req);
-  const key = userId ? `${bucket}:u:${userId}` : `${bucket}:ip:${ip}`;
+  const key = userId ? `${bucket}:u:${userId}` : `${bucket}:${clientIdentity(req)}`;
   const result = rateLimit(key, opts);
   if (!result.ok) {
     return NextResponse.json(
@@ -116,8 +115,7 @@ export async function enforceRateLimitAsync(
   opts: { limit: number; windowMs: number },
   userId?: string | null
 ): Promise<NextResponse | null> {
-  const ip = clientIp(req);
-  const key = userId ? `${bucket}:u:${userId}` : `${bucket}:ip:${ip}`;
+  const key = userId ? `${bucket}:u:${userId}` : `${bucket}:${clientIdentity(req)}`;
   const result = await rateLimitAsync(key, opts);
   if (!result.ok) {
     return NextResponse.json(

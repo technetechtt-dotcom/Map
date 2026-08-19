@@ -19,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteHeader locale={locale} />
           <main>{children}</main>
           <footer className="site-footer">
+            <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/rights">Data rights</a></span>
             <span>SA ICT Ecosystem Platform · Phases 1–4</span>
             <span>Map data © OpenStreetMap contributors · Boundaries: seed envelopes (swap for official MDB layers in production)</span>
           </footer>

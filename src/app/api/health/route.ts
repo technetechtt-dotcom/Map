@@ -8,8 +8,17 @@ export async function GET() {
   const started = Date.now();
   let db: "ok" | "error" = "ok";
   let redis: "ok" | "skipped" | "error" = "skipped";
+  let dbLatencyMs: number | null = null;
+  let queue: { pending: number; failed: number } | null = null;
   try {
+    const dbStarted = Date.now();
     await prisma.$queryRaw`SELECT 1`;
+    dbLatencyMs = Date.now() - dbStarted;
+    const [pending, failed] = await Promise.all([
+      prisma.backgroundJob.count({ where: { status: "PENDING" } }),
+      prisma.backgroundJob.count({ where: { status: "FAILED" } }),
+    ]);
+    queue = { pending, failed };
   } catch {
     db = "error";
   }
@@ -32,8 +41,10 @@ export async function GET() {
   const body = {
     status: db === "ok" && redis !== "error" && !maintenance ? "ok" : maintenance ? "maintenance" : "degraded",
     db,
+    dbLatencyMs,
     redis,
-    storage: process.env.STORAGE_DRIVER || "local",
+    storage: { driver: process.env.STORAGE_DRIVER || "local", configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true },
+    queue,
     maintenance,
     version: process.env.npm_package_version || "1.2.0",
     uptimeSec: Math.floor(process.uptime()),

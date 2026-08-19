@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { isSuperAdmin } from "@/lib/policy";
 import { getSetting, isMaintenanceMode, setSetting } from "@/lib/settings";
 import { writeAudit } from "@/lib/audit";
@@ -17,7 +17,7 @@ export async function GET() {
 
 /** Toggle maintenance mode (super admin only). Env MAINTENANCE_MODE=1 always wins. */
 export async function PUT(req: NextRequest) {
-  const limited = enforceRateLimit(req, "settings", { limit: 20, windowMs: 60_000 });
+  const limited = await enforceRateLimitAsync(req, "settings", { limit: 20, windowMs: 60_000 });
   if (limited) return limited;
 
   const auth = await requireSession(["SUPER_ADMIN"]);

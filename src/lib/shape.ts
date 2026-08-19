@@ -38,6 +38,7 @@ export type PublicLocation = {
   description?: string | null;
   latitude: number;
   longitude: number;
+  distanceKm?: number;
   status: string;
   website?: string | null;
   email?: string | null;
@@ -62,7 +63,7 @@ export type PublicLocation = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function shapeLocation(loc: any): PublicLocation {
+export function shapeLocation(loc: any, distanceKm?: number): PublicLocation {
   return {
     id: loc.id,
     slug: loc.slug,
@@ -71,6 +72,7 @@ export function shapeLocation(loc: any): PublicLocation {
     description: loc.description,
     latitude: loc.latitude,
     longitude: loc.longitude,
+    ...(distanceKm === undefined ? {} : { distanceKm: Math.round(distanceKm * 1000) / 1000 }),
     status: loc.status,
     website: loc.website,
     email: loc.email,

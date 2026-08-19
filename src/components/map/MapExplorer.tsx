@@ -49,6 +49,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     "municipalities"
   );
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [flyTarget, setFlyTarget] = useState<{
     id: string;
     lat: number;
@@ -68,9 +69,19 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   useEffect(() => {
     const p = province || "northern-cape";
     fetch(`/api/meta?province=${encodeURIComponent(p)}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok || !data || !Array.isArray(data.provinces)) {
+          throw new Error(data?.error || `Metadata request failed (${r.status})`);
+        }
+        return data as Meta;
+      })
       .then(setMeta)
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        setMeta(null);
+        setLoadError("Map data could not be loaded. Please retry or check that the database is running.");
+      });
   }, [province]);
 
   useEffect(() => {
@@ -84,6 +95,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
     const controller = new AbortController();
     setLoading(true);
+    setLoadError(null);
     const handle = setTimeout(() => {
       fetch(`/api/locations?${params}`, { signal: controller.signal })
         .then(async (r) => {
@@ -94,6 +106,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           return r.json();
         })
         .then((data) => {
+          setLoadError(null);
           const next: PublicLocation[] = data.locations || [];
           setLocations(next);
           const current = selectedIdRef.current;
@@ -108,6 +121,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
         .catch((err) => {
           if (err?.name === "AbortError") return;
           console.error(err);
+          setLoadError("Map data could not be loaded. Please retry or check your connection.");
         })
         .finally(() => {
           if (!controller.signal.aborted) setLoading(false);
@@ -167,7 +181,10 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedId]);
 
-  const provMeta = meta?.provinces.find((p) => p.slug === province || p.code === province);
+  const provinces = meta?.provinces ?? [];
+  const districts = meta?.districts ?? [];
+  const categories = meta?.categories ?? [];
+  const provMeta = provinces.find((p) => p.slug === province || p.code === province);
   const mapCenter: [number, number] = provMeta
     ? [provMeta.centerLat, provMeta.centerLng]
     : [-29, 21.5];
@@ -262,7 +279,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             }}
           >
             <option value="">All provinces</option>
-            {(meta?.provinces || []).map((p) => (
+            {provinces.map((p) => (
               <option key={p.slug} value={p.slug}>
                 {p.name}
               </option>
@@ -275,7 +292,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           </span>
           <select className="field" value={district} onChange={(e) => setDistrict(e.target.value)}>
             <option value="">All districts</option>
-            {(meta?.districts || []).map((d) => (
+            {districts.map((d) => (
               <option key={d.code} value={d.code}>
                 {d.name}
               </option>
@@ -288,7 +305,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           </span>
           <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">All categories</option>
-            {(meta?.categories || []).map((c) => (
+            {categories.map((c) => (
               <option key={c.slug} value={c.slug}>
                 {c.name}
               </option>
@@ -522,6 +539,11 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             flyTarget={flyTarget}
             fitToken={fitToken}
           />
+          {loadError && (
+            <div role="alert" className="pointer-events-auto absolute left-4 right-4 top-4 z-[500] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 shadow-sm">
+              {loadError}
+            </div>
+          )}
           {selectedTown && (
             <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-[500] max-w-xl rounded-xl border border-line bg-white/95 p-3 text-sm shadow-soft md:right-auto">
               <p className="font-bold text-g700">{selectedTown.category.name}</p>

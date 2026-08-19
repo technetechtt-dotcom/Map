@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { canManageUsers, isSuperAdmin } from "@/lib/policy";
 import { invitationAcceptSchema } from "@/lib/validation";
-import { readJsonLimited } from "@/lib/security";
+import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 
 function hashToken(token: string) {
@@ -41,6 +41,24 @@ export async function POST(req: NextRequest) {
     provinceId = auth.user.provinceId || null;
   }
 
+  if (body.role === "ORG_ADMIN" && !body.organisationId) {
+    return jsonError("Organisation is required for organisation administrators", 400);
+  }
+  if (body.organisationId) {
+    const organisation = await prisma.organisation.findUnique({
+      where: { id: body.organisationId },
+      select: { id: true, provinceId: true },
+    });
+    if (!organisation) return jsonError("Organisation not found", 404);
+    if (!isSuperAdmin(auth.user) && organisation.provinceId !== provinceId) {
+      return jsonError("Organisation is outside your province scope", 403);
+    }
+    if (provinceId && organisation.provinceId && organisation.provinceId !== provinceId) {
+      return jsonError("Organisation and province must match", 400);
+    }
+    provinceId = provinceId || organisation.provinceId;
+  }
+
   const token = randomBytes(32).toString("hex");
   const inv = await prisma.adminInvitation.create({
     data: {
@@ -61,6 +79,7 @@ export async function POST(req: NextRequest) {
     entityType: "AdminInvitation",
     entityId: inv.id,
     provinceId,
+    ipAddress: clientIp(req),
     metadata: { email: inv.email, role: inv.role },
   });
 

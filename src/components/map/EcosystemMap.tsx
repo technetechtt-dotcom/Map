@@ -14,7 +14,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import type { PublicLocation } from "@/lib/shape";
-import { escapeAttr, escapeHtml } from "@/lib/security";
+import { escapeAttr, escapeHtml } from "@/lib/escape";
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({

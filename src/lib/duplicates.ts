@@ -30,10 +30,28 @@ export type NamedEntity = {
   name: string;
   provinceId?: string | null;
   slug?: string;
+  website?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
 };
 
+function domain(value?: string | null): string {
+  if (!value) return "";
+  try {
+    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    return new URL(withProtocol).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function digits(value?: string | null): string {
+  return String(value || "").replace(/\D/g, "").replace(/^27/, "0");
+}
+
 export function findDuplicateCandidates<T extends NamedEntity>(
-  candidate: { name: string; provinceId?: string | null },
+  candidate: Omit<NamedEntity, "id">,
   existing: T[],
   opts?: { threshold?: number; sameProvinceOnly?: boolean }
 ): Array<T & { score: number }> {
@@ -50,7 +68,13 @@ export function findDuplicateCandidates<T extends NamedEntity>(
       continue;
     }
     const exact = normalizeName(candidate.name) === normalizeName(row.name);
-    const score = exact ? 1 : nameSimilarity(candidate.name, row.name);
+    let score = exact ? 1 : nameSimilarity(candidate.name, row.name);
+    const candidateDomain = domain(candidate.website);
+    if (candidateDomain && candidateDomain === domain(row.website)) score = Math.max(score, 0.98);
+    if (candidate.email && row.email && candidate.email.toLowerCase() === row.email.toLowerCase()) score = Math.max(score, 0.99);
+    const candidatePhone = digits(candidate.phone);
+    if (candidatePhone.length >= 9 && candidatePhone === digits(row.phone)) score = Math.max(score, 0.97);
+    if (candidate.address && row.address && nameSimilarity(candidate.address, row.address) >= 0.8) score = Math.max(score, 0.9);
     if (score >= threshold) out.push({ ...row, score });
   }
   return out.sort((a, b) => b.score - a.score);

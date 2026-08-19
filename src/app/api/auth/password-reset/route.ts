@@ -4,9 +4,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, enforceRateLimitAsync } from "@/lib/api";
 import { passwordResetRequestSchema, passwordResetSchema } from "@/lib/validation";
-import { readJsonLimited } from "@/lib/security";
+import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
-import { revokeUserSessions } from "@/lib/auth";
 import { log } from "@/lib/logger";
 import { assertStrongPassword } from "@/lib/password";
 import { notify } from "@/lib/notify";
@@ -96,16 +95,19 @@ export async function PUT(req: NextRequest) {
     }),
   ]);
 
-  await revokeUserSessions(row.userId);
   await writeAudit({
     userId: row.userId,
     action: "PASSWORD_RESET",
     entityType: "User",
     entityId: row.userId,
+    ipAddress: clientIp(req),
   });
 
+  const resetUser = await prisma.user.findUnique({ where: { id: row.userId }, select: { email: true } });
   await notify({
     type: "password.reset",
+    to: resetUser?.email,
+    userId: row.userId,
     subject: "SA ICT Map password was reset",
     body: "A password reset completed for this account.",
     meta: { userId: row.userId },

@@ -1,50 +1,40 @@
-/**
- * Structured application logging. In production, ship logs to your collector (stdout JSON).
- */
-
+/** Structured stdout logging plus the supported Sentry Node SDK. */
 type Level = "debug" | "info" | "warn" | "error";
 
+let sentryReady: Promise<typeof import("@sentry/node") | null> | null = null;
+
+async function sentry() {
+  if (!process.env.SENTRY_DSN) return null;
+  sentryReady ??= import("@sentry/node")
+    .then((sdk) => {
+      sdk.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+        release: process.env.SENTRY_RELEASE || process.env.GIT_SHA,
+        tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.05),
+        sendDefaultPii: false,
+      });
+      return sdk;
+    })
+    .catch(() => null);
+  return sentryReady;
+}
+
 function emit(level: Level, message: string, meta?: Record<string, unknown>) {
-  const entry = {
-    ts: new Date().toISOString(),
-    level,
-    message,
-    ...meta,
-  };
-  const line = JSON.stringify(entry);
+  const line = JSON.stringify({ ts: new Date().toISOString(), level, message, ...meta });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
 
-  // Optional lightweight Sentry capture (no SDK dependency). Prefer @sentry/node in large deploys.
-  if (level === "error" && process.env.SENTRY_DSN) {
-    void captureSentryMessage(message, meta);
-  }
-}
-
-async function captureSentryMessage(message: string, meta?: Record<string, unknown>) {
-  try {
-    const dsn = process.env.SENTRY_DSN!;
-    // DSN: https://<key>@oxxxx.ingest.sentry.io/<project>
-    const m = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(.+)$/);
-    if (!m) return;
-    const [, key, host, project] = m;
-    const url = `https://${host}/api/${project}/store/?sentry_key=${key}&sentry_version=7`;
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        level: "error",
-        platform: "node",
-        tags: { service: "sa-ict-map" },
-        extra: meta || {},
-        timestamp: Date.now() / 1000,
-      }),
-      signal: AbortSignal.timeout(3000),
-    }).catch(() => undefined);
-  } catch {
-    // never throw from logger
+  if ((level === "error" || level === "warn") && process.env.SENTRY_DSN) {
+    void sentry().then((sdk) => {
+      if (!sdk) return;
+      sdk.withScope((scope) => {
+        if (meta) scope.setExtras(meta);
+        scope.setLevel(level === "warn" ? "warning" : level);
+        sdk.captureMessage(message);
+      });
+    });
   }
 }
 
@@ -55,4 +45,8 @@ export const log = {
   info: (message: string, meta?: Record<string, unknown>) => emit("info", message, meta),
   warn: (message: string, meta?: Record<string, unknown>) => emit("warn", message, meta),
   error: (message: string, meta?: Record<string, unknown>) => emit("error", message, meta),
+  exception: (error: unknown, meta?: Record<string, unknown>) => {
+    emit("error", error instanceof Error ? error.message : String(error), meta);
+    void sentry().then((sdk) => sdk?.captureException(error));
+  },
 };

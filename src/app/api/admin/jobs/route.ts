@@ -65,7 +65,8 @@ export async function POST(req: NextRequest) {
       const b = await pruneAuditLogs(auditDays);
       results.prune = {
         analyticsDeleted: a.count,
-        auditDeleted: b.count,
+        auditArchivePending: b.count,
+        auditArchiveRequired: b.archiveRequired,
         analyticsDays,
         auditDays,
       };

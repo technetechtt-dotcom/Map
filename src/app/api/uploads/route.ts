@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
-import { canEditDrafts } from "@/lib/policy";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
+import { prisma } from "@/lib/prisma";
+import { canEditDrafts, isSuperAdmin } from "@/lib/policy";
 import { writeAudit } from "@/lib/audit";
 import { deleteStoredObject, validateAndStoreUpload } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "upload", { limit: 20, windowMs: 60_000 });
+  const limited = await enforceRateLimitAsync(req, "upload", { limit: 20, windowMs: 60_000 });
   if (limited) return limited;
 
   const auth = await requireSession();
@@ -49,6 +50,16 @@ export async function DELETE(req: NextRequest) {
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return jsonError("id required");
+
+  const object = await prisma.storedObject.findUnique({
+    where: { id },
+    select: { uploadedById: true, organisationId: true },
+  });
+  if (!object) return jsonError("Not found", 404);
+  const sameOrganisation = Boolean(object.organisationId && object.organisationId === auth.user.organisationId);
+  if (!isSuperAdmin(auth.user) && object.uploadedById !== auth.user.id && !sameOrganisation) {
+    return jsonError("Forbidden", 403);
+  }
 
   const result = await deleteStoredObject(id);
   if (!result.ok) return jsonError(result.error, 404);

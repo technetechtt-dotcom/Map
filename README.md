@@ -2,19 +2,20 @@
 
 Full-stack platform evolving the Northern Cape ICT Interactive Map MVP into a national innovation ecosystem map with management workflows, community submissions, analytics and multi-province support.
 
-## Quick start (local SQLite)
+## Quick start (local PostgreSQL/PostGIS)
 
 ```bash
 cp .env.example .env
 # set NEXTAUTH_SECRET, SEED_ADMIN_PASSWORD (min 12), BACKUP_ENCRYPTION_KEY
-npm install
-npm run db:setup:dev   # generates schema + seeds (destructive reset)
+npm ci
+npm run postgis:up
+npm run db:setup:dev   # applies migrations + seeds the local database
 npm test
 npm run typecheck
 npm run dev
 ```
 
-**Production:** use `npm run db:setup` (generate + push only) — **never** seed production without `ALLOW_DATABASE_RESET=1`.
+**Production:** use `npm run db:setup` (generate + `prisma migrate deploy`). Never use `prisma db push` or seed production without an explicit controlled reset.
 
 ### Admin accounts
 
@@ -53,7 +54,7 @@ GitHub Actions: `.github/workflows/ci.yml` (Prisma, unit tests, build, PostGIS s
 - Profile pages at `/locations/[slug]`
 
 ### Phase 2 — Management system
-- Prisma data layer (SQLite local; PostgreSQL/PostGIS via Docker)
+- Prisma data layer standardized on PostgreSQL/PostGIS (local Docker and production)
 - REST API under `/api/*` with policy checks
 - NextAuth credentials (8h sessions)
 - Create / verify / publish / archive in `/admin/locations`

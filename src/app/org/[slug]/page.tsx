@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 export default async function OrgPage({ params }: { params: { slug: string } }) {
   const org = await prisma.organisation.findFirst({
     where: { slug: params.slug, status: "PUBLISHED" },
-    include: { province: true },
+    include: {
+      province: true,
+      category: true,
+      relationshipsFrom: { where: { status: "PUBLISHED" }, include: { target: true } },
+      relationshipsTo: { where: { status: "PUBLISHED" }, include: { source: true } },
+    },
   });
   if (!org) notFound();
 
@@ -33,6 +38,31 @@ export default async function OrgPage({ params }: { params: { slug: string } }) 
         {org.province ? ` · ${org.province.name}` : ""}
       </p>
       {org.description && <p className="mt-4 max-w-2xl">{org.description}</p>}
+
+      {[...parseJsonArray(org.servicesJson), ...parseJsonArray(org.skillsJson), ...parseJsonArray(org.technologiesJson)].length > 0 && (
+        <section className="panel-card mt-6">
+          <h2 className="mb-3 text-lg font-bold">Capabilities</h2>
+          <div className="flex flex-wrap gap-2">
+            {parseJsonArray(org.servicesJson).map((value) => <span key={`service-${value}`} className="chip">Service: {value}</span>)}
+            {parseJsonArray(org.skillsJson).map((value) => <span key={`skill-${value}`} className="chip">Skill: {value}</span>)}
+            {parseJsonArray(org.technologiesJson).map((value) => <span key={`tech-${value}`} className="chip">Technology: {value}</span>)}
+          </div>
+        </section>
+      )}
+
+      {(org.relationshipsFrom.length > 0 || org.relationshipsTo.length > 0) && (
+        <section className="panel-card mt-6" aria-labelledby="relationship-heading">
+          <h2 id="relationship-heading" className="mb-3 text-lg font-bold">Ecosystem relationships</h2>
+          <ul className="grid gap-2">
+            {org.relationshipsFrom.map((relationship) => (
+              <li key={relationship.id}><strong>{relationship.type.replaceAll("_", " ")}</strong> <Link className="text-g700" href={`/org/${relationship.target.slug}`}>{relationship.target.name}</Link></li>
+            ))}
+            {org.relationshipsTo.map((relationship) => (
+              <li key={relationship.id}><Link className="text-g700" href={`/org/${relationship.source.slug}`}>{relationship.source.name}</Link> <strong>{relationship.type.replaceAll("_", " ")}</strong> this organisation</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {org.verified && <span className="chip chip-active">Verified from presentation</span>}

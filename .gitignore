@@ -20,6 +20,8 @@
 # uploads & backups
 /public/uploads/*
 !/public/uploads/.gitkeep
+/data/uploads-private/*
+/data/object-storage-manifest.json
 /data/backups/*
 
 # debug
@@ -44,3 +46,4 @@ tsconfig.tsbuildinfo
 /playwright-report/
 /test-results/
 /blob-report/
+/sbom.cdx.json

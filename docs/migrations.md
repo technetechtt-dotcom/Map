@@ -34,3 +34,5 @@ CI runs `prisma migrate deploy` against an empty PostGIS database on every push.
 ## PostGIS
 
 Migration `20260812120001_postgis` enables PostGIS, syncs `Location.geom`, and adds a GIST index. Spatial queries (`radiusKm` on `/api/locations`) use `ST_DWithin`.
+
+The former loose `prisma/migrations/20260326_postgis_init.sql` was removed because it was historical and was not a Prisma migration directory. A new installation now uses only `prisma migrate deploy`.

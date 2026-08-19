@@ -213,15 +213,9 @@ export function assertLocationAccess(
         return { ok: false, reason: "Contributors may only modify locations they own" };
       }
     } else {
-      // read unpublished: owner or same org if bound
+      // Unpublished records are private drafts: contributors may only read
+      // records they own, even when another contributor shares their org.
       if (record.ownerId === user.id) return { ok: true };
-      if (
-        user.organisationId &&
-        record.organisationId &&
-        record.organisationId === user.organisationId
-      ) {
-        return { ok: true };
-      }
       return { ok: false, reason: "Not authorized to view this record" };
     }
     return { ok: true };

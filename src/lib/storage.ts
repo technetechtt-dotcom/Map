@@ -106,15 +106,23 @@ export async function validateAndStoreUpload(
   const access = opts?.access || "private";
 
   let url: string;
+  let storedDriver = driver;
   if (driver === "s3") {
-    const s3url = await putS3(filename, bytes, sniffed);
+    const s3url = await putS3(filename, bytes, sniffed, access);
     if (!s3url) return { ok: false, error: "Object storage upload failed" };
-    url = s3url;
+    url = s3url.url;
+    storedDriver = s3url.driver;
   } else {
-    const uploadRoot = path.join(process.cwd(), "public", "uploads");
+    // Private local objects must never live under `public/`, where Next's
+    // static file handler would bypass authorization. Public objects can use
+    // the static path; private objects are streamed through the object route.
+    const uploadRoot =
+      access === "public"
+        ? path.join(process.cwd(), "public", "uploads")
+        : path.join(process.cwd(), "data", "uploads-private");
     await mkdir(uploadRoot, { recursive: true });
     await writeFile(path.join(uploadRoot, filename), bytes);
-    url = `/uploads/${filename}`;
+    url = access === "public" ? `/uploads/${filename}` : `/api/uploads/object?key=${encodeURIComponent(filename)}`;
   }
 
   const record = await prisma.storedObject.create({
@@ -125,7 +133,7 @@ export async function validateAndStoreUpload(
       sizeBytes: bytes.length,
       sha256,
       access,
-      driver,
+      driver: storedDriver,
       organisationId: opts?.organisationId || null,
       uploadedById: opts?.uploadedById || null,
     },
@@ -149,20 +157,50 @@ export async function deleteStoredObject(id: string): Promise<{ ok: true } | { o
   const row = await prisma.storedObject.findUnique({ where: { id } });
   if (!row) return { ok: false, error: "Not found" };
 
-  if (row.driver === "local" && row.url.startsWith("/uploads/")) {
-    const full = path.join(process.cwd(), "public", row.url);
+  if (row.driver === "local") {
+    // Resolve from the stored generated filename, never from a URL that could
+    // contain traversal segments if a legacy row was tampered with.
+    const root = row.url.startsWith("/uploads/")
+      ? path.join(process.cwd(), "public", "uploads")
+      : path.join(process.cwd(), "data", "uploads-private");
+    const full = path.join(root, path.basename(row.filename));
     try {
       await unlink(full);
     } catch {
       // file may already be gone
     }
+  } else if (row.driver === "s3") {
+    await deleteS3(row.filename).catch(() => undefined);
   }
-  // S3 delete left for SDK when configured
   await prisma.storedObject.delete({ where: { id } });
   return { ok: true };
 }
 
-async function putS3(key: string, body: Buffer, contentType: string): Promise<string | null> {
+async function deleteS3(key: string): Promise<void> {
+  const bucket = process.env.S3_BUCKET;
+  const accessKey = process.env.S3_ACCESS_KEY_ID;
+  const secret = process.env.S3_SECRET_ACCESS_KEY;
+  if (!bucket || !accessKey || !secret) throw new Error("S3 is not configured");
+  const importS3 = new Function("return import('@aws-sdk/client-s3')") as () => Promise<{
+    S3Client: new (cfg: unknown) => { send: (command: unknown) => Promise<unknown> };
+    DeleteObjectCommand: new (input: unknown) => unknown;
+  }>;
+  const sdk = await importS3();
+  const client = new sdk.S3Client({
+    region: process.env.S3_REGION || "auto",
+    endpoint: process.env.S3_ENDPOINT || undefined,
+    credentials: { accessKeyId: accessKey, secretAccessKey: secret },
+    forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+  });
+  await client.send(new sdk.DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+async function putS3(
+  key: string,
+  body: Buffer,
+  contentType: string,
+  access: "private" | "public"
+): Promise<{ url: string; driver: "s3" | "local" } | null> {
   const bucket = process.env.S3_BUCKET;
   const endpoint = process.env.S3_ENDPOINT;
   const region = process.env.S3_REGION || "auto";
@@ -172,10 +210,15 @@ async function putS3(key: string, body: Buffer, contentType: string): Promise<st
 
   if (!bucket || !accessKey || !secret) {
     if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
-      const uploadRoot = path.join(process.cwd(), "public", "uploads");
+      const uploadRoot = access === "public"
+        ? path.join(process.cwd(), "public", "uploads")
+        : path.join(process.cwd(), "data", "uploads-private");
       await mkdir(uploadRoot, { recursive: true });
       await writeFile(path.join(uploadRoot, key), body);
-      return `/uploads/${key}`;
+      return {
+        url: access === "public" ? `/uploads/${key}` : `/api/uploads/object?key=${encodeURIComponent(key)}`,
+        driver: "local",
+      };
     }
     return null;
   }
@@ -191,10 +234,15 @@ async function putS3(key: string, body: Buffer, contentType: string): Promise<st
     const sdk = await importS3().catch(() => null);
     if (!sdk?.S3Client || !sdk?.PutObjectCommand) {
       if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
-        const uploadRoot = path.join(process.cwd(), "public", "uploads");
+        const uploadRoot = access === "public"
+          ? path.join(process.cwd(), "public", "uploads")
+          : path.join(process.cwd(), "data", "uploads-private");
         await mkdir(uploadRoot, { recursive: true });
         await writeFile(path.join(uploadRoot, key), body);
-        return `/uploads/${key}`;
+        return {
+          url: access === "public" ? `/uploads/${key}` : `/api/uploads/object?key=${encodeURIComponent(key)}`,
+          driver: "local",
+        };
       }
       return null;
     }
@@ -213,9 +261,11 @@ async function putS3(key: string, body: Buffer, contentType: string): Promise<st
         ContentType: contentType,
       })
     );
-    if (publicBase) return `${publicBase.replace(/\/$/, "")}/${key}`;
+    if (publicBase && access === "public") {
+      return { url: `${publicBase.replace(/\/$/, "")}/${key}`, driver: "s3" };
+    }
     // Private objects: use API proxy path
-    return `/api/uploads/object?key=${encodeURIComponent(key)}`;
+    return { url: `/api/uploads/object?key=${encodeURIComponent(key)}`, driver: "s3" };
   } catch {
     return null;
   }

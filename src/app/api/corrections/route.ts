@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { jsonError, jsonOk, requireSession, enforceRateLimit } from "@/lib/api";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { canModerateSubmissions, isSuperAdmin } from "@/lib/policy";
 import { clientIp, readJsonLimited, verifyCaptcha } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
@@ -20,7 +20,7 @@ const createSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const limited = enforceRateLimit(req, "correction", { limit: 8, windowMs: 60 * 60_000 });
+  const limited = await enforceRateLimitAsync(req, "correction", { limit: 8, windowMs: 60 * 60_000 });
   if (limited) return limited;
 
   const parsed = await readJsonLimited(req);
@@ -83,11 +83,22 @@ export async function PATCH(req: NextRequest) {
 
   const parsed = await readJsonLimited(req);
   if (!parsed.ok) return jsonError(parsed.error, 413);
-  const body = parsed.data as { id?: string; status?: string };
-  if (!body.id || !body.status) return jsonError("id and status required");
+  const bodyResult = z.object({
+    id: z.string().min(1),
+    status: z.enum(["OPEN", "IN_PROGRESS", "CLOSED", "REJECTED"]),
+  }).safeParse(parsed.data);
+  if (!bodyResult.success) return jsonError("Validation failed", 400, { issues: bodyResult.error.issues });
+  const body = bodyResult.data;
 
   const existing = await prisma.correctionRequest.findUnique({ where: { id: body.id } });
   if (!existing) return jsonError("Not found", 404);
+  if (
+    !isSuperAdmin(auth.user) &&
+    existing.provinceId &&
+    existing.provinceId !== auth.user.provinceId
+  ) {
+    return jsonError("Outside province scope", 403);
+  }
 
   const updated = await prisma.correctionRequest.update({
     where: { id: body.id },
@@ -100,6 +111,7 @@ export async function PATCH(req: NextRequest) {
     entityType: "CorrectionRequest",
     entityId: updated.id,
     provinceId: updated.provinceId,
+    ipAddress: clientIp(req),
   });
   return jsonOk({ request: updated });
 }

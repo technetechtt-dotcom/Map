@@ -87,8 +87,8 @@ Jobs: `expiry` (flag/demote expired verification), `prune` (analytics/audit rete
 
 ## Rate limits
 
-- Memory by default; optional `RATE_LIMIT_PERSIST=1` or `RATE_LIMIT_FILE` for restart persistence
-- Multi-instance: set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
+- Development/CI may use memory or optional `RATE_LIMIT_PERSIST=1` / `RATE_LIMIT_FILE` persistence
+- Production requires multi-instance Upstash: set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`; Redis errors fail closed
 - Authenticated operations bucket by user id when wired
 
 ## Account security

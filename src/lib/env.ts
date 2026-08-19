@@ -11,6 +11,9 @@ const PLACEHOLDERS = [
   "generate-a-long-random-string",
   "your-long-secret",
   "ci-test-secret-not-for-production-use",
+  "change-in-production",
+  "dev-secret",
+  "example.com",
   "password",
   "secret",
 ];
@@ -47,14 +50,32 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
   require("NEXTAUTH_URL", 8);
   require("DATABASE_URL", 10);
   require("BACKUP_ENCRYPTION_KEY", 16);
-  require("MFA_ENCRYPTION_KEY", 16);
+  const mfaVersion = Number(process.env.MFA_KEY_VERSION || 1);
+  if (!Number.isInteger(mfaVersion) || mfaVersion < 1) {
+    issues.push({ key: "MFA_KEY_VERSION", level: "error", message: "MFA_KEY_VERSION must be a positive integer" });
+  }
+  const mfaKeyName = process.env[`MFA_ENCRYPTION_KEY_V${mfaVersion}`]
+    ? `MFA_ENCRYPTION_KEY_V${mfaVersion}`
+    : "MFA_ENCRYPTION_KEY";
+  require(mfaKeyName, 32);
 
-  if (!process.env.DATABASE_URL?.startsWith("postgres")) {
+  if (!/^postgres(?:ql)?:\/\//i.test(process.env.DATABASE_URL || "")) {
     issues.push({
       key: "DATABASE_URL",
       level: "error",
       message: "Production database must be PostgreSQL (postgres:// or postgresql://)",
     });
+  }
+
+  if (prod) {
+    const nextAuthUrl = process.env.NEXTAUTH_URL || "";
+    if (!/^https:\/\//i.test(nextAuthUrl) || /localhost|127\.0\.0\.1|::1/i.test(nextAuthUrl)) {
+      issues.push({
+        key: "NEXTAUTH_URL",
+        level: "error",
+        message: "Production NEXTAUTH_URL must be an HTTPS public origin",
+      });
+    }
   }
 
   if (process.env.CAPTCHA_DISABLED !== "1") {
@@ -93,13 +114,20 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     }
   }
 
-  if (prod && !process.env.UPSTASH_REDIS_REST_URL && !process.env.REDIS_URL) {
+  if (prod && !process.env.UPSTASH_REDIS_REST_URL) {
     issues.push({
       key: "UPSTASH_REDIS_REST_URL",
       level: "error",
-      message: "Production requires Redis/Upstash for distributed rate limiting",
+      message: "Production requires Upstash Redis REST for distributed rate limiting",
     });
   }
+  if (prod && process.env.RATE_LIMIT_ALLOW_MEMORY === "1") {
+    issues.push({ key: "RATE_LIMIT_ALLOW_MEMORY", level: "error", message: "Per-instance memory rate limiting is forbidden in production" });
+  }
+  if (prod && process.env.RATE_LIMIT_FAIL_OPEN === "1") {
+    issues.push({ key: "RATE_LIMIT_FAIL_OPEN", level: "error", message: "Rate limiting must fail closed in production" });
+  }
+  if (process.env.UPSTASH_REDIS_REST_URL) require("UPSTASH_REDIS_REST_TOKEN", 16);
 
   if (prod && process.env.TRUST_PROXY !== "0" && process.env.TRUST_PROXY !== "1") {
     issues.push({
@@ -107,6 +135,15 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
       level: "error",
       message: "Set TRUST_PROXY=1 behind a reverse proxy, or TRUST_PROXY=0 if exposed directly",
     });
+  }
+  if (prod && process.env.TRUST_PROXY === "1") {
+    const hops = Number(process.env.TRUST_PROXY_HOPS || 0);
+    if (!Number.isInteger(hops) || hops < 1 || hops > 16) {
+      issues.push({ key: "TRUST_PROXY_HOPS", level: "error", message: "Set the exact trusted proxy hop count (1-16)" });
+    }
+    if (!process.env.TRUST_PROXY_CIDRS && !process.env.TRUST_PROXY_HEADER_SECRET) {
+      issues.push({ key: "TRUST_PROXY_CIDRS", level: "error", message: "Allow-list proxy CIDRs or configure a trusted ingress header secret" });
+    }
   }
 
   if (prod && !process.env.SENTRY_DSN && !process.env.MONITORING_OPTIONAL) {
@@ -128,10 +165,7 @@ export function assertEnvOrLog(): EnvIssue[] {
     else log.warn("env.warning", { key: i.key, message: i.message });
   }
   const errors = issues.filter((i) => i.level === "error");
-  const mustThrow =
-    errors.length > 0 &&
-    process.env.NODE_ENV === "production" &&
-    process.env.SKIP_ENV_VALIDATION !== "1";
+  const mustThrow = errors.length > 0 && process.env.NODE_ENV === "production";
   if (mustThrow) {
     throw new Error(`Missing required environment: ${errors.map((e) => e.key).join(", ")}`);
   }

@@ -250,7 +250,7 @@ export async function PATCH(req: NextRequest) {
               assetsJson: serializeArray(
                 Array.isArray(payload.assets) ? (payload.assets as string[]) : []
               ),
-              tagsJson: JSON.stringify(["community-submission"]),
+              tagsJson: ["community-submission"],
               status: "PENDING_REVIEW",
               ownerId: auth.user.id,
               coordQuality: "unknown",
@@ -280,6 +280,7 @@ export async function PATCH(req: NextRequest) {
       entityType: "Submission",
       entityId: result.id,
       provinceId: result.provinceId,
+      ipAddress: clientIp(req),
       metadata: { createdLocationId: result.createdLocationId },
     });
 

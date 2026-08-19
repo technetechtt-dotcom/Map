@@ -43,41 +43,72 @@ enum WorkflowStatus {
   REJECTED
 }
 
+enum RelationshipType {
+  PARTNER_OF
+  FUNDED_BY
+  SUPPLIER_TO
+  INCUBATED_BY
+  TRAINED_BY
+  MEMBER_OF
+  INVESTED_IN
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model User {
-  id                 String    @id @default(cuid())
-  email              String    @unique
-  name               String
-  passwordHash       String
-  role               UserRole  @default(CONTRIBUTOR)
-  provinceId         String?
-  province           Province? @relation(fields: [provinceId], references: [id])
-  organisationId     String?
-  organisation       Organisation? @relation(fields: [organisationId], references: [id])
-  active             Boolean   @default(true)
-  locale             String    @default("en")
-  sessionVersion     Int       @default(0)
-  mustChangePassword Boolean   @default(false)
-  mfaEnabled         Boolean   @default(false)
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  name                 String
+  passwordHash         String
+  role                 UserRole             @default(CONTRIBUTOR)
+  provinceId           String?
+  province             Province?            @relation(fields: [provinceId], references: [id])
+  organisationId       String?
+  organisation         Organisation?        @relation(fields: [organisationId], references: [id])
+  active               Boolean              @default(true)
+  locale               String               @default("en")
+  sessionVersion       Int                  @default(0)
+  mustChangePassword   Boolean              @default(false)
+  mfaEnabled           Boolean              @default(false)
   /// AES-256-GCM ciphertext (never store plaintext TOTP secrets)
-  mfaSecret          String?
-  mfaKeyVersion      Int       @default(1)
+  mfaSecret            String?
+  mfaKeyVersion        Int                  @default(1)
+  /// Candidate secret used during explicit re-enrollment; active MFA stays valid until confirmed
+  mfaPendingSecret     String?
+  mfaPendingKeyVersion Int?
   /// bcrypt hashes of one-time recovery codes
-  mfaRecoveryHashes  Json      @default("[]")
-  failedLoginCount   Int       @default(0)
-  lockedUntil        DateTime?
-  lastLoginAt        DateTime?
-  passwordChangedAt  DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  auditLogs          AuditLog[]
-  locationsOwned     Location[] @relation("LocationOwner")
-  locationsReviewed  Location[] @relation("LocationReviewer")
-  submissions        Submission[] @relation("SubmissionSubmitter")
-  submissionsReviewed Submission[] @relation("SubmissionReviewer")
-  sources            SourceRecord[]
-  passwordResetTokens PasswordResetToken[]
-  invitationsSent    AdminInvitation[] @relation("InvitationInviter")
-  passwordHistories  PasswordHistory[]
+  mfaRecoveryHashes    Json                 @default("[]")
+  failedLoginCount     Int                  @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  passwordChangedAt    DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  auditLogs            AuditLog[]
+  locationsOwned       Location[]           @relation("LocationOwner")
+  locationsReviewed    Location[]           @relation("LocationReviewer")
+  submissions          Submission[]         @relation("SubmissionSubmitter")
+  submissionsReviewed  Submission[]         @relation("SubmissionReviewer")
+  sources              SourceRecord[]
+  passwordResetTokens  PasswordResetToken[]
+  invitationsSent      AdminInvitation[]    @relation("InvitationInviter")
+  passwordHistories    PasswordHistory[]
+  organisationClaims   OrganisationClaim[]
+  notifications        Notification[]
+  apiKeys              ApiKey[]
 
   @@index([role, active])
   @@index([provinceId])
@@ -96,58 +127,58 @@ model PasswordHistory {
 }
 
 model Province {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String   @unique
-  nameAf      String?
-  nameXh      String?
-  nameZu      String?
-  slug        String   @unique
-  centerLat   Float
-  centerLng   Float
-  defaultZoom Int      @default(6)
-  geojson     Json?
-  districts   District[]
-  locations   Location[]
+  id            String           @id @default(cuid())
+  code          String           @unique
+  name          String           @unique
+  nameAf        String?
+  nameXh        String?
+  nameZu        String?
+  slug          String           @unique
+  centerLat     Float
+  centerLng     Float
+  defaultZoom   Int              @default(6)
+  geojson       Json?
+  districts     District[]
+  locations     Location[]
   organisations Organisation[]
-  fundingCalls FundingCall[]
-  events      EcosystemEvent[]
-  programmes  Programme[]
-  procurements Procurement[]
-  users       User[]
-  submissions Submission[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  fundingCalls  FundingCall[]
+  events        EcosystemEvent[]
+  programmes    Programme[]
+  procurements  Procurement[]
+  users         User[]
+  submissions   Submission[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 }
 
 model District {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   code           String
   name           String
   nameAf         String?
   provinceId     String
-  province       Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  province       Province       @relation(fields: [provinceId], references: [id], onDelete: Cascade)
   geojson        Json?
   municipalities Municipality[]
   locations      Location[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@unique([provinceId, code])
   @@index([provinceId])
 }
 
 model Municipality {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   code       String
   name       String
   nameAf     String?
   districtId String
-  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  district   District   @relation(fields: [districtId], references: [id], onDelete: Cascade)
   geojson    Json?
   locations  Location[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@unique([districtId, code])
   @@index([districtId])
@@ -155,60 +186,60 @@ model Municipality {
 }
 
 model Category {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String   @unique
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String     @unique
   nameAf      String?
   color       String
-  icon        String   @default("•")
+  icon        String     @default("•")
   description String?
   locations   Location[]
 }
 
 model Location {
-  id                 String   @id @default(cuid())
-  slug               String   @unique
-  name               String
-  nameAf             String?
-  summary            String
-  summaryAf          String?
-  description        String?
-  latitude           Float
-  longitude          Float
-  categoryId         String
-  category           Category @relation(fields: [categoryId], references: [id])
-  provinceId         String
-  province           Province @relation(fields: [provinceId], references: [id])
-  districtId         String?
-  district           District? @relation(fields: [districtId], references: [id])
-  municipalityId     String?
-  municipality       Municipality? @relation(fields: [municipalityId], references: [id])
-  opportunitiesJson  Json     @default("[]")
-  assetsJson         Json     @default("[]")
-  tagsJson           Json     @default("[]")
-  website            String?
-  email              String?
-  phone              String?
-  address            String?
-  imageUrl           String?
-  status             RecordStatus @default(DRAFT)
-  verificationNotes  String?
-  lastVerifiedAt     DateTime?
-  verificationSource String?
-  coordQuality       String   @default("unknown")
-  coordSource        String?
+  id                    String         @id @default(cuid())
+  slug                  String         @unique
+  name                  String
+  nameAf                String?
+  summary               String
+  summaryAf             String?
+  description           String?
+  latitude              Float
+  longitude             Float
+  categoryId            String
+  category              Category       @relation(fields: [categoryId], references: [id])
+  provinceId            String
+  province              Province       @relation(fields: [provinceId], references: [id])
+  districtId            String?
+  district              District?      @relation(fields: [districtId], references: [id])
+  municipalityId        String?
+  municipality          Municipality?  @relation(fields: [municipalityId], references: [id])
+  opportunitiesJson     Json           @default("[]")
+  assetsJson            Json           @default("[]")
+  tagsJson              Json           @default("[]")
+  website               String?
+  email                 String?
+  phone                 String?
+  address               String?
+  imageUrl              String?
+  status                RecordStatus   @default(DRAFT)
+  verificationNotes     String?
+  lastVerifiedAt        DateTime?
+  verificationSource    String?
+  coordQuality          String         @default("unknown")
+  coordSource           String?
   verificationExpiresAt DateTime?
-  evidenceJson       Json     @default("[]")
-  ownerId            String?
-  owner              User?    @relation("LocationOwner", fields: [ownerId], references: [id])
-  reviewedById       String?
-  reviewedBy         User?    @relation("LocationReviewer", fields: [reviewedById], references: [id])
-  organisationId     String?
-  organisation       Organisation? @relation(fields: [organisationId], references: [id])
-  sources            SourceRecord[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  publishedAt        DateTime?
+  evidenceJson          Json           @default("[]")
+  ownerId               String?
+  owner                 User?          @relation("LocationOwner", fields: [ownerId], references: [id])
+  reviewedById          String?
+  reviewedBy            User?          @relation("LocationReviewer", fields: [reviewedById], references: [id])
+  organisationId        String?
+  organisation          Organisation?  @relation(fields: [organisationId], references: [id])
+  sources               SourceRecord[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  publishedAt           DateTime?
 
   @@index([provinceId, status])
   @@index([districtId, status])
@@ -222,39 +253,105 @@ model Location {
 }
 
 model Organisation {
-  id           String   @id @default(cuid())
-  slug         String   @unique
-  name         String
-  type         String
-  description  String?
-  website      String?
-  email        String?
-  phone        String?
-  logoUrl      String?
-  locationSlugsJson Json @default("[]")
-  sourcePage   String?
-  latitude     Float?
-  longitude    Float?
-  address      String?
-  hostTownSlug String?
-  coordQuality String?
-  coordSource  String?
-  provinceId   String?
-  province     Province? @relation(fields: [provinceId], references: [id])
-  verified     Boolean  @default(false)
-  status       RecordStatus @default(DRAFT)
-  users        User[]
-  locations    Location[]
-  fundingCalls FundingCall[]
-  events       EcosystemEvent[]
-  programmes   Programme[]
-  procurements Procurement[]
-  submissions  Submission[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                       String                     @id @default(cuid())
+  slug                     String                     @unique
+  name                     String
+  type                     String
+  description              String?
+  website                  String?
+  email                    String?
+  phone                    String?
+  logoUrl                  String?
+  locationSlugsJson        Json                       @default("[]")
+  sourcePage               String?
+  latitude                 Float?
+  longitude                Float?
+  address                  String?
+  hostTownSlug             String?
+  coordQuality             String?
+  coordSource              String?
+  categoryId               String?
+  category                 OrganisationCategory?      @relation(fields: [categoryId], references: [id])
+  servicesJson             Json                       @default("[]")
+  skillsJson               Json                       @default("[]")
+  technologiesJson         Json                       @default("[]")
+  certificationsJson       Json                       @default("[]")
+  serviceAreasJson         Json                       @default("[]")
+  industrySectorsJson      Json                       @default("[]")
+  portfolioJson            Json                       @default("[]")
+  companySize              String?
+  cipcNumber               String?
+  beeLevel                 String?
+  provinceId               String?
+  province                 Province?                  @relation(fields: [provinceId], references: [id])
+  verified                 Boolean                    @default(false)
+  verifiedAt               DateTime?
+  verificationExpiresAt    DateTime?
+  verificationEvidenceJson Json                       @default("[]")
+  status                   RecordStatus               @default(DRAFT)
+  users                    User[]
+  locations                Location[]
+  fundingCalls             FundingCall[]
+  events                   EcosystemEvent[]
+  programmes               Programme[]
+  procurements             Procurement[]
+  submissions              Submission[]
+  relationshipsFrom        OrganisationRelationship[] @relation("RelationshipSource")
+  relationshipsTo          OrganisationRelationship[] @relation("RelationshipTarget")
+  claims                   OrganisationClaim[]
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
 
   @@index([provinceId, status])
   @@index([status])
+  @@index([categoryId])
+  @@index([verificationExpiresAt])
+}
+
+model OrganisationCategory {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String         @unique
+  description   String?
+  organisations Organisation[]
+}
+
+model OrganisationRelationship {
+  id           String           @id @default(cuid())
+  sourceId     String
+  source       Organisation     @relation("RelationshipSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetId     String
+  target       Organisation     @relation("RelationshipTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  type         RelationshipType
+  status       RecordStatus     @default(DRAFT)
+  evidenceJson Json             @default("[]")
+  validFrom    DateTime?
+  validUntil   DateTime?
+  createdById  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([sourceId, targetId, type])
+  @@index([targetId, type, status])
+  @@index([sourceId, type, status])
+}
+
+model OrganisationClaim {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  claimantId     String
+  claimant       User         @relation(fields: [claimantId], references: [id], onDelete: Cascade)
+  status         ClaimStatus  @default(PENDING)
+  evidenceJson   Json         @default("[]")
+  reviewedById   String?
+  reviewedAt     DateTime?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organisationId, claimantId, status])
+  @@index([status, createdAt])
 }
 
 model SourceRecord {
@@ -273,22 +370,22 @@ model SourceRecord {
 }
 
 model FundingCall {
-  id             String    @id @default(cuid())
-  slug           String    @unique
+  id             String        @id @default(cuid())
+  slug           String        @unique
   title          String
   summary        String
   description    String?
   amount         String?
   deadline       DateTime?
   url            String?
-  status         RecordStatus @default(DRAFT)
+  status         RecordStatus  @default(DRAFT)
   provinceId     String?
-  province       Province? @relation(fields: [provinceId], references: [id])
+  province       Province?     @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       Json      @default("[]")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  tagsJson       Json          @default("[]")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   publishedAt    DateTime?
 
   @@index([provinceId, status])
@@ -296,8 +393,8 @@ model FundingCall {
 }
 
 model EcosystemEvent {
-  id             String    @id @default(cuid())
-  slug           String    @unique
+  id             String        @id @default(cuid())
+  slug           String        @unique
   title          String
   summary        String
   description    String?
@@ -307,63 +404,63 @@ model EcosystemEvent {
   onlineUrl      String?
   latitude       Float?
   longitude      Float?
-  status         RecordStatus @default(DRAFT)
+  status         RecordStatus  @default(DRAFT)
   provinceId     String?
-  province       Province? @relation(fields: [provinceId], references: [id])
+  province       Province?     @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       Json      @default("[]")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  tagsJson       Json          @default("[]")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([provinceId, status])
   @@index([startsAt])
 }
 
 model Programme {
-  id             String    @id @default(cuid())
-  slug           String    @unique
+  id             String        @id @default(cuid())
+  slug           String        @unique
   title          String
   summary        String
   description    String?
-  status         RecordStatus @default(DRAFT)
+  status         RecordStatus  @default(DRAFT)
   provinceId     String?
-  province       Province? @relation(fields: [provinceId], references: [id])
+  province       Province?     @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       Json      @default("[]")
+  tagsJson       Json          @default("[]")
   startDate      DateTime?
   endDate        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([provinceId, status])
 }
 
 model Procurement {
-  id             String    @id @default(cuid())
-  slug           String    @unique
+  id             String        @id @default(cuid())
+  slug           String        @unique
   title          String
   summary        String
   description    String?
   closingDate    DateTime?
   budget         String?
   url            String?
-  status         RecordStatus @default(DRAFT)
+  status         RecordStatus  @default(DRAFT)
   provinceId     String?
-  province       Province? @relation(fields: [provinceId], references: [id])
+  province       Province?     @relation(fields: [provinceId], references: [id])
   organisationId String?
   organisation   Organisation? @relation(fields: [organisationId], references: [id])
-  tagsJson       Json      @default("[]")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  tagsJson       Json          @default("[]")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([provinceId, status])
   @@index([closingDate])
 }
 
 model Submission {
-  id                String    @id @default(cuid())
+  id                String           @id @default(cuid())
   type              String
   payloadJson       Json
   payloadHash       String?
@@ -373,17 +470,17 @@ model Submission {
   notes             String?
   reviewedNotes     String?
   provinceId        String?
-  province          Province? @relation(fields: [provinceId], references: [id])
+  province          Province?        @relation(fields: [provinceId], references: [id])
   organisationId    String?
-  organisation      Organisation? @relation(fields: [organisationId], references: [id])
+  organisation      Organisation?    @relation(fields: [organisationId], references: [id])
   submittedById     String?
-  submittedBy       User?     @relation("SubmissionSubmitter", fields: [submittedById], references: [id])
+  submittedBy       User?            @relation("SubmissionSubmitter", fields: [submittedById], references: [id])
   reviewedById      String?
-  reviewedBy        User?     @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
+  reviewedBy        User?            @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
   reviewedAt        DateTime?
   createdLocationId String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([provinceId, status])
   @@index([payloadHash])
@@ -457,13 +554,13 @@ model AppSetting {
 }
 
 model BackupRecord {
-  id         String   @id @default(cuid())
-  filename   String
-  path       String
-  sizeBytes  Int
-  notes      String?
+  id          String   @id @default(cuid())
+  filename    String
+  path        String
+  sizeBytes   Int
+  notes       String?
   createdById String?
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model StoredObject {
@@ -484,22 +581,22 @@ model StoredObject {
 }
 
 model DataSubjectRequest {
-  id          String   @id @default(cuid())
-  type        String
-  status      WorkflowStatus @default(OPEN)
+  id             String         @id @default(cuid())
+  type           String
+  status         WorkflowStatus @default(OPEN)
   requesterEmail String
   requesterName  String?
-  details     String?
-  provinceId  String?
-  handledNotes String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  details        String?
+  provinceId     String?
+  handledNotes   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([status, createdAt])
 }
 
 model CorrectionRequest {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   targetType     String
   targetId       String?
   targetSlug     String?
@@ -508,26 +605,114 @@ model CorrectionRequest {
   submitterEmail String
   message        String
   provinceId     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([status, createdAt])
 }
 
 model ImportBatch {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   source         String
+  sourceUrl      String?
+  sourceVersion  String?
+  checksumSha256 String?
+  licence        String?
   status         ImportStatus @default(STAGED)
   provinceId     String?
-  rowCount       Int      @default(0)
-  appliedCount   Int      @default(0)
+  rowCount       Int          @default(0)
+  appliedCount   Int          @default(0)
   payloadJson    Json
   reportJson     Json?
   createdById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   appliedAt      DateTime?
 
   @@index([status, createdAt])
   @@index([provinceId])
+}
+
+model Translation {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  field      String
+  locale     String
+  value      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId, field, locale])
+  @@index([locale, entityType])
+}
+
+model Notification {
+  id           String    @id @default(cuid())
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email        String?
+  type         String
+  subject      String
+  body         String
+  status       JobStatus @default(PENDING)
+  attempts     Int       @default(0)
+  scheduledAt  DateTime  @default(now())
+  sentAt       DateTime?
+  lastError    String?
+  metadataJson Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([userId, createdAt])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  eventType String
+  email     Boolean  @default(true)
+  inApp     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventType])
+}
+
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  type        String
+  status      JobStatus @default(PENDING)
+  payloadJson Json
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAfter    DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  lastError   String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAfter])
+  @@index([type, createdAt])
+}
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  name           String
+  prefix         String    @unique
+  keyHash        String    @unique
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organisationId String?
+  scopesJson     Json      @default("[]")
+  rateLimit      Int       @default(600)
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([organisationId, active])
 }

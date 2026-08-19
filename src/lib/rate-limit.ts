@@ -2,10 +2,13 @@
  * Rate limiter: in-memory by default.
  * Optional Upstash Redis REST for multi-instance (set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN).
  * File-backed counters optional via RATE_LIMIT_FILE for single-node persistence across restarts.
+ *
+ * Upstash POST /pipeline returns an array of { result } objects, not { result: [...] }.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
+import { log } from "./logger";
 
 type Bucket = { count: number; resetAt: number };
 
@@ -76,7 +79,6 @@ function persistFile(key: string, count: number, resetAt: number) {
   }
 }
 
-// hydrate memory from disk once
 let hydrated = false;
 function hydrate() {
   if (hydrated) return;
@@ -88,9 +90,58 @@ function hydrate() {
   }
 }
 
+function pipelineEntry(value: unknown): unknown {
+  if (value == null) return value;
+  if (Array.isArray(value)) {
+    // Redis RESP: [error, result] or [null, result]
+    return value.length >= 2 ? value[1] : value[0];
+  }
+  if (typeof value === "object" && value && "result" in value) {
+    return (value as { result: unknown }).result;
+  }
+  if (typeof value === "object" && value && "error" in value) {
+    return undefined;
+  }
+  return value;
+}
+
+/**
+ * Parse Upstash REST /pipeline JSON.
+ * Canonical: [{ result: 1 }, { result: 1 }, { result: 60 }]
+ * Also accepts { result: [1, 1, 60] } and RESP tuples.
+ */
+export function parseUpstashPipeline(data: unknown): { count: number; ttl: number } | null {
+  if (data == null) return null;
+  let countRaw: unknown;
+  let ttlRaw: unknown;
+
+  if (Array.isArray(data)) {
+    if (data.length !== 3) return null;
+    if (data.some((entry) => typeof entry === "object" && entry && "error" in entry)) return null;
+    countRaw = pipelineEntry(data[0]);
+    ttlRaw = pipelineEntry(data[2]);
+  } else if (typeof data === "object" && data && "result" in data) {
+    const result = (data as { result: unknown }).result;
+    if (!Array.isArray(result) || result.length !== 3) return null;
+    countRaw = pipelineEntry(result[0]);
+    ttlRaw = pipelineEntry(result[2]);
+  } else {
+    return null;
+  }
+
+  const count = Number(countRaw);
+  if (!Number.isSafeInteger(count) || count < 1) return null;
+  const ttl = Number(ttlRaw);
+  if (!Number.isSafeInteger(ttl) || ttl < 1) return null;
+  return { count, ttl };
+}
+
+export type UpstashFetch = typeof fetch;
+
 async function upstashLimit(
   key: string,
-  opts: { limit: number; windowMs: number }
+  opts: { limit: number; windowMs: number },
+  fetchImpl: UpstashFetch = fetch
 ): Promise<RateLimitResult | null> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -100,8 +151,7 @@ async function upstashLimit(
   const windowSec = Math.max(1, Math.ceil(opts.windowMs / 1000));
 
   try {
-    // INCR + EXPIRE via pipeline
-    const res = await fetch(`${url}/pipeline`, {
+    const res = await fetchImpl(`${url.replace(/\/$/, "")}/pipeline`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -112,29 +162,42 @@ async function upstashLimit(
         ["EXPIRE", bucketKey, windowSec, "NX"],
         ["TTL", bucketKey],
       ]),
+      signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { result?: [number, unknown, number] };
-    const count = Number(data?.result?.[0] ?? 0);
-    const ttl = Number(data?.result?.[2] ?? windowSec);
-    const resetAt = Date.now() + Math.max(1, ttl) * 1000;
-    if (count > opts.limit) {
+    if (!res.ok) {
+      log.error("rate_limit.redis_http_error", { status: res.status });
+      return null;
+    }
+    let data: unknown;
+    try {
+      data = await res.json();
+    } catch {
+      log.error("rate_limit.redis_malformed_json");
+      return null;
+    }
+    const parsed = parseUpstashPipeline(data);
+    if (!parsed) {
+      log.error("rate_limit.redis_malformed_response");
+      return null;
+    }
+    const resetAt = Date.now() + Math.max(1, parsed.ttl) * 1000;
+    if (parsed.count > opts.limit) {
       return {
         ok: false,
         remaining: 0,
         resetAt,
-        retryAfterSec: Math.max(1, ttl),
+        retryAfterSec: Math.max(1, parsed.ttl),
       };
     }
-    return { ok: true, remaining: Math.max(0, opts.limit - count), resetAt };
-  } catch {
+    return { ok: true, remaining: Math.max(0, opts.limit - parsed.count), resetAt };
+  } catch (error) {
+    log.error("rate_limit.redis_unavailable", {
+      detail: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
 
-/**
- * Synchronous rate limit (memory/file). Prefer rateLimitAsync when Upstash may be configured.
- */
 export function rateLimit(
   key: string,
   opts: { limit: number; windowMs: number }
@@ -143,32 +206,34 @@ export function rateLimit(
   return memoryLimit(key, opts);
 }
 
+function failClosed(): RateLimitResult {
+  return {
+    ok: false,
+    remaining: 0,
+    resetAt: Date.now() + 30_000,
+    retryAfterSec: 30,
+  };
+}
+
 /** Async limit that tries Upstash first. Production fails closed if Redis is required and missing. */
 export async function rateLimitAsync(
   key: string,
-  opts: { limit: number; windowMs: number }
+  opts: { limit: number; windowMs: number },
+  fetchImpl?: UpstashFetch
 ): Promise<RateLimitResult> {
-  const remote = await upstashLimit(key, opts);
+  const remote = await upstashLimit(key, opts, fetchImpl ?? fetch);
   if (remote) return remote;
   const prod = process.env.NODE_ENV === "production";
-  const redisConfigured = Boolean(process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL);
-  if (prod && redisConfigured && process.env.RATE_LIMIT_FAIL_OPEN !== "1") {
-    return {
-      ok: false,
-      remaining: 0,
-      resetAt: Date.now() + 30_000,
-      retryAfterSec: 30,
-    };
-  }
-  if (prod && !redisConfigured && process.env.RATE_LIMIT_ALLOW_MEMORY !== "1") {
-    return {
-      ok: false,
-      remaining: 0,
-      resetAt: Date.now() + 30_000,
-      retryAfterSec: 30,
-    };
-  }
+  // Production must never silently fall back to a per-instance limiter: it
+  // would let an attacker bypass limits by changing application instances.
+  // The memory/file implementations are explicitly for development and CI.
+  if (prod) return failClosed();
   return rateLimit(key, opts);
+}
+
+export function resetMemoryBucketsForTests() {
+  buckets.clear();
+  hydrated = false;
 }
 
 setInterval(() => {

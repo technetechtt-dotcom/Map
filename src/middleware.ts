@@ -8,6 +8,8 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const nonce = crypto.randomUUID().replace(/-/g, "");
+  const anonymousId =
+    req.cookies.get("ict_anon")?.value || crypto.randomUUID().replace(/-/g, "");
 
   const maintenance =
     process.env.MAINTENANCE_MODE === "1" || process.env.MAINTENANCE_MODE === "true";
@@ -65,44 +67,71 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  const res = NextResponse.next();
   const isProd = process.env.NODE_ENV === "production";
   const strictCsp = process.env.CSP_STRICT === "1" || (isProd && process.env.CSP_STRICT !== "0");
-
-  res.headers.set("X-Content-Type-Options", "nosniff");
-  res.headers.set("X-Frame-Options", "DENY");
-  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  const cspReportUri = process.env.CSP_REPORT_URI || (isProd ? "/api/csp-report" : "");
 
   const tileConnect =
     process.env.MAP_TILE_CONNECT_SRC ||
     "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
-  const tileImg = process.env.MAP_TILE_IMG_SRC || "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
+  const tileImg = process.env.MAP_TILE_IMG_SRC || "https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com";
+
+  // next dev / webpack Fast Refresh evaluates strings (eval). That is forbidden
+  // in production CSP and must stay forbidden on `next start`.
+  const webpackEval = isProd ? "" : " 'unsafe-eval' 'wasm-unsafe-eval'";
+  const hmrConnect = isProd ? "" : " ws: wss: http://127.0.0.1:* http://localhost:*";
 
   const scriptSrc = strictCsp
-    ? `'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com`
-    : `'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com`;
+    ? `'self' 'nonce-${nonce}' 'strict-dynamic'${webpackEval} https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com`
+    : `'self' 'unsafe-inline'${webpackEval} https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com`;
 
-  res.headers.set(
-    "Content-Security-Policy",
-    [
+  const csp = [
       "default-src 'self'",
       `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline' https://unpkg.com",
       `img-src 'self' data: blob: ${tileImg}`,
       "font-src 'self' data:",
-      `connect-src 'self' ${tileConnect} https://challenges.cloudflare.com`,
+      `connect-src 'self' ${tileConnect} https://challenges.cloudflare.com${hmrConnect}`,
       "frame-src 'self' https://challenges.cloudflare.com https://www.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      process.env.CSP_REPORT_URI ? `report-uri ${process.env.CSP_REPORT_URI}` : "",
-      process.env.CSP_REPORT_URI ? `report-to csp-endpoint` : "",
+      cspReportUri ? `report-uri ${cspReportUri}` : "",
+      cspReportUri ? `report-to csp-endpoint` : "",
     ]
       .filter(Boolean)
-      .join("; ")
-  );
+      .join("; ");
+
+  // Next.js reads the nonce from the incoming CSP header and applies it to
+  // framework/bootstrap scripts. The same policy must also reach the browser.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("Content-Security-Policy", csp);
+  requestHeaders.set("x-nonce", nonce);
+  // Always overwrite the inbound value so clients cannot select another
+  // visitor's anonymous rate-limit bucket.
+  requestHeaders.set("x-anonymous-id", anonymousId);
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.headers.set("Content-Security-Policy", csp);
   res.headers.set("x-nonce", nonce);
+  res.cookies.set("ict_anon", anonymousId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProd,
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+  });
+
+  if (cspReportUri) {
+    res.headers.set(
+      "Reporting-Endpoints",
+      `csp-endpoint="${cspReportUri.replace(/"/g, "")}"`
+    );
+  }
 
   if (isProd) {
     res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
