@@ -8,6 +8,7 @@ import { createHash } from "crypto";
 import { enqueueJob, snapshotSettingKey } from "../jobs";
 import { applyImportBatch } from "../import-apply";
 import { isCoordQuality } from "../coords";
+import { geocodeAddress, geocoderDisabled } from "../geocode";
 
 export async function handleAnalyticsAggregation(jobId: string, payload: Record<string, unknown> = {}) {
   const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
@@ -79,14 +80,32 @@ export async function handleGeocoding(jobId: string, payload: Record<string, unk
       });
   let updated = 0;
   for (const location of locations) {
+    let latitude = location.latitude;
+    let longitude = location.longitude;
+    let coordQuality = isCoordQuality(location.coordQuality) && location.coordQuality !== "unknown" ? location.coordQuality : "town-centre";
+    let coordSource = location.coordSource || "geocode-job";
+    if (location.address && !geocoderDisabled()) {
+      const hit = await geocodeAddress(
+        [location.address, location.municipality?.name, location.district?.name, location.province.name].filter(Boolean).join(", ")
+      );
+      if (hit) {
+        latitude = hit.latitude;
+        longitude = hit.longitude;
+        coordQuality = "estimated";
+        coordSource = hit.source;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    }
     const geometry = location.municipality?.geojson || location.district?.geojson || location.province.geojson;
-    const boundaryValid = validatePointAssignment(location.longitude, location.latitude, geometry);
+    const boundaryValid = validatePointAssignment(longitude, latitude, geometry);
     await prisma.location.update({
       where: { id: location.id },
       data: {
+        latitude,
+        longitude,
         boundaryValid,
-        coordQuality: isCoordQuality(location.coordQuality) && location.coordQuality !== "unknown" ? location.coordQuality : "town-centre",
-        coordSource: location.coordSource || "geocode-job",
+        coordQuality,
+        coordSource,
       },
     });
     updated += 1;
@@ -194,6 +213,7 @@ export async function handleBackup(jobId: string) {
       path: "offsite",
       sizeBytes: objects.copiedBytes,
       notes: "Scheduled worker backup (object copy + byte checksum verify)",
+      kind: "objects",
       checksumSha256: checksum,
       objectsCopied: objects.copied,
       lastVerifiedAt: new Date(),

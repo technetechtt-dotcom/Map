@@ -28,6 +28,8 @@
     "backup:pg-smoke": "node scripts/postgres-backup-smoke.js",
     "backup:dr": "node scripts/disaster-recovery-smoke.js",
     "backup:objects": "tsx scripts/backup-objects.ts",
+    "staging:exercise": "node scripts/staging-exercise.js",
+    "deploy:assert-green": "node scripts/assert-main-green.js",
     "neon:verify": "node scripts/neon-verify.js",
     "mfa:rotate": "tsx scripts/rotate-mfa-secrets.ts",
     "sbom": "node scripts/generate-sbom.js",

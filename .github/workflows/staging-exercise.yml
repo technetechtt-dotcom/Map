@@ -1,0 +1,51 @@
+name: Staging exercise
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "40 2 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ictmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use-32ch"
+      NEXTAUTH_URL: "http://localhost:3000"
+      CAPTCHA_DISABLED: "1"
+      BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
+      MFA_ENCRYPTION_KEY: "ci-mfa-encryption-key-at-least-32-characters"
+      ALLOW_DEMO_USERS: "0"
+      SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
+      ALLOW_DATABASE_RESET: "1"
+      GEOCODER_DISABLED: "1"
+      HIBP_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Full staging exercise
+        run: npm run staging:exercise

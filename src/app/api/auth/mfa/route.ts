@@ -8,6 +8,7 @@ import { requiresMfa } from "@/lib/policy";
 import { generateTotpSecret, otpauthUri, totpCode, verifyTotp } from "@/lib/totp";
 import { currentMfaKeyVersion, decryptSecret, encryptSecret, primeMfaDataKey } from "@/lib/secret-box";
 import { notify } from "@/lib/notify";
+import { invalidateSessionCache } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { clientIp } from "@/lib/security";
 
@@ -153,6 +154,7 @@ export async function PUT(req: NextRequest) {
         sessionVersion: { increment: 1 },
       },
     });
+    await invalidateSessionCache(user.id);
     await writeAudit({
       user: auth.user,
       userId: user.id,
@@ -199,6 +201,7 @@ export async function PUT(req: NextRequest) {
       sessionVersion: { increment: 1 },
     },
   });
+  await invalidateSessionCache(user.id);
   await writeAudit({
     user: auth.user,
     userId: user.id,

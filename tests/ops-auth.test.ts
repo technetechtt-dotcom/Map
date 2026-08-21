@@ -36,6 +36,8 @@ describe("maintenance job roles", () => {
     expect(authorizeJobRole(provincial, "all").ok).toBe(false);
     expect(authorizeJobRole(provincial, "expiry")).toEqual({ ok: true, provinceId: "prov-a" });
     expect(authorizeJobRole(provincial, "notify").ok).toBe(false);
+    expect(authorizeJobRole(provincial, "requeue").ok).toBe(false);
+    expect(authorizeJobRole(superAdmin, "requeue").ok).toBe(true);
   });
 
   it("blocks org admins from maintenance jobs", () => {
@@ -74,7 +76,14 @@ describe("public health projection", () => {
       queue: { pending: 2, running: 1, failed: 0, deadLetter: 0 },
       notifications: { failed: 0 },
       verification: { expired: 3 },
-      backup: { ageHours: 1, stale: false, checksum: "secret-checksum", objectsCopied: 4, rpoMinutes: 1440, rtoMinutes: 120 },
+      backup: {
+        stale: false,
+        rpoMinutes: 1440,
+        rtoMinutes: 120,
+        database: { kind: "database", ageHours: 1, stale: false, checksum: "secret-checksum", objectsCopied: 0, configured: true, filename: "db.dump", recordedAt: new Date().toISOString() },
+        objects: { kind: "objects", ageHours: 1, stale: false, checksum: "object-checksum", objectsCopied: 4, configured: true, filename: "objects.json", recordedAt: new Date().toISOString() },
+        appExport: { kind: "app-export", ageHours: 1, stale: false, checksum: null, objectsCopied: 0, configured: true, filename: "backup.enc", recordedAt: new Date().toISOString() },
+      },
       worker: { workerId: "worker-1", lastSeenAt: new Date(), queueDepth: 2, healthy: true },
     });
     expect(JSON.stringify(publicHealth)).not.toContain("secret-checksum");

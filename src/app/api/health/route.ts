@@ -1,9 +1,9 @@
-import { collectMetrics } from "@/lib/metrics";
+import { collectMetrics, pingDatabase } from "@/lib/metrics";
 import { authorizeMetricsRequest } from "@/lib/ops-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Public: { status } only.
+ * Public: { status } only, using a single SELECT 1.
  * Authenticated metrics token: readiness details for monitoring.
  */
 export async function GET(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     let status: "ok" | "degraded" | "maintenance" = maintenance ? "maintenance" : "ok";
     if (!maintenance) {
       try {
-        await collectMetrics();
+        await pingDatabase();
       } catch {
         status = "degraded";
       }
@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
       storage: {
         driver: process.env.STORAGE_DRIVER || "local",
         configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true,
+        objectBackupConfigured: Boolean(process.env.S3_BACKUP_BUCKET),
       },
       queue: metrics?.queue ?? null,
       backup: metrics?.backup ?? null,
@@ -69,6 +70,9 @@ export async function GET(req: NextRequest) {
       ts: new Date().toISOString(),
       alerts: {
         backupStale,
+        databaseBackupStale: metrics?.backup.database.stale ?? true,
+        objectBackupStale: metrics?.backup.objects.stale ?? true,
+        appExportStale: metrics?.backup.appExport.stale ?? true,
         workerUnhealthy: metrics ? metrics.worker.healthy === false : true,
       },
     },

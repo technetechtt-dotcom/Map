@@ -9,6 +9,7 @@ import { writeAudit } from "@/lib/audit";
 import { log } from "@/lib/logger";
 import { assertStrongPassword } from "@/lib/password";
 import { notify } from "@/lib/notify";
+import { invalidateSessionCache } from "@/lib/auth";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -94,6 +95,7 @@ export async function PUT(req: NextRequest) {
       data: { usedAt: new Date() },
     }),
   ]);
+  await invalidateSessionCache(row.userId);
 
   await writeAudit({
     userId: row.userId,

@@ -588,6 +588,7 @@ model BackupRecord {
   filename       String
   path           String
   sizeBytes      Int
+  kind           String    @default("app-export")
   notes          String?
   checksumSha256 String?
   objectsCopied  Int       @default(0)
@@ -596,6 +597,8 @@ model BackupRecord {
   rtoMinutes     Int?
   createdById    String?
   createdAt      DateTime  @default(now())
+
+  @@index([kind, createdAt])
 }
 
 model StoredObject {

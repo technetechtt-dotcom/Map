@@ -43,6 +43,7 @@ jobs:
       HIBP_DISABLED: "1"
       RATE_LIMIT_ALLOW_MEMORY: "1"
       POSTGRES_INTEGRATION: "1"
+      GEOCODER_DISABLED: "1"
 
     steps:
       - uses: actions/checkout@v7

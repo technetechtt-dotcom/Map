@@ -20,7 +20,9 @@ See `.env.example`. Production must set:
 - Redis/Upstash for rate limits
 - `TRUST_PROXY=1` behind reverse proxy only
 - CAPTCHA secrets; `CAPTCHA_DISABLED` is forbidden in production
-- `STORAGE_DRIVER=s3` with credentials; do not set `STORAGE_ALLOW_LOCAL_FALLBACK` in production
+- `STORAGE_DRIVER=s3` with `S3_BUCKET` **and** `S3_BACKUP_BUCKET`; object backup never skips in production
+- `RESEND_API_KEY` or `NOTIFY_WEBHOOK_URL` for invitation delivery
+
 - `MFA_ENFORCE=1` for elevated roles
 - Tile provider: `NEXT_PUBLIC_MAP_TILE_URL` (do not use public OSM for high traffic without policy)
 
@@ -51,7 +53,11 @@ Uptime: HTTP check on `/api/health` (and `/api/meta`) every 1–5 minutes.
 
 ## Health probe
 
-`GET /api/health` — `{ status, db, maintenance, latencyMs }` · `Cache-Control: no-store`.
+`GET /api/health/live` — process liveness only.  
+Unauthenticated `GET /api/health` — `{ status }` after a single `SELECT 1`.  
+Metrics token: per-channel backup health (`database`, `objects`, `app-export`). Backup is stale unless **all three** channels are fresh.
+
+Dead letters: `GET /api/admin/jobs` (super-admin) lists them. Requeue: `POST /api/admin/jobs?job=requeue&id=` or `&type=`.
 
 ## Disaster recovery
 
@@ -63,12 +69,12 @@ Uptime: HTTP check on `/api/health` (and `/api/meta`) every 1–5 minutes.
 ## Session revocation
 
 Admin: `PATCH /api/admin/users` with `{ id, revokeSessions: true }` or `active: false`.  
-Increments `sessionVersion`; JWT rejected within 60s revalidation / immediately on `requireSession`.
+Increments `sessionVersion` and deletes the Redis `session-version:{userId}` cache.
 
 ## Password reset & invites
 
 - `POST /api/auth/password-reset` → `PUT` complete  
-- `POST /api/admin/invitations` → `PUT` accept  
+- `POST /api/admin/invitations` emails the accept link in production (token is not returned). `E2E=1` still returns `acceptToken` for Playwright.  
 
 ## Data quality
 

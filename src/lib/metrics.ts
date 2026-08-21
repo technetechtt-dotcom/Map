@@ -1,36 +1,32 @@
 import { prisma } from "./prisma";
+import { collectBackupHealth } from "./backup-health";
 
 export function isWorkerHealthy(lastSeenAt: Date, now = Date.now()) {
   return now - lastSeenAt.getTime() < 5 * 60_000;
 }
 
+export async function pingDatabase() {
+  const started = Date.now();
+  await prisma.$queryRaw`SELECT 1`;
+  return Date.now() - started;
+}
+
 export async function collectMetrics() {
   const started = Date.now();
-  const dbStarted = Date.now();
-  await prisma.$queryRaw`SELECT 1`;
-  const dbLatencyMs = Date.now() - dbStarted;
+  const dbLatencyMs = await pingDatabase();
 
-  const [
-    pendingJobs,
-    runningJobs,
-    failedJobs,
-    deadLetter,
-    failedNotifications,
-    expiredVerifications,
-    lastBackup,
-    worker,
-  ] = await Promise.all([
-    prisma.backgroundJob.count({ where: { status: "PENDING" } }),
-    prisma.backgroundJob.count({ where: { status: "RUNNING" } }),
-    prisma.backgroundJob.count({ where: { status: "FAILED" } }),
-    prisma.backgroundJob.count({ where: { deadLetter: true } }),
-    prisma.notification.count({ where: { status: "FAILED" } }),
-    prisma.location.count({ where: { verificationExpiresAt: { lt: new Date() }, status: { in: ["PUBLISHED", "VERIFIED"] } } }),
-    prisma.backupRecord.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, checksumSha256: true, objectsCopied: true, rpoMinutes: true, rtoMinutes: true } }),
-    prisma.workerHeartbeat.findFirst({ orderBy: { lastSeenAt: "desc" } }),
-  ]);
+  const [pendingJobs, runningJobs, failedJobs, deadLetter, failedNotifications, expiredVerifications, worker, backup] =
+    await Promise.all([
+      prisma.backgroundJob.count({ where: { status: "PENDING" } }),
+      prisma.backgroundJob.count({ where: { status: "RUNNING" } }),
+      prisma.backgroundJob.count({ where: { status: "FAILED" } }),
+      prisma.backgroundJob.count({ where: { deadLetter: true } }),
+      prisma.notification.count({ where: { status: "FAILED" } }),
+      prisma.location.count({ where: { verificationExpiresAt: { lt: new Date() }, status: { in: ["PUBLISHED", "VERIFIED"] } } }),
+      prisma.workerHeartbeat.findFirst({ orderBy: { lastSeenAt: "desc" } }),
+      collectBackupHealth(),
+    ]);
 
-  const backupAgeHours = lastBackup ? (Date.now() - lastBackup.createdAt.getTime()) / 36e5 : null;
   return {
     collectedAt: new Date().toISOString(),
     latencyMs: Date.now() - started,
@@ -38,14 +34,7 @@ export async function collectMetrics() {
     queue: { pending: pendingJobs, running: runningJobs, failed: failedJobs, deadLetter },
     notifications: { failed: failedNotifications },
     verification: { expired: expiredVerifications },
-    backup: {
-      ageHours: backupAgeHours,
-      stale: backupAgeHours != null ? backupAgeHours > 36 : true,
-      checksum: lastBackup?.checksumSha256 || null,
-      objectsCopied: lastBackup?.objectsCopied || 0,
-      rpoMinutes: lastBackup?.rpoMinutes ?? 1440,
-      rtoMinutes: lastBackup?.rtoMinutes ?? 120,
-    },
+    backup,
     worker: worker
       ? { workerId: worker.workerId, lastSeenAt: worker.lastSeenAt, queueDepth: worker.queueDepth, healthy: isWorkerHealthy(worker.lastSeenAt) }
       : { healthy: false },

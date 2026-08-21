@@ -17,6 +17,7 @@ import {
 import { rateLimitAsync } from "./rate-limit";
 import { log } from "./logger";
 import { verifyTotp } from "./totp";
+import { cacheDel, cacheGet, cacheSet, sessionVersionCacheKey } from "./cache";
 import { clientIdentityFromHeaders } from "./security";
 import { decryptSecret, primeMfaDataKey } from "./secret-box";
 
@@ -176,9 +177,18 @@ export const authOptions: NextAuthOptions = {
         token.mfaEnabled = u.mfaEnabled ?? false;
         token.invalid = false;
         token.lastRefresh = Date.now();
+        if (u.id) await cacheSet(sessionVersionCacheKey(String(u.id)), String(token.sessionVersion ?? 0), 30);
       } else if (token.sub) {
         const last = (token.lastRefresh as number) || 0;
         const stale = Date.now() - last > 60_000;
+        const cachedVersion = await cacheGet(sessionVersionCacheKey(token.sub));
+        if (cachedVersion != null && typeof token.sessionVersion === "number" && Number(cachedVersion) !== token.sessionVersion) {
+          token.invalid = true;
+          return token;
+        }
+        if (cachedVersion != null && !stale) {
+          return token;
+        }
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
           select: {
@@ -207,6 +217,9 @@ export const authOptions: NextAuthOptions = {
           token.invalid = false;
           token.lastRefresh = Date.now();
         }
+        if (dbUser?.active) {
+          await cacheSet(sessionVersionCacheKey(token.sub), String(dbUser.sessionVersion), 30);
+        }
       }
       return token;
     },
@@ -232,11 +245,16 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
+export async function invalidateSessionCache(userId: string) {
+  await cacheDel(sessionVersionCacheKey(userId));
+}
+
 export async function revokeUserSessions(userId: string) {
   await prisma.user.update({
     where: { id: userId },
     data: { sessionVersion: { increment: 1 } },
   });
+  await invalidateSessionCache(userId);
 }
 
 /** Expire NextAuth cookies after password change or explicit revocation. */

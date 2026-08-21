@@ -7,6 +7,7 @@ import { isSuperAdmin, requiresMfa } from "@/lib/policy";
 import { readJsonLimited, clientIp } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { securityAlert } from "@/lib/alerts";
+import { invalidateSessionCache } from "@/lib/auth";
 
 const createSchema = z.object({
   userId: z.string().min(1),
@@ -100,6 +101,7 @@ export async function PATCH(req: NextRequest) {
       },
     }),
   ]);
+  await invalidateSessionCache(request.userId);
   await writeAudit({ user: auth.user, action: "MFA_RECOVERY_APPROVED", entityType: "User", entityId: request.userId, metadata: { reason: body.data.reason }, ipAddress: clientIp(req) });
   await securityAlert({
     type: "mfa.reset",

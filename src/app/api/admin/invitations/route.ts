@@ -8,6 +8,9 @@ import { invitationAcceptSchema } from "@/lib/validation";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { assertStrongPassword } from "@/lib/password";
+import { notify } from "@/lib/notify";
+import { renderEmail, sendViaResend } from "@/lib/email";
+import { log } from "@/lib/logger";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -84,11 +87,45 @@ export async function POST(req: NextRequest) {
     metadata: { email: inv.email, role: inv.role },
   });
 
+  const origin = (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
+  const acceptPath = `/accept-invite?token=${token}`;
+  const acceptUrl = origin ? `${origin}${acceptPath}` : acceptPath;
+  const subject = "You were invited to the SA ICT Ecosystem Map";
+  const emailBody = `Use this link to accept your invitation (expires ${inv.expiresAt.toISOString()}):\n${acceptUrl}`;
+  const production = process.env.NODE_ENV === "production" && process.env.E2E !== "1";
+  if (production && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL) {
+    await prisma.adminInvitation.delete({ where: { id: inv.id } }).catch(() => undefined);
+    return jsonError("Invitation email is not configured (RESEND_API_KEY or NOTIFY_WEBHOOK_URL)", 503);
+  }
+
+  await notify({
+    type: "invite",
+    to: inv.email,
+    subject,
+    body: emailBody,
+    meta: { invitationId: inv.id },
+  });
+
+  let delivered = false;
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const rendered = renderEmail("invite", emailBody, subject);
+      const sent = await sendViaResend(inv.email, rendered.subject, rendered.html, rendered.text);
+      delivered = Boolean(sent);
+    } catch (error) {
+      log.error("invite.email_failed", { detail: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  if (production && !delivered && !process.env.NOTIFY_WEBHOOK_URL) {
+    return jsonError("Invitation could not be emailed", 503);
+  }
+
   return jsonOk({
     invitation: { id: inv.id, email: inv.email, expiresAt: inv.expiresAt },
-    // Token returned once to inviter; send via secure channel in production
-    acceptToken: token,
-    acceptPath: `/accept-invite?token=${token}`,
+    delivered: delivered || Boolean(process.env.NOTIFY_WEBHOOK_URL) || !production,
+    acceptPath: production ? "/accept-invite" : acceptPath,
+    ...(production ? {} : { acceptToken: token }),
   });
 }
 

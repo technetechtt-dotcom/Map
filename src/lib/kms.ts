@@ -2,7 +2,40 @@
 import { KMSClient, DecryptCommand } from "@aws-sdk/client-kms";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
+type CachedKey = { key: Buffer; expiresAt: number };
+const processCache = new Map<number, CachedKey>();
+const DATA_KEY_TTL_MS = Number(process.env.MFA_DATA_KEY_TTL_MS || 15 * 60_000);
+
+function wipe(entry: CachedKey) {
+  entry.key.fill(0);
+}
+
+export function clearMfaDataKeyCache() {
+  for (const entry of processCache.values()) wipe(entry);
+  processCache.clear();
+}
+
+function cachedDataKey(version: number): Buffer | null {
+  const hit = processCache.get(version);
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    wipe(hit);
+    processCache.delete(version);
+    return null;
+  }
+  return hit.key;
+}
+
+function rememberDataKey(version: number, key: Buffer) {
+  const existing = processCache.get(version);
+  if (existing) wipe(existing);
+  processCache.set(version, { key, expiresAt: Date.now() + Math.max(60_000, DATA_KEY_TTL_MS) });
+}
+
 export async function unwrapMfaDataKey(version: number): Promise<Buffer> {
+  const cached = cachedDataKey(version);
+  if (cached) return cached;
+
   const kmsKeyId = process.env.AWS_KMS_KEY_ID;
   const wrapped = process.env[`MFA_KMS_CIPHERTEXT_V${version}`] || process.env.MFA_KMS_CIPHERTEXT;
   if (kmsKeyId && wrapped) {
@@ -15,7 +48,9 @@ export async function unwrapMfaDataKey(version: number): Promise<Buffer> {
       })
     );
     if (!result.Plaintext) throw new Error("KMS decrypt returned empty plaintext");
-    return Buffer.from(result.Plaintext).subarray(0, 32);
+    const key = Buffer.from(result.Plaintext).subarray(0, 32);
+    rememberDataKey(version, key);
+    return key;
   }
   const raw =
     process.env[`MFA_ENCRYPTION_KEY_V${version}`] ||
@@ -23,7 +58,9 @@ export async function unwrapMfaDataKey(version: number): Promise<Buffer> {
     (version === Number(process.env.MFA_PREVIOUS_KEY_VERSION || 0) ? process.env.MFA_ENCRYPTION_KEY_PREVIOUS : undefined) ||
     "";
   if (!raw || raw.length < 32) throw new Error(`Dedicated MFA encryption key version ${version} is unavailable or too short`);
-  return createHash("sha256").update(raw).digest();
+  const key = createHash("sha256").update(raw).digest();
+  rememberDataKey(version, key);
+  return key;
 }
 
 export function wrapLocalDataKey(plaintext: Buffer, wrappingKey: string): string {

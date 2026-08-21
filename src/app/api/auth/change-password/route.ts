@@ -6,7 +6,7 @@ import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { assertStrongPassword, PASSWORD_HISTORY_KEEP, wasPasswordReused } from "@/lib/password";
 import { notify } from "@/lib/notify";
-import { clearAuthCookies } from "@/lib/auth";
+import { clearAuthCookies, invalidateSessionCache } from "@/lib/auth";
 import { z } from "zod";
 
 const schema = z.object({
@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
     subject: "Your SA ICT Map password was changed",
     body: "If you did not change your password, contact an administrator immediately.",
   });
+  await invalidateSessionCache(user.id);
 
   return clearAuthCookies(jsonOk({ ok: true, message: "Password updated — please sign in again." }));
 }

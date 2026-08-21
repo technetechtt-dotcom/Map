@@ -64,12 +64,17 @@ export async function copyStoredObjectsToBackup() {
     backupKey: backupObjectKey(row.filename, row.createdAt),
     sizeBytes: row.sizeBytes,
   }));
+  const production = process.env.NODE_ENV === "production" && process.env.E2E !== "1";
   if (!backupBucket || !sourceBucket) {
+    if (production) throw new Error("S3_BACKUP_BUCKET and S3_BUCKET are required for object backup");
     log.warn("backup.objects.skipped", { reason: "S3_BACKUP_BUCKET or S3_BUCKET missing", count: objects.length });
     return { copied: 0, copiedBytes: 0, verified: 0, skipped: objects.length, failed: [] as string[], manifest };
   }
   const sdk = await s3();
-  if (!sdk) return { copied: 0, copiedBytes: 0, verified: 0, skipped: objects.length, failed: [] as string[], manifest };
+  if (!sdk) {
+    if (production) throw new Error("S3 SDK is required for object backup");
+    return { copied: 0, copiedBytes: 0, verified: 0, skipped: objects.length, failed: [] as string[], manifest };
+  }
 
   const dest = client(sdk, true);
   let copied = 0;

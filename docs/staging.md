@@ -17,10 +17,20 @@ Create a staging stack that is separate from production:
 ## Deploy
 
 1. `npm ci`
-2. `DIRECT_URL=... npx prisma migrate deploy` (approval gate: review migration SQL)
-3. `node scripts/neon-verify.js`
-4. `npm run build && npm start`
-5. Post-deploy smoke: `/api/health`, login, map tiles, one admin write
-6. Rollback: previous container image + `BackupRecord` restore runbook in `docs/backup-rpo-rto.md`
+2. `node scripts/assert-main-green.js --wait` (blocks a red `main` SHA even when direct pushes are allowed)
+3. `DIRECT_URL=... npx prisma migrate deploy` (approval gate: review migration SQL)
+4. `node scripts/neon-verify.js`
+5. `npm run build && npm start`
+6. Post-deploy smoke: `/api/health/live`, authenticated `/api/health`, login, map tiles, one admin write
+7. Rollback: previous container image + `BackupRecord` restore runbook in `docs/backup-rpo-rto.md`
 
 Least privilege: never use the migration owner as `DATABASE_URL` for the Next.js process.
+
+Vercel: set Ignored Build Step to `node scripts/vercel-ignored-build.js` so a failing CI/Security SHA is not promoted.
+
+## Staging exercise
+
+`npm run staging:exercise` runs migrate → seed → encrypted backup smoke → destructive restore into a disposable PostgreSQL → optional `/api/health/live` load → dependency audit.
+
+- Use CI PostGIS or a disposable staging database. It refuses Neon URLs unless `ALLOW_DESTRUCTIVE_STAGING=1`.
+- Independent penetration testing remains a scheduled third-party exercise; this repo does not ship exploit payloads.

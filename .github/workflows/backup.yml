@@ -19,10 +19,14 @@ jobs:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
         run: |
           test -n "$DATABASE_URL"
           test -n "$BACKUP_ENCRYPTION_KEY"
           test -n "$BACKUP_DESTINATION"
+          test -n "$S3_BUCKET"
+          test -n "$S3_BACKUP_BUCKET"
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -38,6 +42,19 @@ jobs:
           pg_dump --format=custom --no-owner --file=database.dump "$URL"
           printf '%s' "$BACKUP_ENCRYPTION_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 --output database.dump.gpg database.dump
           sha256sum database.dump | tee database.dump.sha256
+      - name: Record database backup health
+        env:
+          APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          CHECKSUM=$(cut -d' ' -f1 database.dump.sha256)
+          SIZE=$(stat -c%s database.dump.gpg)
+          curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"kind\":\"database\",\"filename\":\"database.dump.gpg\",\"path\":\"offsite\",\"sizeBytes\":$SIZE,\"checksumSha256\":\"$CHECKSUM\"}"
       - name: Export object-storage manifest and copy objects
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
@@ -59,12 +76,21 @@ jobs:
                 FROM "StoredObject" ORDER BY "createdAt") objects;
           SQL
           node -e "console.log('manifest bytes', require('fs').statSync('data/object-storage-manifest.json').size)"
-          if [ -n "$S3_BUCKET" ] && [ -n "$S3_BACKUP_BUCKET" ]; then
-            npm ci
-            npm run backup:objects
-          else
-            echo "S3 object copy skipped — S3_BUCKET/S3_BACKUP_BUCKET not configured"
-          fi
+          test -n "$S3_BUCKET"
+          test -n "$S3_BACKUP_BUCKET"
+          npm ci
+          npm run backup:objects
+      - name: Record object backup health
+        env:
+          APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"kind":"objects","filename":"object-storage-manifest.json","path":"offsite","objectsCopied":1}'
       - name: Upload off-site database, checksums and object-storage manifest
         env:
           BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}

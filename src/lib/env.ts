@@ -131,6 +131,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     require("S3_BUCKET", 3);
     require("S3_ACCESS_KEY_ID", 8);
     require("S3_SECRET_ACCESS_KEY", 8);
+    require("S3_BACKUP_BUCKET", 3);
     if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
       issues.push({
         key: "STORAGE_ALLOW_LOCAL_FALLBACK",
@@ -170,6 +171,14 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     if (!process.env.TRUST_PROXY_CIDRS && !process.env.TRUST_PROXY_HEADER_SECRET) {
       issues.push({ key: "TRUST_PROXY_CIDRS", level: "error", message: "Allow-list proxy CIDRs or configure a trusted ingress header secret" });
     }
+  }
+
+  if (prod && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL) {
+    issues.push({
+      key: "RESEND_API_KEY",
+      level: "error",
+      message: "Production invitations require RESEND_API_KEY or NOTIFY_WEBHOOK_URL",
+    });
   }
 
   if (prod && !process.env.SENTRY_DSN && !process.env.MONITORING_OPTIONAL) {

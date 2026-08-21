@@ -4,7 +4,7 @@ import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { pruneAnalytics, pruneAuditLogs, writeAudit } from "@/lib/audit";
 import { tenantWhere } from "@/lib/policy";
 import { log } from "@/lib/logger";
-import { enqueueJob, JOB_TYPES } from "@/lib/jobs";
+import { enqueueJob, JOB_TYPES, listDeadLetters, requeueDeadLetter, requeueDeadLetters } from "@/lib/jobs";
 import { authorizeCronSecret, authorizeJobRole } from "@/lib/ops-auth";
 
 /**
@@ -111,6 +111,17 @@ export async function POST(req: NextRequest) {
       };
     }
 
+    if (job === "requeue") {
+      const id = req.nextUrl.searchParams.get("id");
+      const type = req.nextUrl.searchParams.get("type") || undefined;
+      if (id) {
+        const row = await requeueDeadLetter(id);
+        results.requeued = { id: row.id, type: row.type };
+      } else {
+        results.requeued = { count: await requeueDeadLetters(type) };
+      }
+    }
+
     if (job === "pending-mfa" || job === "all") {
       if (process.env.MFA_ENFORCE === "1") {
         const missing = await prisma.user.count({
@@ -145,7 +156,7 @@ export async function GET(req: NextRequest) {
   if (!authz.ok) return authz.error;
   const scope = authz.user ? tenantWhere(authz.user) : {};
 
-  const [expired, openDsar, openSubmissions] = await Promise.all([
+  const [expired, openDsar, openSubmissions, deadLetters] = await Promise.all([
     prisma.location.count({
       where: {
         ...scope,
@@ -159,12 +170,14 @@ export async function GET(req: NextRequest) {
     prisma.submission.count({
       where: { status: "SUBMITTED", ...(authz.provinceId ? { provinceId: authz.provinceId } : {}) },
     }),
+    authz.provinceId ? Promise.resolve([]) : listDeadLetters(50),
   ]);
 
   return jsonOk({
     expiredVerifications: expired,
     openDsar,
     openSubmissions,
+    deadLetters,
     time: new Date().toISOString(),
   });
 }

@@ -7,6 +7,7 @@ import { canManageUsers, isSuperAdmin } from "@/lib/policy";
 import { userCreateSchema } from "@/lib/validation";
 import { readJsonLimited } from "@/lib/security";
 import { notify } from "@/lib/notify";
+import { invalidateSessionCache } from "@/lib/auth";
 import { clientIp } from "@/lib/security";
 
 export async function GET() {
@@ -209,6 +210,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const updated = await prisma.user.update({ where: { id: body.id }, data });
+  if (sensitive) await invalidateSessionCache(updated.id);
   await writeAudit({
     user: auth.user,
     userId: auth.user.id,

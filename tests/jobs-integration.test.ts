@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { dispatchJob, handleAnalyticsAggregation, handleDataImport, handleDuplicateDetection, handleReportGeneration, handleBackup } from "@/lib/jobs/handlers";
 import { applyImportBatch, importRowHash } from "@/lib/import-apply";
-import { claimJobs, enqueueJob, heartbeatJob, recoverStaleJobs, recordWorkerHeartbeat, settleClaimedJob } from "@/lib/jobs";
+import { claimJobs, enqueueJob, heartbeatJob, recoverStaleJobs, recordWorkerHeartbeat, requeueDeadLetter, settleClaimedJob } from "@/lib/jobs";
 import { findDuplicatePairsSql } from "@/lib/duplicates-sql";
 import { deliverNotification } from "@/lib/notify";
 import { isWorkerHealthy } from "@/lib/metrics";
@@ -187,6 +187,10 @@ integration("background job handlers", () => {
     const row = await prisma.backgroundJob.findUniqueOrThrow({ where: { id: leased.id } });
     expect(row.deadLetter).toBe(true);
     expect(row.status).toBe("FAILED");
+    const revived = await requeueDeadLetter(row.id);
+    expect(revived.deadLetter).toBe(false);
+    expect(revived.status).toBe("PENDING");
+    expect(revived.attempts).toBe(0);
   });
 
   it("lets only one worker claim the same pending job", async () => {

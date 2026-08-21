@@ -112,6 +112,51 @@ export async function settleClaimedJob(
   return { deadLetter: terminal };
 }
 
+export async function listDeadLetters(limit = 50) {
+  return prisma.backgroundJob.findMany({
+    where: { deadLetter: true },
+    orderBy: { updatedAt: "desc" },
+    take: Math.min(Math.max(limit, 1), 200),
+    select: { id: true, type: true, attempts: true, maxAttempts: true, lastError: true, updatedAt: true, createdAt: true },
+  });
+}
+
+export async function requeueDeadLetter(id: string) {
+  const result = await prisma.backgroundJob.updateMany({
+    where: { id, deadLetter: true },
+    data: {
+      deadLetter: false,
+      status: "PENDING",
+      attempts: 0,
+      lastError: null,
+      lockedAt: null,
+      lockedBy: null,
+      leaseExpiresAt: null,
+      runAfter: new Date(),
+    },
+  });
+  if (result.count !== 1) throw new Error("Dead-letter job not found");
+  return prisma.backgroundJob.findUniqueOrThrow({ where: { id } });
+}
+
+export async function requeueDeadLetters(type?: string) {
+  const where = { deadLetter: true, ...(type ? { type } : {}) };
+  const result = await prisma.backgroundJob.updateMany({
+    where,
+    data: {
+      deadLetter: false,
+      status: "PENDING",
+      attempts: 0,
+      lastError: null,
+      lockedAt: null,
+      lockedBy: null,
+      leaseExpiresAt: null,
+      runAfter: new Date(),
+    },
+  });
+  return result.count;
+}
+
 export async function claimJobs(workerId: string, limit = 10) {
   await recoverStaleJobs();
   return prisma.$transaction(async (tx) => {
