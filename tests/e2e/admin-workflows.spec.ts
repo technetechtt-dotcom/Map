@@ -8,7 +8,7 @@ test("password change revokes the current session", async ({ page }, testInfo) =
   test.skip(testInfo.project.name !== "chromium", "stateful auth flow runs once");
   const email = `e2e-auth-${Date.now()}@example.test`;
   const password = "E2E-Strong-Password-42!";
-  const nextPassword = "E2E-Strong-Password-99!";
+  const nextPassword = "E2E-Strong-Secret-99!";
   const user = await prisma.user.create({
     data: { email, name: "E2E Auth", passwordHash: await bcrypt.hash(password, 12), role: "CONTRIBUTOR" },
   });
@@ -22,7 +22,7 @@ test("password change revokes the current session", async ({ page }, testInfo) =
     const changed = await page.request.post("/api/auth/change-password", {
       data: { currentPassword: password, newPassword: nextPassword },
     });
-    expect(changed.ok()).toBeTruthy();
+    expect(changed.status(), await changed.text()).toBe(200);
     await page.goto("/admin");
     await expect(page).toHaveURL(/login/, { timeout: 15_000 });
 
