@@ -51,7 +51,7 @@ async function main() {
   run("node scripts/postgres-backup-smoke.js");
   run("node scripts/disaster-recovery-smoke.js");
 
-  const baseUrl = process.env.STAGING_BASE_URL || process.env.NEXTAUTH_URL || "";
+  const baseUrl = process.env.STAGING_BASE_URL || "";
   let load = null;
   if (baseUrl && /^https?:\/\//i.test(baseUrl)) {
     load = await loadTest(baseUrl.replace(/\/$/, ""));

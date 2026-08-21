@@ -32,7 +32,6 @@ jobs:
       NEXTAUTH_URL: "http://localhost:3000"
       CAPTCHA_DISABLED: "1"
       BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
-      MFA_ENCRYPTION_KEY: "ci-mfa-encryption-key-at-least-32-characters"
       ALLOW_DEMO_USERS: "0"
       SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
       ALLOW_DATABASE_RESET: "1"
