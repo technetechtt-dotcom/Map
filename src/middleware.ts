@@ -91,7 +91,7 @@ export async function middleware(req: NextRequest) {
       "style-src 'self' 'unsafe-inline' https://unpkg.com",
       `img-src 'self' data: blob: ${tileImg}`,
       "font-src 'self' data:",
-      `connect-src 'self' ${tileConnect} https://challenges.cloudflare.com${hmrConnect}`,
+      `connect-src 'self' ${tileConnect} https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io${hmrConnect}`,
       "frame-src 'self' https://challenges.cloudflare.com https://www.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",

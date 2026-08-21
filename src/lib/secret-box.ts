@@ -1,12 +1,20 @@
 /** AES-256-GCM envelope for versioned MFA secrets at rest. */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { unwrapMfaDataKey } from "./kms";
 
 const PREFIX = "MFA2";
+const primedKeys = new Map<number, Buffer>();
 
 export function currentMfaKeyVersion(): number {
   const value = Number(process.env.MFA_KEY_VERSION || 1);
   if (!Number.isInteger(value) || value < 1) throw new Error("MFA_KEY_VERSION must be a positive integer");
   return value;
+}
+
+export async function primeMfaDataKey(version = currentMfaKeyVersion()): Promise<Buffer> {
+  const key = await unwrapMfaDataKey(version);
+  primedKeys.set(version, key);
+  return key;
 }
 
 function keyMaterial(version: number): string {
@@ -24,6 +32,8 @@ function keyMaterial(version: number): string {
 }
 
 function dataKey(version: number): Buffer {
+  const primed = primedKeys.get(version);
+  if (primed) return primed;
   return createHash("sha256").update(keyMaterial(version)).digest();
 }
 

@@ -33,15 +33,21 @@ jobs:
           pg_dump --format=custom --no-owner --file=database.dump "$URL"
           printf '%s' "$BACKUP_ENCRYPTION_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 --output database.dump.gpg database.dump
           sha256sum database.dump | tee database.dump.sha256
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
       - name: Export object-storage manifest and copy objects
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
           S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           S3_REGION: ${{ secrets.S3_REGION }}
           S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_BACKUP_ENDPOINT: ${{ secrets.S3_BACKUP_ENDPOINT }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           mkdir -p data
@@ -51,6 +57,12 @@ jobs:
                 FROM "StoredObject" ORDER BY "createdAt") objects;
           SQL
           node -e "console.log('manifest bytes', require('fs').statSync('data/object-storage-manifest.json').size)"
+          if [ -n "$S3_BUCKET" ] && [ -n "$S3_BACKUP_BUCKET" ]; then
+            npm ci
+            npm run backup:objects
+          else
+            echo "S3 object copy skipped — S3_BUCKET/S3_BACKUP_BUCKET not configured"
+          fi
       - name: Upload off-site database, checksums and object-storage manifest
         env:
           BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}

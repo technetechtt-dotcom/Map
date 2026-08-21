@@ -6,15 +6,24 @@ export async function GET(req: NextRequest) {
   const limited = await enforceRateLimitAsync(req, "geo-agg", { limit: 30, windowMs: 60_000 });
   if (limited) return limited;
   const group = req.nextUrl.searchParams.get("group") || "municipality";
+  const province = req.nextUrl.searchParams.get("province") || "";
   if (group === "district") {
     const rows = await prisma.$queryRaw<Array<{ id: string; name: string; organisations: bigint; locations: bigint; verified: bigint }>>`
       SELECT d.id, d.name,
         COUNT(DISTINCT o.id)::bigint AS organisations,
         COUNT(DISTINCT l.id)::bigint AS locations,
-        COUNT(DISTINCT l.id) FILTER (WHERE l.status IN ('VERIFIED','PUBLISHED'))::bigint AS verified
+        COUNT(DISTINCT l.id)::bigint AS verified
       FROM "District" d
-      LEFT JOIN "Location" l ON l."districtId" = d.id
-      LEFT JOIN "Organisation" o ON o."provinceId" = d."provinceId" AND o.status = 'PUBLISHED'
+      LEFT JOIN "Location" l
+        ON l."districtId" = d.id
+       AND l.status IN ('PUBLISHED','VERIFIED')
+      LEFT JOIN "Organisation" o
+        ON o.id = l."organisationId"
+       AND o.status = 'PUBLISHED'
+       AND o."mergedIntoId" IS NULL
+      WHERE ${province} = '' OR d."provinceId" IN (
+        SELECT id FROM "Province" WHERE slug = ${province} OR code = ${province} OR name = ${province}
+      )
       GROUP BY d.id, d.name
       ORDER BY locations DESC
     `;
@@ -22,11 +31,21 @@ export async function GET(req: NextRequest) {
   }
   const rows = await prisma.$queryRaw<Array<{ id: string; name: string; organisations: bigint; locations: bigint; verified: bigint }>>`
     SELECT m.id, m.name,
-      COUNT(DISTINCT l."organisationId")::bigint AS organisations,
-      COUNT(l.id)::bigint AS locations,
-      COUNT(l.id) FILTER (WHERE l.status IN ('VERIFIED','PUBLISHED'))::bigint AS verified
+      COUNT(DISTINCT o.id)::bigint AS organisations,
+      COUNT(DISTINCT l.id)::bigint AS locations,
+      COUNT(DISTINCT l.id)::bigint AS verified
     FROM "Municipality" m
-    LEFT JOIN "Location" l ON l."municipalityId" = m.id
+    JOIN "District" dist ON dist.id = m."districtId"
+    LEFT JOIN "Location" l
+      ON l."municipalityId" = m.id
+     AND l.status IN ('PUBLISHED','VERIFIED')
+    LEFT JOIN "Organisation" o
+      ON o.id = l."organisationId"
+     AND o.status = 'PUBLISHED'
+     AND o."mergedIntoId" IS NULL
+    WHERE ${province} = '' OR dist."provinceId" IN (
+      SELECT id FROM "Province" WHERE slug = ${province} OR code = ${province} OR name = ${province}
+    )
     GROUP BY m.id, m.name
     ORDER BY locations DESC
   `;

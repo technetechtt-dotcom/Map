@@ -18,7 +18,7 @@ import { rateLimitAsync } from "./rate-limit";
 import { log } from "./logger";
 import { verifyTotp } from "./totp";
 import { clientIdentityFromHeaders } from "./security";
-import { decryptSecret } from "./secret-box";
+import { decryptSecret, primeMfaDataKey } from "./secret-box";
 
 const MAX_FAILED = Number(process.env.LOGIN_MAX_FAILED || 5);
 const LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
@@ -109,6 +109,7 @@ export const authOptions: NextAuthOptions = {
           let totpOk = false;
           if (user.mfaSecret) {
             try {
+              await primeMfaDataKey(user.mfaKeyVersion || undefined);
               totpOk = verifyTotp(decryptSecret(user.mfaSecret, user.mfaKeyVersion), code);
             } catch {
               totpOk = false;

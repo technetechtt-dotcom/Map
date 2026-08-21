@@ -1,27 +1,22 @@
 import { prisma } from "../prisma";
 import { log } from "../logger";
-import { findDuplicateCandidates } from "../duplicates";
+import { findDuplicatePairsSql } from "../duplicates-sql";
 import { deliverNotification } from "../notify";
 import { copyStoredObjectsToBackup } from "../object-backup";
 import { validatePointAssignment } from "../geo-validation";
 import { createHash } from "crypto";
 import { enqueueJob } from "../jobs";
+import { applyImportBatch } from "../import-apply";
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 80);
-}
-
-export async function handleAnalyticsAggregation(jobId: string) {
+export async function handleAnalyticsAggregation(jobId: string, payload: Record<string, unknown> = {}) {
+  const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
   const since = new Date(Date.now() - 24 * 3600_000);
+  const locationWhere = provinceId ? { provinceId } : {};
   const [locations, organisations, events, funding, failedJobs, notifications] = await Promise.all([
-    prisma.location.groupBy({ by: ["status"], _count: true }),
-    prisma.organisation.groupBy({ by: ["status"], _count: true }),
-    prisma.analyticsEvent.count({ where: { createdAt: { gte: since } } }),
-    prisma.fundingCall.count({ where: { status: "PUBLISHED" } }),
+    prisma.location.groupBy({ by: ["status"], _count: true, where: locationWhere }),
+    prisma.organisation.groupBy({ by: ["status"], _count: true, where: provinceId ? { provinceId } : {} }),
+    prisma.analyticsEvent.count({ where: { createdAt: { gte: since }, ...(provinceId ? { provinceId } : {}) } }),
+    prisma.fundingCall.count({ where: { status: "PUBLISHED", ...(provinceId ? { provinceId } : {}) } }),
     prisma.backgroundJob.count({ where: { status: "FAILED" } }),
     prisma.notification.count({ where: { status: "FAILED" } }),
   ]);
@@ -46,79 +41,21 @@ export async function handleAnalyticsAggregation(jobId: string) {
 export async function handleDataImport(jobId: string, payload: Record<string, unknown>) {
   const batchId = String(payload.batchId || "");
   if (!batchId) throw new Error("Missing batchId");
-  const batch = await prisma.importBatch.findUnique({ where: { id: batchId } });
-  if (!batch) throw new Error("Import batch not found");
-  if (batch.status === "APPLIED") return { success: true, applied: batch.appliedCount, idempotent: true };
-
-  const rows = Array.isArray(batch.payloadJson) ? (batch.payloadJson as Array<Record<string, unknown>>) : [];
-  let applied = 0;
-  const errors: Array<{ row: number; error: string }> = [];
-  for (const [index, row] of rows.entries()) {
-    try {
-      const name = String(row.name || "").trim();
-      if (!name) throw new Error("name required");
-      const lat = Number(row.latitude);
-      const lng = Number(row.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("invalid coordinates");
-      const province = await prisma.province.findFirst({
-        where: { OR: [{ id: String(row.provinceId || "") }, { slug: String(row.provinceSlug || "") }] },
-      });
-      if (!province) throw new Error("unknown province");
-      const category = await prisma.category.findFirst({
-        where: { OR: [{ id: String(row.categoryId || "") }, { slug: String(row.categorySlug || "other") }] },
-      });
-      if (!category) throw new Error("unknown category");
-      await prisma.location.create({
-        data: {
-          slug: `${slugify(name)}-${index}`,
-          name,
-          summary: String(row.summary || name),
-          description: String(row.description || row.summary || name),
-          latitude: lat,
-          longitude: lng,
-          categoryId: category.id,
-          provinceId: province.id,
-          status: "DRAFT",
-          coordQuality: "estimated",
-          sourceConfidence: "import",
-        },
-      });
-      applied += 1;
-    } catch (error) {
-      errors.push({ row: index, error: error instanceof Error ? error.message : String(error) });
-    }
-  }
-  await prisma.importBatch.update({
-    where: { id: batchId },
-    data: {
-      status: applied > 0 ? "APPLIED" : "REJECTED",
-      appliedCount: applied,
-      appliedAt: new Date(),
-      reportJson: { jobId, errors },
-    },
+  const result = await applyImportBatch(batchId, {
+    jobId,
+    forceProvinceId: typeof payload.provinceId === "string" ? payload.provinceId : null,
   });
-  log.info("jobs.import", { jobId, batchId, applied, errors: errors.length });
-  return { success: errors.length < rows.length, applied, errors };
+  log.info("jobs.import", { jobId, batchId, applied: result.applied, errors: result.errors.length, idempotent: result.idempotent });
+  return result;
 }
 
 export async function handleDuplicateDetection(jobId: string, payload: Record<string, unknown>) {
   const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
-  const orgs = await prisma.organisation.findMany({
-    where: { mergedIntoId: null, ...(provinceId ? { provinceId } : {}) },
-    select: { id: true, name: true, provinceId: true, website: true, email: true, phone: true, address: true, cipcNumber: true },
-    take: 2000,
-  });
-  const pairs: Array<{ a: string; b: string; score: number }> = [];
-  for (const org of orgs) {
-    const matches = findDuplicateCandidates(org, orgs.filter((row) => row.id !== org.id), { threshold: 0.85 });
-    for (const match of matches.slice(0, 3)) {
-      if (org.id < match.id) pairs.push({ a: org.id, b: match.id, score: match.score });
-    }
-  }
+  const pairs = await findDuplicatePairsSql({ provinceId, limit: 200, threshold: 0.4 });
   await prisma.appSetting.upsert({
     where: { key: "duplicates.latest" },
-    update: { value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs: pairs.slice(0, 200) }) },
-    create: { key: "duplicates.latest", value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs: pairs.slice(0, 200) }) },
+    update: { value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs }) },
+    create: { key: "duplicates.latest", value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs }) },
   });
   log.info("jobs.duplicates", { jobId, pairs: pairs.length });
   return { success: true, pairs: pairs.length };
@@ -129,7 +66,7 @@ export async function handleGeocoding(jobId: string, payload: Record<string, unk
   const locations = id
     ? await prisma.location.findMany({ where: { id }, include: { municipality: true, district: true, province: true } })
     : await prisma.location.findMany({
-        where: { coordQuality: { in: ["unknown", "directory-only"] } },
+        where: { coordQuality: { in: ["unknown", "directory-only"] }, ...(typeof payload.provinceId === "string" ? { provinceId: payload.provinceId } : {}) },
         include: { municipality: true, district: true, province: true },
         take: 100,
       });
@@ -151,18 +88,23 @@ export async function handleGeocoding(jobId: string, payload: Record<string, unk
   return { success: true, updated };
 }
 
-export async function handleExpiryCheck(jobId: string) {
+export async function handleExpiryCheck(jobId: string, payload: Record<string, unknown> = {}) {
   const now = new Date();
+  const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
   const expiredOrgs = await prisma.organisation.updateMany({
-    where: { verificationExpiresAt: { lt: now }, status: "PUBLISHED" },
+    where: { verificationExpiresAt: { lt: now }, status: "PUBLISHED", ...(provinceId ? { provinceId } : {}) },
     data: { status: "PENDING_REVIEW" },
   });
   const expiredLocs = await prisma.location.updateMany({
-    where: { verificationExpiresAt: { lt: now }, status: "PUBLISHED" },
+    where: { verificationExpiresAt: { lt: now }, status: "PUBLISHED", ...(provinceId ? { provinceId } : {}) },
     data: { status: "PENDING_REVIEW", staleAt: now },
   });
   const admins = await prisma.user.findMany({
-    where: { active: true, role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] } },
+    where: {
+      active: true,
+      role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+      ...(provinceId ? { OR: [{ role: "SUPER_ADMIN" }, { provinceId }] } : {}),
+    },
     select: { id: true, email: true },
     take: 20,
   });
@@ -199,9 +141,9 @@ export async function handleScheduledNotifications(jobId: string) {
 
 export async function handleReportGeneration(jobId: string, payload: Record<string, unknown>) {
   const [locations, organisations, funding] = await Promise.all([
-    prisma.location.count({ where: { status: { in: ["PUBLISHED", "VERIFIED"] } } }),
-    prisma.organisation.count({ where: { status: "PUBLISHED" } }),
-    prisma.fundingCall.count({ where: { status: "PUBLISHED" } }),
+    prisma.location.count({ where: { status: { in: ["PUBLISHED", "VERIFIED"] }, ...(typeof payload.provinceId === "string" ? { provinceId: payload.provinceId } : {}) } }),
+    prisma.organisation.count({ where: { status: "PUBLISHED", ...(typeof payload.provinceId === "string" ? { provinceId: payload.provinceId } : {}) } }),
+    prisma.fundingCall.count({ where: { status: "PUBLISHED", ...(typeof payload.provinceId === "string" ? { provinceId: payload.provinceId } : {}) } }),
   ]);
   const report = {
     jobId,
@@ -234,13 +176,16 @@ export async function handleDataCleanup(jobId: string) {
 
 export async function handleBackup(jobId: string) {
   const objects = await copyStoredObjectsToBackup();
-  const checksum = createHash("sha256").update(JSON.stringify({ jobId, at: new Date().toISOString(), objects })).digest("hex");
+  if (objects.failed?.length) {
+    throw new Error(`object backup incomplete: ${objects.failed.length} files failed copy or checksum verify`);
+  }
+  const checksum = createHash("sha256").update(JSON.stringify({ jobId, at: new Date().toISOString(), objects: objects.manifest })).digest("hex");
   const record = await prisma.backupRecord.create({
     data: {
       filename: `job-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
       path: "offsite",
       sizeBytes: objects.copiedBytes,
-      notes: "Scheduled worker backup (object copy + checksum)",
+      notes: "Scheduled worker backup (object copy + byte checksum verify)",
       checksumSha256: checksum,
       objectsCopied: objects.copied,
       lastVerifiedAt: new Date(),
@@ -249,14 +194,14 @@ export async function handleBackup(jobId: string) {
     },
   });
   await enqueueJob("notify.deliver", { reason: "backup-complete", backupId: record.id }, { idempotencyKey: `notify-backup-${record.id}` });
-  log.info("jobs.backup", { jobId, objects: objects.copied });
-  return { success: true, backupId: record.id, objects: objects.copied };
+  log.info("jobs.backup", { jobId, objects: objects.copied, verified: objects.verified });
+  return { success: true, backupId: record.id, objects: objects.copied, verified: objects.verified };
 }
 
 export async function dispatchJob(type: string, jobId: string, payload: Record<string, unknown>) {
   switch (type) {
     case "analytics.aggregate":
-      return handleAnalyticsAggregation(jobId);
+      return handleAnalyticsAggregation(jobId, payload);
     case "data.import":
       return handleDataImport(jobId, payload);
     case "data.duplicates":
@@ -264,7 +209,7 @@ export async function dispatchJob(type: string, jobId: string, payload: Record<s
     case "data.geocode":
       return handleGeocoding(jobId, payload);
     case "data.expiry":
-      return handleExpiryCheck(jobId);
+      return handleExpiryCheck(jobId, payload);
     case "data.cleanup":
       return handleDataCleanup(jobId);
     case "notify.deliver":

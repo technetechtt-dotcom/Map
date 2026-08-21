@@ -12,12 +12,12 @@ describe("tenant isolation policy", () => {
   const provA = { id: "u2", role: "PROVINCIAL_ADMIN", provinceId: "prov-a" };
   const contribA = { id: "u3", role: "CONTRIBUTOR", organisationId: "org-a", provinceId: "prov-a" };
 
-  it("blocks Org Admin A from Org B records", () => {
+  it("blocks Org Admin A from Org B records and matching", () => {
     expect(assertOrganisationAccess(orgA, "org-b").ok).toBe(false);
     expect(assertLocationAccess(orgA, orgBRecord, "write").ok).toBe(false);
   });
 
-  it("blocks Provincial Admin A from Province B", () => {
+  it("blocks Provincial Admin A from another province org", () => {
     expect(assertProvinceAccess(provA, "prov-b").ok).toBe(false);
   });
 

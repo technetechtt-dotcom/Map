@@ -2,32 +2,32 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { pruneAnalytics, pruneAuditLogs, writeAudit } from "@/lib/audit";
-import { canManageBackups, canPublish } from "@/lib/policy";
+import { tenantWhere } from "@/lib/policy";
 import { log } from "@/lib/logger";
 import { enqueueJob, JOB_TYPES } from "@/lib/jobs";
+import { authorizeCronSecret, authorizeJobRole } from "@/lib/ops-auth";
 
 /**
- * Maintenance jobs: verification expiry flags, retention pruning.
- * Auth: CRON_SECRET header OR super/provincial admin session.
+ * Maintenance jobs. Auth: CRON_SECRET (global) OR exact role.
+ * Super admin: all jobs. Provincial admin: tenant-scoped jobs only.
  */
-async function authorize(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const header = req.headers.get("x-cron-secret") || req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (secret && header === secret) return { ok: true as const, userId: null };
+async function authorize(req: NextRequest, job: string) {
+  const cron = authorizeCronSecret(req);
+  if (cron.ok) return { ok: true as const, userId: null as string | null, user: null, provinceId: undefined as string | undefined, via: "cron" as const };
   const auth = await requireSession();
   if (auth.error) return { ok: false as const, error: auth.error };
-  if (!canPublish(auth.user) && !canManageBackups(auth.user)) {
-    return { ok: false as const, error: jsonError("Forbidden", 403) };
-  }
-  return { ok: true as const, userId: auth.user.id, user: auth.user };
+  const role = authorizeJobRole(auth.user, job);
+  if (!role.ok) return { ok: false as const, error: jsonError(role.reason, 403) };
+  return { ok: true as const, userId: auth.user.id, user: auth.user, provinceId: role.provinceId, via: "session" as const };
 }
 
 export async function POST(req: NextRequest) {
-  const authz = await authorize(req);
+  const job = req.nextUrl.searchParams.get("job") || "all";
+  const authz = await authorize(req, job);
   if (!authz.ok) return authz.error;
 
-  const job = req.nextUrl.searchParams.get("job") || "all";
   const results: Record<string, unknown> = {};
+  const scope = authz.user ? tenantWhere(authz.user) : {};
 
   try {
     const queued: Record<string, string> = {
@@ -42,16 +42,20 @@ export async function POST(req: NextRequest) {
       expiry: "data.expiry",
     };
     if (queued[job]) {
-      const row = await enqueueJob(queued[job], { triggeredBy: authz.userId }, { idempotencyKey: `${queued[job]}-${new Date().toISOString().slice(0, 13)}` });
+      const row = await enqueueJob(
+        queued[job],
+        { triggeredBy: authz.userId, provinceId: authz.provinceId || null },
+        { idempotencyKey: `${queued[job]}-${authz.provinceId || "global"}-${new Date().toISOString().slice(0, 13)}` }
+      );
       results.queued = { type: queued[job], id: row?.id };
     }
     if (job === "queue") {
       return jsonOk({ types: JOB_TYPES, queued: results.queued });
     }
     if (job === "expiry" || job === "all") {
-      // Flag expired verifications: demote PUBLISHED with expired review to VERIFIED + note when ENFORCE_EXPIRY_DOWNGRADE=1
       const expired = await prisma.location.findMany({
         where: {
+          ...scope,
           status: { in: ["PUBLISHED", "VERIFIED"] },
           verificationExpiresAt: { lt: new Date() },
         },
@@ -92,13 +96,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (job === "pending-mfa" || job === "all") {
-      // Report elevated users without MFA when MFA_ENFORCE=1
       if (process.env.MFA_ENFORCE === "1") {
         const missing = await prisma.user.count({
           where: {
             active: true,
             mfaEnabled: false,
             role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+            ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
           },
         });
         results.mfaGap = { elevatedWithoutMfa: missing };
@@ -109,7 +113,7 @@ export async function POST(req: NextRequest) {
       userId: authz.userId,
       action: "CRON",
       entityType: "System",
-      metadata: { job, results },
+      metadata: { job, results, via: authz.via, provinceId: authz.provinceId || null },
     });
 
     log.info("cron.ran", { job, results });
@@ -121,19 +125,24 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  // Health-style summary for monitors
-  const authz = await authorize(req);
+  const authz = await authorize(req, "queue");
   if (!authz.ok) return authz.error;
+  const scope = authz.user ? tenantWhere(authz.user) : {};
 
   const [expired, openDsar, openSubmissions] = await Promise.all([
     prisma.location.count({
       where: {
+        ...scope,
         status: { in: ["PUBLISHED", "VERIFIED"] },
         verificationExpiresAt: { lt: new Date() },
       },
     }),
-    prisma.dataSubjectRequest.count({ where: { status: "OPEN" } }),
-    prisma.submission.count({ where: { status: "SUBMITTED" } }),
+    prisma.dataSubjectRequest.count({
+      where: { status: "OPEN", ...(authz.provinceId ? { provinceId: authz.provinceId } : {}) },
+    }),
+    prisma.submission.count({
+      where: { status: "SUBMITTED", ...(authz.provinceId ? { provinceId: authz.provinceId } : {}) },
+    }),
   ]);
 
   return jsonOk({

@@ -99,3 +99,34 @@ export const userCreateSchema = z.object({
   provinceId: z.string().max(40).nullable().optional(),
   organisationId: z.string().max(40).nullable().optional(),
 });
+
+export type NearbyQuery =
+  | { ok: true; lat: number; lng: number; radiusKm: number }
+  | { ok: false; error: string };
+
+/** Reject missing/empty coords (Number(null) === 0) and out-of-range values. */
+export function parseNearbyQuery(params: {
+  lat: string | null;
+  lng: string | null;
+  radiusKm?: string | null;
+  defaultRadiusKm?: number;
+  minRadiusKm?: number;
+  maxRadiusKm?: number;
+}): NearbyQuery {
+  const defaultRadiusKm = params.defaultRadiusKm ?? 25;
+  const minRadiusKm = params.minRadiusKm ?? 1;
+  const maxRadiusKm = params.maxRadiusKm ?? 150;
+  if (params.lat == null || params.lng == null || params.lat.trim() === "" || params.lng.trim() === "") {
+    return { ok: false, error: "lat and lng required" };
+  }
+  const lat = Number(params.lat);
+  const lng = Number(params.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return { ok: false, error: "Invalid lat/lng" };
+  }
+  const radiusKm = params.radiusKm == null || params.radiusKm.trim() === "" ? defaultRadiusKm : Number(params.radiusKm);
+  if (!Number.isFinite(radiusKm) || radiusKm < minRadiusKm || radiusKm > maxRadiusKm) {
+    return { ok: false, error: `radiusKm must be between ${minRadiusKm} and ${maxRadiusKm}` };
+  }
+  return { ok: true, lat, lng, radiusKm };
+}

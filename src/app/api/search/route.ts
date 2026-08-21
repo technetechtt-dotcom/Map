@@ -49,19 +49,27 @@ export async function GET(req: NextRequest) {
       SELECT 'funding', id, slug, title, summary,
         (ts_rank_cd(to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'')), search.query) + CASE WHEN deadline IS NOT NULL AND deadline > NOW() THEN 0.15 ELSE 0 END)::float8,
         ts_headline('simple', coalesce(summary, title), search.query, 'MaxWords=18,MinWords=8')
-      FROM "FundingCall", search WHERE status = 'PUBLISHED' AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
+      FROM "FundingCall", search WHERE status = 'PUBLISHED'
+        AND (${province} = '' OR "provinceId" IS NULL OR "provinceId" IN (SELECT id FROM "Province" WHERE slug = ${province} OR code = ${province} OR name = ${province}))
+        AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
       UNION ALL
       SELECT 'procurement', id, slug, title, summary, ts_rank_cd(to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'')), search.query)::float8,
         ts_headline('simple', coalesce(summary, title), search.query, 'MaxWords=18,MinWords=8')
-      FROM "Procurement", search WHERE status = 'PUBLISHED' AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
+      FROM "Procurement", search WHERE status = 'PUBLISHED'
+        AND (${province} = '' OR "provinceId" IS NULL OR "provinceId" IN (SELECT id FROM "Province" WHERE slug = ${province} OR code = ${province} OR name = ${province}))
+        AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
       UNION ALL
       SELECT 'event', id, slug, title, summary, ts_rank_cd(to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'')), search.query)::float8,
         ts_headline('simple', coalesce(summary, title), search.query, 'MaxWords=18,MinWords=8')
-      FROM "EcosystemEvent", search WHERE status = 'PUBLISHED' AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
+      FROM "EcosystemEvent", search WHERE status = 'PUBLISHED'
+        AND (${province} = '' OR "provinceId" IS NULL OR "provinceId" IN (SELECT id FROM "Province" WHERE slug = ${province} OR code = ${province} OR name = ${province}))
+        AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
       UNION ALL
       SELECT 'programme', id, slug, title, summary, ts_rank_cd(to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'')), search.query)::float8,
         ts_headline('simple', coalesce(summary, title), search.query, 'MaxWords=18,MinWords=8')
-      FROM "Programme", search WHERE status = 'PUBLISHED' AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
+      FROM "Programme", search WHERE status = 'PUBLISHED'
+        AND (${province} = '' OR "provinceId" IS NULL OR "provinceId" IN (SELECT id FROM "Province" WHERE slug = ${province} OR code = ${province} OR name = ${province}))
+        AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(description,'')) @@ search.query
     ) ranked
     ORDER BY rank DESC, title ASC
     LIMIT ${limit}

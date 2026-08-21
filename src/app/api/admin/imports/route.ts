@@ -7,6 +7,7 @@ import { writeAudit } from "@/lib/audit";
 import { canManageAllProvinces, canPublish } from "@/lib/policy";
 import { findDuplicateCandidates, findNearbyLocations } from "@/lib/duplicates";
 import { pointInGeoJson } from "@/lib/geo-validation";
+import { applyImportBatch } from "@/lib/import-apply";
 
 type ImportRow = {
   name?: string;
@@ -26,14 +27,6 @@ type ImportRow = {
 };
 
 const MAX_ROWS = 500;
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 80);
-}
 
 function parseCoord(v: unknown): number | null {
   if (v == null || v === "") return null;
@@ -254,7 +247,7 @@ async function applyBatch(
 ) {
   const batch = await prisma.importBatch.findUnique({ where: { id: batchId } });
   if (!batch) return jsonError("Batch not found", 404);
-  if (batch.status !== "STAGED") return jsonError("Batch already " + batch.status, 400);
+  if (batch.status === "REJECTED") return jsonError("Batch already REJECTED", 400);
   if (
     !canManageAllProvinces(user) &&
     batch.provinceId &&
@@ -264,90 +257,9 @@ async function applyBatch(
     return jsonError("Forbidden", 403);
   }
 
-  const rows = Array.isArray(batch.payloadJson)
-    ? (batch.payloadJson as ImportRow[])
-    : [];
-
-  const defaultCategory = await prisma.category.findFirst();
-  let applied = 0;
-  const errors: string[] = [];
-
-  for (const row of rows) {
-    const name = String(row.name || "").trim();
-    if (!name) continue;
-    const lat = parseCoord(row.latitude);
-    const lng = parseCoord(row.longitude);
-    if (lat == null || lng == null) {
-      errors.push(`skip ${name}: no coords`);
-      continue;
-    }
-    let provinceId = row.provinceId || batch.provinceId || null;
-    if (!canManageAllProvinces(user) && user.provinceId) provinceId = user.provinceId;
-    if (!provinceId) {
-      errors.push(`skip ${name}: no province`);
-      continue;
-    }
-    const categoryId = row.categoryId || defaultCategory?.id;
-    if (!categoryId) {
-      errors.push(`skip ${name}: no category`);
-      continue;
-    }
-
-    const baseSlug = slugify(name) || "location";
-    let slug = baseSlug;
-    let n = 0;
-    while (await prisma.location.findUnique({ where: { slug } })) {
-      n += 1;
-      slug = `${baseSlug}-${n}`;
-      if (n > 50) break;
-    }
-
-    try {
-      await prisma.location.create({
-        data: {
-          name,
-          slug,
-          summary: String(row.summary || name).slice(0, 500),
-          description: row.description ? String(row.description).slice(0, 4000) : null,
-          latitude: lat,
-          longitude: lng,
-          address: row.address ? String(row.address).slice(0, 500) : null,
-          website: row.website ? String(row.website).slice(0, 500) : null,
-          email: row.email ? String(row.email).slice(0, 200) : null,
-          phone: row.phone ? String(row.phone).slice(0, 80) : null,
-          tagsJson: Array.isArray(row.tags) ? row.tags.slice(0, 20) : [],
-          provinceId,
-          categoryId,
-          status: "DRAFT",
-          verificationNotes: `Imported via batch ${batchId}`,
-          coordQuality: "unknown",
-          coordSource: batch.source,
-          ownerId: user.id,
-        },
-      });
-      applied += 1;
-    } catch (e) {
-      errors.push(`fail ${name}: ${e instanceof Error ? e.message : "error"}`);
-    }
-  }
-
-  const priorReport =
-    batch.reportJson && typeof batch.reportJson === "object"
-      ? (batch.reportJson as Record<string, unknown>)
-      : {};
-
-  await prisma.importBatch.update({
-    where: { id: batchId },
-    data: {
-      status: "APPLIED",
-      appliedCount: applied,
-      appliedAt: new Date(),
-      reportJson: {
-        ...priorReport,
-        applyErrors: errors.slice(0, 100),
-        applied,
-      },
-    },
+  const result = await applyImportBatch(batchId, {
+    ownerId: user.id,
+    forceProvinceId: canManageAllProvinces(user) ? null : user.provinceId || null,
   });
 
   await writeAudit({
@@ -358,10 +270,10 @@ async function applyBatch(
     entityId: batchId,
     provinceId: batch.provinceId,
     ipAddress,
-    metadata: { applied, errors: errors.length },
+    metadata: { applied: result.applied, errors: result.errors.length, idempotent: result.idempotent },
   });
 
-  return jsonOk({ batchId, applied, errors: errors.slice(0, 20) });
+  return jsonOk({ batchId, applied: result.applied, errors: result.errors.slice(0, 20), idempotent: result.idempotent });
 }
 
 export async function GET(req: NextRequest) {

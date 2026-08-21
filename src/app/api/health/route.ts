@@ -1,4 +1,4 @@
-import { collectMetrics } from "@/lib/metrics";
+import { collectMetrics, publicHealthFromMetrics } from "@/lib/metrics";
 import { NextResponse } from "next/server";
 
 /**
@@ -47,10 +47,7 @@ export async function GET() {
       driver: process.env.STORAGE_DRIVER || "local",
       configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true,
     },
-    queue: metrics?.queue ?? null,
-    backup: metrics?.backup ?? null,
-    worker: metrics?.worker ?? null,
-    verification: metrics?.verification ?? null,
+    ...publicHealthFromMetrics(metrics),
     maintenance,
     version: process.env.npm_package_version || "1.3.0",
     uptimeSec: Math.floor(process.uptime()),

@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimitAsync } from "@/lib/api";
+import { parseNearbyQuery } from "@/lib/validation";
 
 export async function GET(req: NextRequest) {
   const limited = await enforceRateLimitAsync(req, "nearby", { limit: 60, windowMs: 60_000 });
   if (limited) return limited;
-  const lat = Number(req.nextUrl.searchParams.get("lat"));
-  const lng = Number(req.nextUrl.searchParams.get("lng"));
-  const radiusKm = Math.min(Math.max(Number(req.nextUrl.searchParams.get("radiusKm") || 25), 1), 150);
-  const kind = req.nextUrl.searchParams.get("kind") || "organisation";
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return NextResponse.json({ error: "lat and lng required" }, { status: 400 });
+  const parsed = parseNearbyQuery({
+    lat: req.nextUrl.searchParams.get("lat"),
+    lng: req.nextUrl.searchParams.get("lng"),
+    radiusKm: req.nextUrl.searchParams.get("radiusKm"),
+  });
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { lat, lng, radiusKm } = parsed;
+  const kind = req.nextUrl.searchParams.get("kind") || "organisation";
   const metres = radiusKm * 1000;
   if (kind === "location") {
     const rows = await prisma.$queryRaw<Array<{ id: string; slug: string; name: string; type: string; metres: number }>>`
@@ -23,7 +27,7 @@ export async function GET(req: NextRequest) {
       ORDER BY metres ASC
       LIMIT 25
     `;
-    return NextResponse.json({ results: rows });
+    return NextResponse.json({ results: rows, radiusKm });
   }
   const rows = await prisma.$queryRaw<Array<{ id: string; slug: string; name: string; type: string; metres: number }>>`
     SELECT id, slug, name, type,

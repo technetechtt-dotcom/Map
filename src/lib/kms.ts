@@ -1,29 +1,21 @@
 /** Optional AWS KMS wrapping for MFA data keys. Env secrets remain the local/dev fallback. */
+import { KMSClient, DecryptCommand } from "@aws-sdk/client-kms";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
 export async function unwrapMfaDataKey(version: number): Promise<Buffer> {
   const kmsKeyId = process.env.AWS_KMS_KEY_ID;
   const wrapped = process.env[`MFA_KMS_CIPHERTEXT_V${version}`] || process.env.MFA_KMS_CIPHERTEXT;
   if (kmsKeyId && wrapped) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
-      const importKms = new Function("return import('@aws-sdk/client-kms')") as () => Promise<{
-        KMSClient: new (cfg: unknown) => { send: (command: unknown) => Promise<{ Plaintext?: Uint8Array }> };
-        DecryptCommand: new (input: unknown) => unknown;
-      }>;
-      const sdk = await importKms();
-      const client = new sdk.KMSClient({ region: process.env.AWS_REGION || process.env.S3_REGION || "af-south-1" });
-      const result = await client.send(
-        new sdk.DecryptCommand({
-          CiphertextBlob: Buffer.from(wrapped, "base64"),
-          KeyId: kmsKeyId,
-          EncryptionContext: { purpose: "mfa", version: String(version) },
-        })
-      );
-      if (result.Plaintext) return Buffer.from(result.Plaintext).subarray(0, 32);
-    } catch {
-      // Fall through to env material so rotation failure can be recovered.
-    }
+    const client = new KMSClient({ region: process.env.AWS_REGION || process.env.S3_REGION || "af-south-1" });
+    const result = await client.send(
+      new DecryptCommand({
+        CiphertextBlob: Buffer.from(wrapped, "base64"),
+        KeyId: kmsKeyId,
+        EncryptionContext: { purpose: "mfa", version: String(version) },
+      })
+    );
+    if (!result.Plaintext) throw new Error("KMS decrypt returned empty plaintext");
+    return Buffer.from(result.Plaintext).subarray(0, 32);
   }
   const raw =
     process.env[`MFA_ENCRYPTION_KEY_V${version}`] ||

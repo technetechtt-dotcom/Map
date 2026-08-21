@@ -50,6 +50,29 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
   require("NEXTAUTH_URL", 8);
   require("DATABASE_URL", 10);
   require("BACKUP_ENCRYPTION_KEY", 16);
+  if (!process.env.METRICS_TOKEN && !process.env.CRON_SECRET) {
+    issues.push({
+      key: "METRICS_TOKEN",
+      level: "error",
+      message: "Set METRICS_TOKEN or CRON_SECRET — metrics must fail closed in production",
+    });
+  }
+  if (!process.env.CRON_SECRET) {
+    issues.push({
+      key: "CRON_SECRET",
+      level: "error",
+      message: "CRON_SECRET is required to authorize maintenance jobs",
+    });
+  }
+  if (process.env.AWS_KMS_KEY_ID) {
+    if (!process.env.MFA_KMS_CIPHERTEXT && !process.env.MFA_KMS_CIPHERTEXT_V1) {
+      issues.push({
+        key: "MFA_KMS_CIPHERTEXT",
+        level: "error",
+        message: "AWS_KMS_KEY_ID is set but MFA_KMS_CIPHERTEXT is missing",
+      });
+    }
+  }
   const mfaVersion = Number(process.env.MFA_KEY_VERSION || 1);
   if (!Number.isInteger(mfaVersion) || mfaVersion < 1) {
     issues.push({ key: "MFA_KEY_VERSION", level: "error", message: "MFA_KEY_VERSION must be a positive integer" });

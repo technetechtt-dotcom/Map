@@ -6,7 +6,7 @@ import { readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { requiresMfa } from "@/lib/policy";
 import { generateTotpSecret, otpauthUri, totpCode, verifyTotp } from "@/lib/totp";
-import { currentMfaKeyVersion, decryptSecret, encryptSecret } from "@/lib/secret-box";
+import { currentMfaKeyVersion, decryptSecret, encryptSecret, primeMfaDataKey } from "@/lib/secret-box";
 import { notify } from "@/lib/notify";
 import bcrypt from "bcryptjs";
 import { clientIp } from "@/lib/security";
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const keyVersion = currentMfaKeyVersion();
+  await primeMfaDataKey(keyVersion);
   const secret = generateTotpSecret();
   await prisma.user.update({
     where: { id: auth.user.id },
@@ -98,6 +99,7 @@ async function verifyExistingFactor(
   if (!user.mfaEnabled || !code.trim()) return { ok: false };
   if (user.mfaSecret) {
     try {
+      await primeMfaDataKey(user.mfaKeyVersion);
       if (verifyTotp(decryptSecret(user.mfaSecret, user.mfaKeyVersion), code)) return { ok: true };
     } catch {
       return { ok: false };
@@ -174,6 +176,7 @@ export async function PUT(req: NextRequest) {
   }
   let plain: string;
   try {
+    await primeMfaDataKey(user.mfaPendingKeyVersion);
     plain = decryptSecret(user.mfaPendingSecret, user.mfaPendingKeyVersion);
   } catch {
     return jsonError("MFA secret could not be decrypted — contact an administrator", 500);
