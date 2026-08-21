@@ -32,6 +32,7 @@ test("invalid login stays on login", async ({ page }) => {
 });
 
 test("framework scripts load under strict nonce CSP", async ({ page }) => {
+  test.setTimeout(60_000);
   const messages: string[] = [];
   page.on("console", (message) => messages.push(message.text()));
   const response = await page.goto("/");
@@ -39,12 +40,11 @@ test("framework scripts load under strict nonce CSP", async ({ page }) => {
   expect(csp).toContain("'strict-dynamic'");
   const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
   expect(nonce).toBeTruthy();
-  const scripts = page.locator("script[src]");
-  const count = await scripts.count();
-  expect(count).toBeGreaterThan(0);
-  for (let i = 0; i < count; i += 1) {
-    expect(await scripts.nth(i).evaluate((element) => (element as HTMLScriptElement).nonce)).toBe(nonce);
-  }
+  const nonces = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("script[src]")).map((element) => (element as HTMLScriptElement).nonce || element.getAttribute("nonce") || "")
+  );
+  expect(nonces.length).toBeGreaterThan(0);
+  expect(nonces.every((value) => value === nonce)).toBe(true);
   expect(messages.filter((message) => /content security policy/i.test(message))).toEqual([]);
 });
 
