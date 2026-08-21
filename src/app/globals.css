@@ -4,10 +4,10 @@
 
 :root {
   --g950: #073f34;
-  --g700: #128269;
-  --g500: #20a47f;
+  --g700: #0a5c4a;
+  --g500: #147a60;
   --ink: #17211d;
-  --muted: #65736d;
+  --muted: #3f4a46;
   --line: #dbe4df;
   --soft: #f4f7f5;
   --shadow: 0 10px 28px rgba(7, 63, 52, 0.12);
@@ -36,11 +36,15 @@ body {
 
 .eyebrow {
   margin: 0;
-  color: #5eead4;
+  color: var(--g700);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.site-header .eyebrow {
+  color: #ecfdf5;
 }
 
 .secondary-button {

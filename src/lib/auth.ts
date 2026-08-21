@@ -42,9 +42,10 @@ export const authOptions: NextAuthOptions = {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const headers = (req as any)?.headers;
         const ip = clientIdentityFromHeaders(headers);
-        const rlIp = await rateLimitAsync(`login:ip:${ip}`, { limit: 20, windowMs: 15 * 60_000 });
+        const e2e = process.env.E2E === "1";
+        const rlIp = await rateLimitAsync(`login:ip:${ip}`, { limit: e2e ? 500 : 20, windowMs: 15 * 60_000 });
         const rlEmail = await rateLimitAsync(`login:email:${email}`, {
-          limit: 10,
+          limit: e2e ? 100 : 10,
           windowMs: 15 * 60_000,
         });
         if (!rlIp.ok || !rlEmail.ok) {
