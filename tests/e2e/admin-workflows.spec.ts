@@ -54,3 +54,57 @@ test("community submission creates a submitted record", async ({ request }, test
   expect(body.id).toBeTruthy();
   await prisma.submission.delete({ where: { id: body.id } }).catch(() => undefined);
 });
+
+test("admin invitation is accepted and the new user can sign in", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "stateful auth flow runs once");
+  test.setTimeout(60_000);
+  const adminEmail = `e2e-inviter-${Date.now()}@example.test`;
+  const inviteEmail = `e2e-invitee-${Date.now()}@example.test`;
+  const adminPassword = "E2E-Inviter-Secret-42!";
+  const invitePassword = "E2E-Invitee-Secret-42!";
+  const admin = await prisma.user.create({
+    data: { email: adminEmail, name: "E2E Inviter", passwordHash: await bcrypt.hash(adminPassword, 12), role: "SUPER_ADMIN" },
+  });
+  let inviteeId: string | null = null;
+  try {
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill(adminEmail);
+    await page.locator('input[name="password"]').fill(adminPassword);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+
+    const invited = await page.request.post("/api/admin/invitations", {
+      data: { email: inviteEmail, role: "CONTRIBUTOR" },
+    });
+    expect(invited.status(), await invited.text()).toBe(200);
+    const payload = await invited.json();
+    expect(payload.acceptToken).toMatch(/^[a-f0-9]{64}$/);
+    expect(payload.acceptPath).toContain("/accept-invite?token=");
+
+    await page.context().clearCookies();
+    await page.goto(payload.acceptPath);
+    await page.locator('input[name="name"]').fill("E2E Invitee");
+    await page.locator('input[name="password"]').fill(invitePassword);
+    await page.getByRole("button", { name: /create account/i }).click();
+    await expect(page.getByText(/account created/i)).toBeVisible({ timeout: 15_000 });
+
+    const created = await prisma.user.findUnique({ where: { email: inviteEmail } });
+    expect(created?.role).toBe("CONTRIBUTOR");
+    inviteeId = created?.id || null;
+
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill(inviteEmail);
+    await page.locator('input[name="password"]').fill(invitePassword);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+  } finally {
+    await prisma.adminInvitation.deleteMany({ where: { email: { in: [adminEmail, inviteEmail] } } }).catch(() => undefined);
+    if (inviteeId) {
+      await prisma.passwordHistory.deleteMany({ where: { userId: inviteeId } }).catch(() => undefined);
+      await prisma.notification.deleteMany({ where: { userId: inviteeId } }).catch(() => undefined);
+      await prisma.user.delete({ where: { id: inviteeId } }).catch(() => undefined);
+    }
+    await prisma.notification.deleteMany({ where: { userId: admin.id } }).catch(() => undefined);
+    await prisma.user.delete({ where: { id: admin.id } }).catch(() => undefined);
+  }
+});

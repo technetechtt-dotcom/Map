@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { authorizeBearerOrHeader, authorizeJobRole } from "@/lib/ops-auth";
 import { parseNearbyQuery } from "@/lib/validation";
-import { publicHealthFromMetrics } from "@/lib/metrics";
+import { isWorkerHealthy, publicHealthFromMetrics } from "@/lib/metrics";
 
 describe("metrics fail-closed auth", () => {
   it("rejects production when the secret is missing", () => {
@@ -80,5 +80,12 @@ describe("public health projection", () => {
     expect(JSON.stringify(publicHealth)).not.toContain("secret-checksum");
     expect(JSON.stringify(publicHealth)).not.toContain("worker-1");
     expect(publicHealth).toEqual({});
+  });
+});
+
+describe("worker liveness", () => {
+  it("treats heartbeats older than five minutes as stale", () => {
+    expect(isWorkerHealthy(new Date(Date.now() - 6 * 60_000))).toBe(false);
+    expect(isWorkerHealthy(new Date())).toBe(true);
   });
 });

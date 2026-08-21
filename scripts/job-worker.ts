@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../src/lib/prisma";
 import { deliverNotification } from "../src/lib/notify";
-import { claimJobs, heartbeatJob, pendingJobCount, recordWorkerHeartbeat } from "../src/lib/jobs";
+import { claimJobs, heartbeatJob, pendingJobCount, recordWorkerHeartbeat, settleClaimedJob } from "../src/lib/jobs";
 import { dispatchJob } from "../src/lib/jobs/handlers";
 import { log } from "../src/lib/logger";
 
@@ -30,25 +30,9 @@ async function cycle() {
       const payload = job.payloadJson && typeof job.payloadJson === "object" ? (job.payloadJson as Record<string, unknown>) : {};
       const result = await dispatchJob(job.type, job.id, payload);
       log.info("worker.handled", { type: job.type, id: job.id, result });
-      await prisma.backgroundJob.update({
-        where: { id: job.id },
-        data: { status: "COMPLETED", completedAt: new Date(), lockedAt: null, lockedBy: null, leaseExpiresAt: null },
-      });
+      await settleClaimedJob(job);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const terminal = job.attempts >= job.maxAttempts;
-      await prisma.backgroundJob.update({
-        where: { id: job.id },
-        data: {
-          status: terminal ? "FAILED" : "PENDING",
-          deadLetter: terminal,
-          lastError: message.slice(0, 2000),
-          runAfter: new Date(Date.now() + Math.min(60, 2 ** Math.max(0, job.attempts - 1)) * 60_000),
-          lockedAt: null,
-          lockedBy: null,
-          leaseExpiresAt: null,
-        },
-      });
+      await settleClaimedJob(job, error);
     } finally {
       clearInterval(beat);
     }

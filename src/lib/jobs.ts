@@ -84,6 +84,34 @@ export async function recordWorkerHeartbeat(workerId: string, queueDepth: number
   });
 }
 
+export async function settleClaimedJob(
+  job: { id: string; attempts: number; maxAttempts: number },
+  error?: unknown
+) {
+  if (!error) {
+    await prisma.backgroundJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", completedAt: new Date(), lockedAt: null, lockedBy: null, leaseExpiresAt: null },
+    });
+    return { deadLetter: false };
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const terminal = job.attempts >= job.maxAttempts;
+  await prisma.backgroundJob.update({
+    where: { id: job.id },
+    data: {
+      status: terminal ? "FAILED" : "PENDING",
+      deadLetter: terminal,
+      lastError: message.slice(0, 2000),
+      runAfter: new Date(Date.now() + Math.min(60, 2 ** Math.max(0, job.attempts - 1)) * 60_000),
+      lockedAt: null,
+      lockedBy: null,
+      leaseExpiresAt: null,
+    },
+  });
+  return { deadLetter: terminal };
+}
+
 export async function claimJobs(workerId: string, limit = 10) {
   await recoverStaleJobs();
   return prisma.$transaction(async (tx) => {

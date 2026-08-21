@@ -7,6 +7,7 @@ import { canManageUsers, isSuperAdmin } from "@/lib/policy";
 import { invitationAcceptSchema } from "@/lib/validation";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
+import { assertStrongPassword } from "@/lib/password";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -97,6 +98,8 @@ export async function PUT(req: NextRequest) {
   if (!parsed.ok) return jsonError(parsed.error, 413);
   const body = invitationAcceptSchema.safeParse(parsed.data);
   if (!body.success) return jsonError("Invalid request", 400);
+  const strength = await assertStrongPassword(body.data.password);
+  if (!strength.ok) return jsonError(strength.error, 400);
 
   const tokenHash = hashToken(body.data.token);
   const inv = await prisma.adminInvitation.findUnique({ where: { tokenHash } });

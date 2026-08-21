@@ -1,5 +1,9 @@
 import { prisma } from "./prisma";
 
+export function isWorkerHealthy(lastSeenAt: Date, now = Date.now()) {
+  return now - lastSeenAt.getTime() < 5 * 60_000;
+}
+
 export async function collectMetrics() {
   const started = Date.now();
   const dbStarted = Date.now();
@@ -43,7 +47,7 @@ export async function collectMetrics() {
       rtoMinutes: lastBackup?.rtoMinutes ?? 120,
     },
     worker: worker
-      ? { workerId: worker.workerId, lastSeenAt: worker.lastSeenAt, queueDepth: worker.queueDepth, healthy: Date.now() - worker.lastSeenAt.getTime() < 5 * 60_000 }
+      ? { workerId: worker.workerId, lastSeenAt: worker.lastSeenAt, queueDepth: worker.queueDepth, healthy: isWorkerHealthy(worker.lastSeenAt) }
       : { healthy: false },
   };
 }

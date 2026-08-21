@@ -23,6 +23,7 @@ export async function handleAnalyticsAggregation(jobId: string, payload: Record<
   ]);
   const summary = {
     generatedAt: new Date().toISOString(),
+    provinceId: provinceId || null,
     locations,
     organisations,
     events24h: events,
