@@ -108,6 +108,7 @@ jobs:
         run: npm run test:e2e
         env:
           CI: "1"
+          E2E: "1"
 
   postgres-postgis:
     runs-on: ubuntu-latest

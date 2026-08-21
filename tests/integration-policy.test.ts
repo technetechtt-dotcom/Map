@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateEnv } from "@/lib/env";
+import { productionBootGaps, validateEnv } from "@/lib/env";
 import {
   assertLocationAccess,
   assertLocationAssignmentChange,
@@ -109,5 +109,17 @@ describe("env validation", () => {
       else env[k] = v;
     }
     expect(issues.some((i) => i.key === "NEXTAUTH_SECRET")).toBe(true);
+  });
+
+  it("does not block CI/e2e boot even when production secrets are missing", () => {
+    expect(productionBootGaps({ NODE_ENV: "production", CI: "true" })).toEqual([]);
+    expect(productionBootGaps({ NODE_ENV: "production", E2E: "1" })).toEqual([]);
+  });
+
+  it("lists production boot gaps when not in CI", () => {
+    const gaps = productionBootGaps({ NODE_ENV: "production", CI: "0" });
+    expect(gaps).toContain("NEXTAUTH_SECRET");
+    expect(gaps).toContain("CRON_SECRET");
+    expect(gaps).toContain("STORAGE_DRIVER=s3");
   });
 });
