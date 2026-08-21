@@ -16,8 +16,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang={locale}>
       <body>
         <Providers>
+          <a href="#main-content" className="skip-link">
+            Skip to content
+          </a>
           <SiteHeader locale={locale} />
-          <main>{children}</main>
+          <main id="main-content">{children}</main>
           <footer className="site-footer">
             <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/rights">Data rights</a></span>
             <span>SA ICT Ecosystem Platform · Phases 1–4</span>

@@ -13,8 +13,9 @@ for (const path of ["/", "/login", "/organisations", "/rights", "/privacy"]) {
 
 test("keyboard navigation exposes a visible focus target", async ({ page }) => {
   await page.goto("/");
+  await page.locator("body").focus();
   await page.keyboard.press("Tab");
-  const focused = page.locator(":focus");
-  await expect(focused).toBeVisible();
-  expect(await focused.evaluate((element) => ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(element.tagName))).toBe(true);
+  const skip = page.getByRole("link", { name: /skip to content/i });
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeVisible();
 });

@@ -88,43 +88,52 @@ export default async function OrganisationsPage({
                 <dl className="mt-3 grid gap-1 text-sm">
                   {o.address && (
                     <div>
-                      <span className="text-muted">Location · </span>
-                      {o.address}
+                      <dt className="inline text-muted">Location</dt>
+                      <dd className="inline"> · {o.address}</dd>
                     </div>
                   )}
                   {o.latitude != null && o.longitude != null && (
                     <div>
-                      <span className="text-muted">Map · </span>
-                      <a
-                        className="text-g700"
-                        href={`https://www.google.com/maps?q=${o.latitude},${o.longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {o.latitude.toFixed(5)}, {o.longitude.toFixed(5)}
-                      </a>
+                      <dt className="inline text-muted">Map</dt>
+                      <dd className="inline">
+                        {" · "}
+                        <a
+                          className="text-g700"
+                          href={`https://www.google.com/maps?q=${o.latitude},${o.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {o.latitude.toFixed(5)}, {o.longitude.toFixed(5)}
+                        </a>
+                      </dd>
                     </div>
                   )}
                   {o.email && (
                     <div>
-                      <span className="text-muted">Email · </span>
-                      <a className="text-g700" href={`mailto:${o.email}`}>
-                        {o.email}
-                      </a>
+                      <dt className="inline text-muted">Email</dt>
+                      <dd className="inline">
+                        {" · "}
+                        <a className="text-g700" href={`mailto:${o.email}`}>
+                          {o.email}
+                        </a>
+                      </dd>
                     </div>
                   )}
                   {o.phone && (
                     <div>
-                      <span className="text-muted">Phone · </span>
-                      {o.phone}
+                      <dt className="inline text-muted">Phone</dt>
+                      <dd className="inline"> · {o.phone}</dd>
                     </div>
                   )}
                   {o.website && (
                     <div>
-                      <span className="text-muted">Web · </span>
-                      <a className="text-g700" href={o.website} target="_blank" rel="noreferrer">
-                        {o.website.replace(/^https?:\/\//, "")}
-                      </a>
+                      <dt className="inline text-muted">Web</dt>
+                      <dd className="inline">
+                        {" · "}
+                        <a className="text-g700" href={o.website} target="_blank" rel="noreferrer">
+                          {o.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      </dd>
                     </div>
                   )}
                 </dl>
