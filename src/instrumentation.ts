@@ -1,5 +1,5 @@
 /** Fail fast on a production server when critical security configuration is missing. */
-import { productionBootGaps } from "./lib/env";
+import { productionBootGaps } from "./lib/production-boot";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;

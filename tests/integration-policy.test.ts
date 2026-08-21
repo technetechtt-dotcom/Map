@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { productionBootGaps, validateEnv } from "@/lib/env";
+import { validateEnv } from "@/lib/env";
+import { productionBootGaps } from "@/lib/production-boot";
 import {
   assertLocationAccess,
   assertLocationAssignmentChange,
