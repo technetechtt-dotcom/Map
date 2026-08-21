@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       SELECT d.id, d.name,
         COUNT(DISTINCT o.id)::bigint AS organisations,
         COUNT(DISTINCT l.id)::bigint AS locations,
-        COUNT(DISTINCT l.id)::bigint AS verified
+        COUNT(DISTINCT l.id) FILTER (WHERE l.status = 'VERIFIED')::bigint AS verified
       FROM "District" d
       LEFT JOIN "Location" l
         ON l."districtId" = d.id
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     SELECT m.id, m.name,
       COUNT(DISTINCT o.id)::bigint AS organisations,
       COUNT(DISTINCT l.id)::bigint AS locations,
-      COUNT(DISTINCT l.id)::bigint AS verified
+      COUNT(DISTINCT l.id) FILTER (WHERE l.status = 'VERIFIED')::bigint AS verified
     FROM "Municipality" m
     JOIN "District" dist ON dist.id = m."districtId"
     LEFT JOIN "Location" l

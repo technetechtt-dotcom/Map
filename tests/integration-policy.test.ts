@@ -112,9 +112,19 @@ describe("env validation", () => {
     expect(issues.some((i) => i.key === "NEXTAUTH_SECRET")).toBe(true);
   });
 
-  it("does not block CI/e2e boot even when production secrets are missing", () => {
-    expect(productionBootGaps({ NODE_ENV: "production", CI: "true" })).toEqual([]);
+  it("does not treat generic CI as a production bypass", () => {
+    const gaps = productionBootGaps({ NODE_ENV: "production", CI: "true" });
+    expect(gaps.length).toBeGreaterThan(0);
     expect(productionBootGaps({ NODE_ENV: "production", E2E: "1" })).toEqual([]);
+  });
+
+  it("accepts KMS-wrapped MFA instead of a local encryption key", () => {
+    const gaps = productionBootGaps({
+      NODE_ENV: "production",
+      AWS_KMS_KEY_ID: "arn:aws:kms:af-south-1:1:key/abc",
+      MFA_KMS_CIPHERTEXT: "ciphertext",
+    });
+    expect(gaps).not.toContain("MFA_ENCRYPTION_KEY");
   });
 
   it("lists production boot gaps when not in CI", () => {

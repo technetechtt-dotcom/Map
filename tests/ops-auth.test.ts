@@ -35,6 +35,7 @@ describe("maintenance job roles", () => {
     expect(authorizeJobRole(provincial, "backup").ok).toBe(false);
     expect(authorizeJobRole(provincial, "all").ok).toBe(false);
     expect(authorizeJobRole(provincial, "expiry")).toEqual({ ok: true, provinceId: "prov-a" });
+    expect(authorizeJobRole(provincial, "notify").ok).toBe(false);
   });
 
   it("blocks org admins from maintenance jobs", () => {
@@ -78,7 +79,6 @@ describe("public health projection", () => {
     });
     expect(JSON.stringify(publicHealth)).not.toContain("secret-checksum");
     expect(JSON.stringify(publicHealth)).not.toContain("worker-1");
-    expect(publicHealth.backup?.stale).toBe(false);
-    expect(publicHealth.worker.healthy).toBe(true);
+    expect(publicHealth).toEqual({});
   });
 });

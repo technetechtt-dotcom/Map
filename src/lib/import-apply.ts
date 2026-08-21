@@ -1,5 +1,7 @@
 import { createHash } from "crypto";
 import { prisma } from "./prisma";
+import { parseLatitude, parseLongitude } from "./coords";
+import { validatePointAssignment } from "./geo-validation";
 
 export type ImportSourceRow = {
   name?: string;
@@ -27,6 +29,17 @@ export type ImportRowState = {
   error?: string;
 };
 
+type StagingReportRow = {
+  index?: number;
+  ok?: boolean;
+  issues?: string[];
+  status?: ImportRowState["status"];
+  rowHash?: string;
+  locationId?: string;
+  slug?: string;
+  error?: string;
+};
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -35,17 +48,11 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
-function parseCoord(value: unknown): number | null {
-  if (value == null || value === "") return null;
-  const n = typeof value === "number" ? value : Number(String(value).trim());
-  return Number.isFinite(n) ? n : null;
-}
-
 export function importRowHash(row: ImportSourceRow): string {
   const normalized = {
     name: String(row.name || "").trim().toLowerCase(),
-    latitude: parseCoord(row.latitude),
-    longitude: parseCoord(row.longitude),
+    latitude: parseLatitude(row.latitude),
+    longitude: parseLongitude(row.longitude),
     provinceId: row.provinceId || row.provinceSlug || "",
     categoryId: row.categoryId || row.categorySlug || "",
     address: String(row.address || "").trim().toLowerCase(),
@@ -53,16 +60,33 @@ export function importRowHash(row: ImportSourceRow): string {
   return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
 }
 
-function reportRows(reportJson: unknown, sourceRows: ImportSourceRow[]): ImportRowState[] {
+export function resolveImportRowStates(reportJson: unknown, sourceRows: ImportSourceRow[]): ImportRowState[] {
   const existing =
     reportJson && typeof reportJson === "object" && Array.isArray((reportJson as { rows?: unknown }).rows)
-      ? ((reportJson as { rows: ImportRowState[] }).rows)
+      ? ((reportJson as { rows: StagingReportRow[] }).rows)
       : [];
-  const byIndex = new Map(existing.map((row) => [row.index, row]));
+  const byIndex = new Map(existing.map((row, fallback) => [typeof row.index === "number" ? row.index : fallback, row]));
   return sourceRows.map((row, index) => {
     const prev = byIndex.get(index);
     const rowHash = importRowHash(row);
-    if (prev && prev.rowHash === rowHash) return prev;
+    if (prev?.status && prev.rowHash === rowHash) {
+      return {
+        index,
+        rowHash,
+        status: prev.status,
+        locationId: prev.locationId,
+        slug: prev.slug,
+        error: prev.error,
+      };
+    }
+    if (prev && prev.ok === false) {
+      return {
+        index,
+        rowHash,
+        status: "SKIPPED",
+        error: (prev.issues || []).join("; ") || "failed staging validation",
+      };
+    }
     return { index, rowHash, status: "PENDING" as const };
   });
 }
@@ -75,7 +99,7 @@ export async function applyImportBatch(
   if (!batch) throw new Error("Import batch not found");
   if (batch.status === "REJECTED") return { success: false, applied: batch.appliedCount, idempotent: true, errors: [] as ImportRowState[] };
   const rows = Array.isArray(batch.payloadJson) ? (batch.payloadJson as ImportSourceRow[]) : [];
-  const states = reportRows(batch.reportJson, rows);
+  const states = resolveImportRowStates(batch.reportJson, rows);
   if (batch.status === "APPLIED" && states.every((row) => row.status !== "PENDING")) {
     return { success: true, applied: batch.appliedCount, idempotent: true, errors: states.filter((row) => row.status === "FAILED") };
   }
@@ -115,8 +139,8 @@ export async function applyImportBatch(
         state.error = "name required";
         continue;
       }
-      const lat = parseCoord(row.latitude);
-      const lng = parseCoord(row.longitude);
+      const lat = parseLatitude(row.latitude);
+      const lng = parseLongitude(row.longitude);
       if (lat == null || lng == null) throw new Error("invalid coordinates");
       const province = options?.forceProvinceId
         ? await prisma.province.findUnique({ where: { id: options.forceProvinceId } })
@@ -129,6 +153,11 @@ export async function applyImportBatch(
             },
           });
       if (!province) throw new Error("unknown province");
+      if (options?.forceProvinceId && province.id !== options.forceProvinceId) {
+        throw new Error("row province outside import scope");
+      }
+      const boundary = validatePointAssignment(lng, lat, province.geojson);
+      if (boundary === "invalid") throw new Error("coordinates outside assigned province boundary");
       const category = await prisma.category.findFirst({
         where: {
           OR: [{ id: String(row.categoryId || defaultCategory?.id || "") }, { slug: String(row.categorySlug || "other") }].filter(

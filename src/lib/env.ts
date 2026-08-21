@@ -64,6 +64,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
       message: "CRON_SECRET is required to authorize maintenance jobs",
     });
   }
+  const kmsMfa = Boolean(process.env.AWS_KMS_KEY_ID && (process.env.MFA_KMS_CIPHERTEXT || process.env.MFA_KMS_CIPHERTEXT_V1));
   if (process.env.AWS_KMS_KEY_ID) {
     if (!process.env.MFA_KMS_CIPHERTEXT && !process.env.MFA_KMS_CIPHERTEXT_V1) {
       issues.push({
@@ -77,10 +78,12 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
   if (!Number.isInteger(mfaVersion) || mfaVersion < 1) {
     issues.push({ key: "MFA_KEY_VERSION", level: "error", message: "MFA_KEY_VERSION must be a positive integer" });
   }
-  const mfaKeyName = process.env[`MFA_ENCRYPTION_KEY_V${mfaVersion}`]
-    ? `MFA_ENCRYPTION_KEY_V${mfaVersion}`
-    : "MFA_ENCRYPTION_KEY";
-  require(mfaKeyName, 32);
+  if (!kmsMfa) {
+    const mfaKeyName = process.env[`MFA_ENCRYPTION_KEY_V${mfaVersion}`]
+      ? `MFA_ENCRYPTION_KEY_V${mfaVersion}`
+      : "MFA_ENCRYPTION_KEY";
+    require(mfaKeyName, 32);
+  }
 
   if (!/^postgres(?:ql)?:\/\//i.test(process.env.DATABASE_URL || "")) {
     issues.push({
@@ -191,8 +194,6 @@ export function assertEnvOrLog(): EnvIssue[] {
   const mustThrow =
     errors.length > 0 &&
     process.env.NODE_ENV === "production" &&
-    process.env.CI !== "1" &&
-    process.env.CI !== "true" &&
     process.env.E2E !== "1";
   if (mustThrow) {
     throw new Error(`Missing required environment: ${errors.map((e) => e.key).join(", ")}`);

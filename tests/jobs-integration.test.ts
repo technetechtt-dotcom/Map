@@ -10,6 +10,7 @@ integration("background job handlers", () => {
   afterAll(async () => {
     await prisma.location.deleteMany({ where: { name: { startsWith: prefix } } });
     await prisma.importBatch.deleteMany({ where: { source: prefix } });
+    await prisma.appSetting.deleteMany({ where: { key: { startsWith: "analytics.daily:" } } }).catch(() => undefined);
     await prisma.$disconnect();
   });
 
@@ -60,5 +61,42 @@ integration("background job handlers", () => {
     expect(second.idempotent || second.applied === first.applied).toBe(true);
     const locations = await prisma.location.findMany({ where: { name: row.name } });
     expect(locations).toHaveLength(1);
+  });
+
+  it("does not apply rows that failed staging validation", async () => {
+    const province = await prisma.province.findFirst();
+    const category = await prisma.category.findFirst();
+    if (!province || !category) return;
+    const bad = {
+      name: `${prefix} OutOfRange`,
+      summary: `${prefix} bad`,
+      latitude: 999,
+      longitude: 24.7,
+      provinceId: province.id,
+      categoryId: category.id,
+    };
+    const batch = await prisma.importBatch.create({
+      data: {
+        source: prefix,
+        status: "STAGED",
+        provinceId: province.id,
+        rowCount: 1,
+        payloadJson: [bad],
+        reportJson: { rows: [{ index: 0, ok: false, issues: ["missing or out-of-range coordinates"] }] },
+        checksumSha256: importRowHash(bad),
+      },
+    });
+    const result = await applyImportBatch(batch.id, { jobId: `${prefix}-import-skip` });
+    expect(result.applied).toBe(0);
+    expect(await prisma.location.count({ where: { name: bad.name } })).toBe(0);
+  });
+
+  it("writes province-scoped analytics snapshots", async () => {
+    const province = await prisma.province.findFirst();
+    if (!province) return;
+    await handleAnalyticsAggregation(`${prefix}-analytics-p`, { provinceId: province.id });
+    const row = await prisma.appSetting.findUnique({ where: { key: `analytics.daily:${province.id}` } });
+    expect(row?.value).toBeTruthy();
+    await prisma.appSetting.delete({ where: { key: `analytics.daily:${province.id}` } }).catch(() => undefined);
   });
 });

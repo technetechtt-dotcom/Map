@@ -48,12 +48,8 @@ export async function collectMetrics() {
   };
 }
 
-/** Public liveness fields — no checksums, worker IDs, or queue internals. */
+/** Public liveness fields — no queue, backup, worker, or verification internals. */
 export function publicHealthFromMetrics(metrics: Awaited<ReturnType<typeof collectMetrics>> | null) {
-  return {
-    queue: metrics ? { pending: metrics.queue.pending, failed: metrics.queue.failed } : null,
-    backup: metrics ? { stale: metrics.backup.stale, ageHours: metrics.backup.ageHours } : null,
-    worker: { healthy: metrics?.worker.healthy ?? false },
-    verification: metrics ? { expired: metrics.verification.expired } : null,
-  };
+  void metrics;
+  return {};
 }

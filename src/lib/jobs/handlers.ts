@@ -5,8 +5,9 @@ import { deliverNotification } from "../notify";
 import { copyStoredObjectsToBackup } from "../object-backup";
 import { validatePointAssignment } from "../geo-validation";
 import { createHash } from "crypto";
-import { enqueueJob } from "../jobs";
+import { enqueueJob, snapshotSettingKey } from "../jobs";
 import { applyImportBatch } from "../import-apply";
+import { isCoordQuality } from "../coords";
 
 export async function handleAnalyticsAggregation(jobId: string, payload: Record<string, unknown> = {}) {
   const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
@@ -29,10 +30,11 @@ export async function handleAnalyticsAggregation(jobId: string, payload: Record<
     failedJobs,
     failedNotifications: notifications,
   };
+  const key = snapshotSettingKey("analytics.daily", provinceId);
   await prisma.appSetting.upsert({
-    where: { key: "analytics.daily" },
+    where: { key },
     update: { value: JSON.stringify(summary) },
-    create: { key: "analytics.daily", value: JSON.stringify(summary) },
+    create: { key, value: JSON.stringify(summary) },
   });
   log.info("jobs.analytics", { jobId, events24h: events });
   return summary;
@@ -52,10 +54,11 @@ export async function handleDataImport(jobId: string, payload: Record<string, un
 export async function handleDuplicateDetection(jobId: string, payload: Record<string, unknown>) {
   const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
   const pairs = await findDuplicatePairsSql({ provinceId, limit: 200, threshold: 0.4 });
+  const key = snapshotSettingKey("duplicates.latest", provinceId);
   await prisma.appSetting.upsert({
-    where: { key: "duplicates.latest" },
+    where: { key },
     update: { value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs }) },
-    create: { key: "duplicates.latest", value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs }) },
+    create: { key, value: JSON.stringify({ jobId, generatedAt: new Date().toISOString(), pairs }) },
   });
   log.info("jobs.duplicates", { jobId, pairs: pairs.length });
   return { success: true, pairs: pairs.length };
@@ -66,7 +69,10 @@ export async function handleGeocoding(jobId: string, payload: Record<string, unk
   const locations = id
     ? await prisma.location.findMany({ where: { id }, include: { municipality: true, district: true, province: true } })
     : await prisma.location.findMany({
-        where: { coordQuality: { in: ["unknown", "directory-only"] }, ...(typeof payload.provinceId === "string" ? { provinceId: payload.provinceId } : {}) },
+        where: {
+          coordQuality: { in: ["unknown", "town-centre", "directory-only"] },
+          ...(typeof payload.provinceId === "string" ? { provinceId: payload.provinceId } : {}),
+        },
         include: { municipality: true, district: true, province: true },
         take: 100,
       });
@@ -78,7 +84,7 @@ export async function handleGeocoding(jobId: string, payload: Record<string, unk
       where: { id: location.id },
       data: {
         boundaryValid,
-        coordQuality: location.coordQuality === "unknown" ? "town-centre" : location.coordQuality,
+        coordQuality: isCoordQuality(location.coordQuality) && location.coordQuality !== "unknown" ? location.coordQuality : "town-centre",
         coordSource: location.coordSource || "geocode-job",
       },
     });
@@ -153,10 +159,11 @@ export async function handleReportGeneration(jobId: string, payload: Record<stri
     organisations,
     funding,
   };
+  const key = snapshotSettingKey("reports.latest", typeof payload.provinceId === "string" ? payload.provinceId : null);
   await prisma.appSetting.upsert({
-    where: { key: "reports.latest" },
+    where: { key },
     update: { value: JSON.stringify(report) },
-    create: { key: "reports.latest", value: JSON.stringify(report) },
+    create: { key, value: JSON.stringify(report) },
   });
   return { success: true, report };
 }

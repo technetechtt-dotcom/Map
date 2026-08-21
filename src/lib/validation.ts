@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { COORD_QUALITY } from "./coords";
+
+export { COORD_QUALITY, type CoordQuality } from "./coords";
 
 export const locationWriteSchema = z.object({
   name: z.string().min(2).max(200).optional(),
@@ -16,7 +19,7 @@ export const locationWriteSchema = z.object({
     .optional(),
   verificationNotes: z.string().max(4000).nullable().optional(),
   verificationSource: z.string().max(500).nullable().optional(),
-  coordQuality: z.enum(["verified", "estimated", "town-centre", "unknown"]).optional(),
+  coordQuality: z.enum(COORD_QUALITY).optional(),
   coordSource: z.string().max(500).nullable().optional(),
   verificationExpiresAt: z.string().datetime().nullable().optional(),
   categoryId: z.string().max(40).optional(),

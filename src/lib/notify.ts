@@ -112,9 +112,9 @@ export async function deliverNotification(id: string): Promise<void> {
     await prisma.notification.update({
       where: { id },
       data: {
-        status: event.attempts + 1 >= 5 ? "FAILED" : "PENDING",
+        status: event.attempts >= 5 ? "FAILED" : "PENDING",
         lastError: message.slice(0, 2000),
-        scheduledAt: new Date(Date.now() + Math.min(60, 2 ** event.attempts) * 60_000),
+        scheduledAt: new Date(Date.now() + Math.min(60, 2 ** Math.max(0, event.attempts - 1)) * 60_000),
       },
     });
     throw error;

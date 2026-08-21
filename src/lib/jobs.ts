@@ -15,6 +15,19 @@ export const JOB_TYPES = [
 
 export type JobType = (typeof JOB_TYPES)[number];
 
+export function snapshotSettingKey(
+  kind: "analytics.daily" | "duplicates.latest" | "reports.latest",
+  provinceId?: string | null
+) {
+  return `${kind}:${provinceId || "national"}`;
+}
+
+export async function pendingJobCount() {
+  return prisma.backgroundJob.count({
+    where: { deadLetter: false, status: "PENDING", runAfter: { lte: new Date() } },
+  });
+}
+
 export async function enqueueJob(
   type: string,
   payload: Record<string, unknown>,

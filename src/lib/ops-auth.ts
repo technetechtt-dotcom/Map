@@ -4,14 +4,13 @@
 import type { AuthUser } from "./policy";
 import { canManageBackups, isProvincialAdmin, isSuperAdmin } from "./policy";
 
-export const GLOBAL_MAINTENANCE_JOBS = new Set(["prune", "backup", "cleanup", "all", "pending-mfa"]);
+export const GLOBAL_MAINTENANCE_JOBS = new Set(["prune", "backup", "cleanup", "all", "pending-mfa", "notify"]);
 export const TENANT_SCOPED_JOBS = new Set([
   "expiry",
   "duplicates",
   "geocode",
   "analytics",
   "report",
-  "notify",
   "import",
   "queue",
 ]);

@@ -42,12 +42,28 @@ export async function POST(req: NextRequest) {
       expiry: "data.expiry",
     };
     if (queued[job]) {
-      const row = await enqueueJob(
-        queued[job],
-        { triggeredBy: authz.userId, provinceId: authz.provinceId || null },
-        { idempotencyKey: `${queued[job]}-${authz.provinceId || "global"}-${new Date().toISOString().slice(0, 13)}` }
-      );
-      results.queued = { type: queued[job], id: row?.id };
+      if (job === "import") {
+        const batchId = req.nextUrl.searchParams.get("batchId");
+        if (!batchId) return jsonError("batchId is required to queue an import job", 400);
+        const batch = await prisma.importBatch.findUnique({ where: { id: batchId }, select: { id: true, provinceId: true, status: true } });
+        if (!batch) return jsonError("Import batch not found", 404);
+        if (authz.provinceId && batch.provinceId && batch.provinceId !== authz.provinceId) {
+          return jsonError("Forbidden", 403);
+        }
+        const row = await enqueueJob(
+          "data.import",
+          { triggeredBy: authz.userId, provinceId: authz.provinceId || batch.provinceId || null, batchId: batch.id },
+          { idempotencyKey: `data.import-${batch.id}` }
+        );
+        results.queued = { type: "data.import", id: row?.id, batchId: batch.id };
+      } else {
+        const row = await enqueueJob(
+          queued[job],
+          { triggeredBy: authz.userId, provinceId: authz.provinceId || null },
+          { idempotencyKey: `${queued[job]}-${authz.provinceId || "global"}-${new Date().toISOString().slice(0, 13)}` }
+        );
+        results.queued = { type: queued[job], id: row?.id };
+      }
     }
     if (job === "queue") {
       return jsonOk({ types: JOB_TYPES, queued: results.queued });

@@ -8,6 +8,7 @@ import { canManageAllProvinces, canPublish } from "@/lib/policy";
 import { findDuplicateCandidates, findNearbyLocations } from "@/lib/duplicates";
 import { pointInGeoJson } from "@/lib/geo-validation";
 import { applyImportBatch } from "@/lib/import-apply";
+import { parseLatitude, parseLongitude } from "@/lib/coords";
 
 type ImportRow = {
   name?: string;
@@ -27,12 +28,6 @@ type ImportRow = {
 };
 
 const MAX_ROWS = 500;
-
-function parseCoord(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  const n = typeof v === "number" ? v : Number(String(v).trim());
-  return Number.isFinite(n) ? n : null;
-}
 
 /** Stage bulk import rows with duplicate report. Apply creates DRAFT locations only. */
 export async function POST(req: NextRequest) {
@@ -143,15 +138,9 @@ export async function POST(req: NextRequest) {
     if (!categoryId && defaultCategory) categoryId = defaultCategory.id;
     if (!categoryId) issues.push("no categories in database");
 
-    const lat = parseCoord(row.latitude);
-    const lng = parseCoord(row.longitude);
-    if (lat == null || lng == null) issues.push("missing coordinates");
-    else if (
-      process.env.IMPORT_STRICT_SA_BOUNDS === "1" &&
-      (lat < -35 || lat > -22 || lng < 16 || lng > 33)
-    ) {
-      issues.push("coordinates outside SA bounds");
-    }
+    const lat = parseLatitude(row.latitude);
+    const lng = parseLongitude(row.longitude);
+    if (lat == null || lng == null) issues.push("missing or out-of-range coordinates");
     if (lat != null && lng != null && provinceId) {
       const boundaryResult = pointInGeoJson(lng, lat, provById.get(provinceId)?.geojson);
       if (boundaryResult === false) issues.push("coordinates outside assigned province boundary");

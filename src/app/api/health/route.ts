@@ -1,11 +1,28 @@
-import { collectMetrics, publicHealthFromMetrics } from "@/lib/metrics";
-import { NextResponse } from "next/server";
+import { collectMetrics } from "@/lib/metrics";
+import { authorizeMetricsRequest } from "@/lib/ops-auth";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Liveness/readiness probe (no auth, no PII).
+ * Public: { status } only.
+ * Authenticated metrics token: readiness details for monitoring.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const started = Date.now();
+  const privileged = authorizeMetricsRequest(req).ok;
+  const maintenance = process.env.MAINTENANCE_MODE === "1" || process.env.MAINTENANCE_MODE === "true";
+
+  if (!privileged) {
+    let status: "ok" | "degraded" | "maintenance" = maintenance ? "maintenance" : "ok";
+    if (!maintenance) {
+      try {
+        await collectMetrics();
+      } catch {
+        status = "degraded";
+      }
+    }
+    return NextResponse.json({ status }, { status: 200, headers: { "Cache-Control": "no-store" } });
+  }
+
   let db: "ok" | "error" = "ok";
   let redis: "ok" | "skipped" | "error" = "skipped";
   let metrics: Awaited<ReturnType<typeof collectMetrics>> | null = null;
@@ -27,40 +44,34 @@ export async function GET() {
     }
   }
 
-  const maintenance =
-    process.env.MAINTENANCE_MODE === "1" || process.env.MAINTENANCE_MODE === "true";
   const backupStale = Boolean(metrics?.backup.stale);
+  const status =
+    db === "ok" && redis !== "error" && !maintenance ? (backupStale ? "degraded" : "ok") : maintenance ? "maintenance" : "degraded";
 
-  const body = {
-    status:
-      db === "ok" && redis !== "error" && !maintenance
-        ? backupStale
-          ? "degraded"
-          : "ok"
-        : maintenance
-          ? "maintenance"
-          : "degraded",
-    db,
-    dbLatencyMs: metrics?.dbLatencyMs ?? null,
-    redis,
-    storage: {
-      driver: process.env.STORAGE_DRIVER || "local",
-      configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true,
+  return NextResponse.json(
+    {
+      status,
+      db,
+      dbLatencyMs: metrics?.dbLatencyMs ?? null,
+      redis,
+      storage: {
+        driver: process.env.STORAGE_DRIVER || "local",
+        configured: process.env.STORAGE_DRIVER === "s3" ? Boolean(process.env.S3_BUCKET) : true,
+      },
+      queue: metrics?.queue ?? null,
+      backup: metrics?.backup ?? null,
+      worker: metrics?.worker ?? null,
+      verification: metrics?.verification ?? null,
+      maintenance,
+      version: process.env.npm_package_version || "1.3.0",
+      uptimeSec: Math.floor(process.uptime()),
+      latencyMs: Date.now() - started,
+      ts: new Date().toISOString(),
+      alerts: {
+        backupStale,
+        workerUnhealthy: metrics ? metrics.worker.healthy === false : true,
+      },
     },
-    ...publicHealthFromMetrics(metrics),
-    maintenance,
-    version: process.env.npm_package_version || "1.3.0",
-    uptimeSec: Math.floor(process.uptime()),
-    latencyMs: Date.now() - started,
-    ts: new Date().toISOString(),
-    alerts: {
-      backupStale,
-      workerUnhealthy: metrics ? metrics.worker.healthy === false : true,
-    },
-  };
-
-  return NextResponse.json(body, {
-    status: 200,
-    headers: { "Cache-Control": "no-store" },
-  });
+    { status: 200, headers: { "Cache-Control": "no-store" } }
+  );
 }

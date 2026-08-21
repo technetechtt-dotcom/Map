@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../src/lib/prisma";
 import { deliverNotification } from "../src/lib/notify";
-import { claimJobs, heartbeatJob, recordWorkerHeartbeat } from "../src/lib/jobs";
+import { claimJobs, heartbeatJob, pendingJobCount, recordWorkerHeartbeat } from "../src/lib/jobs";
 import { dispatchJob } from "../src/lib/jobs/handlers";
 import { log } from "../src/lib/logger";
 
@@ -20,7 +20,8 @@ async function cycle() {
   }
 
   const jobs = await claimJobs(workerId);
-  await recordWorkerHeartbeat(workerId, jobs.length);
+  const queueDepth = await pendingJobCount();
+  await recordWorkerHeartbeat(workerId, queueDepth);
   for (const job of jobs) {
     const beat = setInterval(() => {
       void heartbeatJob(job.id, workerId, Math.max(60_000, job.maxRuntimeMs));
@@ -52,13 +53,26 @@ async function cycle() {
       clearInterval(beat);
     }
   }
-  log.info("worker.cycle", { notifications: notifications.length, jobs: jobs.length, workerId });
+  log.info("worker.cycle", { notifications: notifications.length, jobs: jobs.length, queueDepth, workerId });
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function main() {
-  await cycle();
-  if (process.env.JOB_WORKER_ONCE === "1") return;
-  setInterval(() => void cycle().catch((error) => log.exception(error, { workerId })), 5_000);
+  if (process.env.JOB_WORKER_ONCE === "1") {
+    await cycle();
+    return;
+  }
+  for (;;) {
+    try {
+      await cycle();
+    } catch (error) {
+      log.exception(error, { workerId });
+    }
+    await sleep(5_000);
+  }
 }
 
 main().catch((error) => {

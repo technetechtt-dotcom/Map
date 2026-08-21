@@ -4,10 +4,11 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-test("password change, invitation-shaped lockout and session revocation", async ({ page, request }, testInfo) => {
+test("password change revokes the current session", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "stateful auth flow runs once");
   const email = `e2e-auth-${Date.now()}@example.test`;
   const password = "E2E-Strong-Password-42!";
+  const nextPassword = "E2E-Strong-Password-99!";
   const user = await prisma.user.create({
     data: { email, name: "E2E Auth", passwordHash: await bcrypt.hash(password, 12), role: "CONTRIBUTOR" },
   });
@@ -18,27 +19,38 @@ test("password change, invitation-shaped lockout and session revocation", async 
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
 
-    const lock = await prisma.user.update({
-      where: { id: user.id },
-      data: { failedLoginCount: 9, lockedUntil: new Date(Date.now() + 15 * 60_000), sessionVersion: { increment: 1 } },
+    const changed = await page.request.post("/api/auth/change-password", {
+      data: { currentPassword: password, newPassword: nextPassword },
     });
-    expect(lock.sessionVersion).toBeGreaterThan(0);
+    expect(changed.ok()).toBeTruthy();
     await page.goto("/admin");
-    await expect(page).toHaveURL(/login|admin/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/login/, { timeout: 15_000 });
+
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(nextPassword);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
   } finally {
+    await prisma.passwordHistory.deleteMany({ where: { userId: user.id } }).catch(() => undefined);
+    await prisma.notification.deleteMany({ where: { userId: user.id } }).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
   }
 });
 
-test("community submission create and withdraw via API", async ({ request }, testInfo) => {
+test("community submission creates a submitted record", async ({ request }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "API flow runs once");
+  const email = `e2e-sub-${Date.now()}@example.test`;
   const res = await request.post("/api/submissions", {
     data: {
       type: "location",
       submitterName: "E2E Community",
-      submitterEmail: `e2e-sub-${Date.now()}@example.test`,
-      payload: { name: "E2E Hub", summary: "Test hub", latitude: -28.7, longitude: 24.7 },
+      submitterEmail: email,
+      payload: { name: "E2E Hub", summary: "Test hub for Northern Cape ICT mapping", latitude: -28.7, longitude: 24.7, provinceSlug: "northern-cape" },
     },
   });
-  expect([200, 201, 400, 401, 429]).toContain(res.status());
+  expect(res.status()).toBe(201);
+  const body = await res.json();
+  expect(body.status).toBe("SUBMITTED");
+  expect(body.id).toBeTruthy();
+  await prisma.submission.delete({ where: { id: body.id } }).catch(() => undefined);
 });

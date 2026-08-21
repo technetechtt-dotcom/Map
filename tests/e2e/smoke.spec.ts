@@ -16,11 +16,18 @@ test("login page renders", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /login/i })).toBeVisible();
 });
 
-test("health endpoint is ok or degraded", async ({ request }) => {
+test("liveness is a bare ok and public health exposes only status", async ({ request }) => {
+  const live = await request.get("/api/health/live");
+  expect(live.ok()).toBeTruthy();
+  expect(await live.json()).toEqual({ status: "ok" });
+
   const res = await request.get("/api/health");
   expect(res.ok()).toBeTruthy();
   const body = await res.json();
   expect(["ok", "degraded", "maintenance"]).toContain(body.status);
+  expect(body.db).toBeUndefined();
+  expect(body.queue).toBeUndefined();
+  expect(body.backup).toBeUndefined();
 });
 
 test("invalid login stays on login", async ({ page }) => {
@@ -48,9 +55,8 @@ test("framework scripts load under strict nonce CSP", async ({ page }) => {
   );
   expect(scripts.length).toBeGreaterThan(0);
   const nonced = scripts.filter((script) => script.nonce);
-  if (nonced.length) {
-    expect(nonced.every((script) => script.nonce === nonce)).toBe(true);
-  }
+  expect(nonced.length).toBeGreaterThan(0);
+  expect(nonced.every((script) => script.nonce === nonce)).toBe(true);
   expect(messages.filter((message) => /content security policy/i.test(message))).toEqual([]);
 });
 

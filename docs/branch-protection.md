@@ -1,19 +1,15 @@
 # Branch protection (`main`)
 
-This repository **pushes commits directly to `main`**. Pull requests are not required.
+`main` requires a pull request with one approving review. Required GitHub Actions checks must be green, and the branch must be up to date with `main` before merge.
 
 Keep these GitHub settings:
 
-1. **Do not** require a pull request before merging
-2. **Do not** require status checks to pass before push (CI still runs on `main` after push)
-3. Restrict force pushes and deletions
-4. Do not allow bypassing those restrictions
-
-CI still runs on every push to `main` (`test-and-build`, `postgres-postgis`, `secret-scan`, `codeql`, `dependency-audit-sbom`, `license-check`). Treat a red run on `main` as a production incident and fix it with another commit on `main`.
-
-## CODEOWNERS
-
-`.github/CODEOWNERS` still documents owners for auth, policy, Prisma, and workflows. It does not gate pushes.
+1. Require a pull request before merging
+2. Require one approving review and dismiss stale reviews
+3. Require status checks: `test-and-build`, `postgres-postgis`, `secret-scan`, `codeql`, `dependency-audit-sbom`, `license-check`
+4. Require branches to be up to date before merging
+5. Restrict force pushes and deletions
+6. Include administrators (no admin bypass)
 
 Apply via GitHub UI or:
 
