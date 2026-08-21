@@ -26,6 +26,8 @@ describe("Upstash distributed rate limiting", () => {
 
   it("fails closed in production when Redis is unavailable", async () => {
     (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+    delete process.env.E2E;
+    delete process.env.RATE_LIMIT_ALLOW_MEMORY;
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.invalid";
     process.env.UPSTASH_REDIS_REST_TOKEN = "test-token-that-is-long-enough";
     const result = await rateLimitAsync("login:test", { limit: 5, windowMs: 60_000 }, async () => {

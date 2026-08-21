@@ -215,9 +215,8 @@ function failClosed(): RateLimitResult {
   };
 }
 
-function isCiE2eRuntime(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.E2E === "1") return true;
-  return Boolean(env.CI && env.CI !== "0" && env.CI !== "false");
+function isE2eRuntime(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.E2E === "1";
 }
 
 /** Async limit that tries Upstash first. Production fails closed if Redis is required and missing. */
@@ -232,11 +231,11 @@ export async function rateLimitAsync(
   // Production must never silently fall back to a per-instance limiter: it
   // would let an attacker bypass limits by changing application instances.
   // CI/e2e may opt into memory buckets with RATE_LIMIT_ALLOW_MEMORY=1.
-  if (prod && !(isCiE2eRuntime() && process.env.RATE_LIMIT_ALLOW_MEMORY === "1")) {
+  if (prod && !(isE2eRuntime() && process.env.RATE_LIMIT_ALLOW_MEMORY === "1")) {
     return failClosed();
   }
-  const ciLimit = isCiE2eRuntime() ? Math.max(opts.limit, 10_000) : opts.limit;
-  return rateLimit(key, { ...opts, limit: ciLimit });
+  const e2eLimit = isE2eRuntime() ? Math.max(opts.limit, 10_000) : opts.limit;
+  return rateLimit(key, { ...opts, limit: e2eLimit });
 }
 
 export function resetMemoryBucketsForTests() {
