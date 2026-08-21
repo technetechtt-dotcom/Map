@@ -37,6 +37,7 @@ async function main() {
   run("node prisma/seed.js");
   run("node scripts/restore-backup-smoke.js");
   run("node scripts/postgres-backup-smoke.js");
+  process.env.KEEP_RESTORE_DB = process.env.KEEP_RESTORE_DB || "1";
   run("node scripts/disaster-recovery-smoke.js");
 
   const baseUrl = process.env.STAGING_BASE_URL || "";

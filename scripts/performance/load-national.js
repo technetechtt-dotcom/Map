@@ -3,7 +3,16 @@
  * CI-friendly national load suite. Use k6 (`npm run load:k6`) for the full ramping profile.
  */
 const base = (process.env.BASE_URL || process.env.STAGING_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
-const profile = process.env.LOAD_PROFILE === "national" ? { concurrency: 8, loops: 12 } : { concurrency: 4, loops: 4 };
+const profiles = {
+  ci: { concurrency: 4, loops: 4 },
+  national: { concurrency: 20, loops: 10 },
+  250: { concurrency: 40, loops: 8 },
+  500: { concurrency: 60, loops: 8 },
+  1000: { concurrency: 80, loops: 8 },
+  endurance: { concurrency: 20, loops: 40 },
+  spike: { concurrency: 50, loops: 4 },
+};
+const profile = profiles[process.env.LOAD_PROFILE || "national"] || profiles.national;
 
 const paths = [
   "/api/health/live",

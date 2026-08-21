@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { log } from "../logger";
+import type { Prisma } from "@prisma/client";
 import { findDuplicatePairsSql } from "../duplicates-sql";
 import { deliverNotification } from "../notify";
 import { copyStoredObjectsToBackup } from "../object-backup";
@@ -8,6 +9,7 @@ import { enqueueJob, snapshotSettingKey } from "../jobs";
 import { applyImportBatch } from "../import-apply";
 import { isCoordQuality } from "../coords";
 import { geocodeAddress, geocoderDisabled } from "../geocode";
+import { loadNationalCatalog } from "../ingestion/connectors";
 
 export async function handleAnalyticsAggregation(jobId: string, payload: Record<string, unknown> = {}) {
   const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
@@ -212,7 +214,7 @@ export async function handleBackup(jobId: string) {
       filename: `job-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
       path: "offsite",
       sizeBytes: objects.copiedBytes,
-      notes: "Scheduled worker backup (object copy + byte checksum verify)",
+      notes: `Scheduled worker backup (object copy + byte checksum verify) mode=${objects.mode}`,
       kind: "objects",
       checksumSha256: objects.checksumSha256,
       objectsCopied: objects.copied,
@@ -222,8 +224,28 @@ export async function handleBackup(jobId: string) {
     },
   });
   await enqueueJob("notify.deliver", { reason: "backup-complete", backupId: record.id }, { idempotencyKey: `notify-backup-${record.id}` });
-  log.info("jobs.backup", { jobId, objects: objects.copied, verified: objects.verified });
-  return { success: true, backupId: record.id, objects: objects.copied, verified: objects.verified };
+  log.info("jobs.backup", { jobId, objects: objects.copied, verified: objects.verified, mode: objects.mode });
+  return { success: true, backupId: record.id, objects: objects.copied, verified: objects.verified, mode: objects.mode };
+}
+
+export async function handleNationalIngest(jobId: string) {
+  const batches = await loadNationalCatalog();
+  const staged = [];
+  for (const batch of batches) {
+    const created = await prisma.importBatch.create({
+      data: {
+        source: batch.connector,
+        sourceVersion: new Date().toISOString().slice(0, 10),
+        licence: batch.licence,
+        status: "STAGED",
+        rowCount: batch.rows.length,
+        payloadJson: batch.rows as Prisma.InputJsonValue,
+      },
+    });
+    staged.push({ id: created.id, source: batch.connector, rows: batch.rows.length });
+  }
+  log.info("jobs.ingest", { jobId, staged: staged.length });
+  return { success: true, staged };
 }
 
 export async function dispatchJob(type: string, jobId: string, payload: Record<string, unknown>) {
@@ -246,6 +268,8 @@ export async function dispatchJob(type: string, jobId: string, payload: Record<s
       return handleReportGeneration(jobId, payload);
     case "system.backup":
       return handleBackup(jobId);
+    case "data.ingest":
+      return handleNationalIngest(jobId);
     default:
       throw new Error(`No handler registered for ${type}`);
   }

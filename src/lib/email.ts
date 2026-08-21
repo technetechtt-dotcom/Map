@@ -12,12 +12,22 @@ export function renderEmail(type: string, body: string, subject: string) {
   };
 }
 
-export async function sendViaResend(to: string, subject: string, html: string, text: string) {
+export async function sendViaResend(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  idempotencyKey?: string
+) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return null;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey.slice(0, 256) } : {}),
+    },
     body: JSON.stringify({
       from: process.env.NOTIFY_FROM_EMAIL || "noreply@example.com",
       to,

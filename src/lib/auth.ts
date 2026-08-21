@@ -246,7 +246,15 @@ export const authOptions: NextAuthOptions = {
 };
 
 export async function invalidateSessionCache(userId: string) {
-  await cacheDel(sessionVersionCacheKey(userId));
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { sessionVersion: true },
+  });
+  if (!user) {
+    await cacheDel(sessionVersionCacheKey(userId));
+    return;
+  }
+  await cacheSet(sessionVersionCacheKey(userId), String(user.sessionVersion), 60);
 }
 
 export async function revokeUserSessions(userId: string) {

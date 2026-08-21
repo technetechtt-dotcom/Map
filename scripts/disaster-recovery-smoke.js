@@ -112,20 +112,25 @@ try {
   const restoredChecksum = crypto.createHash("sha256").update(fs.readFileSync(restoredDump)).digest("hex");
   if (checksum !== restoredChecksum) throw new Error("decrypted dump does not match source dump");
   const rtoMinutes = Math.max(1, Math.round((Date.now() - started) / 60000) || 1);
-  console.log(
-    JSON.stringify({
-      ok: true,
-      size,
-      checksum,
-      sourceDatabase: databaseName(url),
-      restoreDatabase: restoreDb,
-      postgisVersion: postgis,
-      locationCount,
-      organisationCount,
-      rpoMinutes: 1440,
-      rtoObservedMinutes: rtoMinutes,
-    })
-  );
+  const report = {
+    ok: true,
+    size,
+    checksum,
+    sourceDatabase: databaseName(url),
+    restoreDatabase: restoreDb,
+    restoreUrl,
+    postgisVersion: postgis,
+    locationCount,
+    organisationCount,
+    rpoMinutes: 1440,
+    rtoObservedMinutes: rtoMinutes,
+  };
+  fs.mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
+  fs.writeFileSync(path.join(process.cwd(), "data", "dr-restore.json"), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report));
+  if (process.env.KEEP_RESTORE_DB === "1") {
+    created = false;
+  }
 } finally {
   if (created) {
     try {

@@ -336,7 +336,11 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
       </section>
 
       <div className="grid flex-1 lg:grid-cols-[minmax(320px,38%)_1fr]">
-        <aside className="max-h-[50vh] overflow-y-auto border-r border-line bg-soft p-4 lg:max-h-[calc(100vh-180px)]">
+        <aside
+          className="max-h-[50vh] overflow-y-auto border-r border-line bg-soft p-4 lg:max-h-[calc(100vh-180px)]"
+          aria-label="Location directory"
+          data-testid="location-directory"
+        >
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
               <p className="eyebrow">Browse</p>
@@ -426,12 +430,13 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             </a>
           </div>
 
-          <div ref={listRef} className="grid gap-3">
+          <div ref={listRef} className="grid gap-3" role="list" aria-label="Matching towns and hubs">
             {listTab === "towns" &&
               locations.map((loc) => (
                 <button
                   key={loc.id}
                   type="button"
+                  role="listitem"
                   data-id={loc.id}
                   onClick={() => selectFromList(loc)}
                   className={`location-card text-left ${selectedId === loc.id ? "is-active" : ""}`}
@@ -473,6 +478,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                 <button
                   key={hub.id}
                   type="button"
+                  role="listitem"
                   data-id={hub.id}
                   onClick={() => selectHubFromList(hub)}
                   className={`location-card text-left ${selectedId === hub.id ? "is-active" : ""}`}

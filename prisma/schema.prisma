@@ -229,6 +229,8 @@ model Location {
   status                RecordStatus   @default(DRAFT)
   verificationNotes     String?
   lastVerifiedAt        DateTime?
+  retrievedAt           DateTime?
+  sourceVersion         String?
   verificationSource    String?
   coordQuality          String         @default("unknown")
   coordSource           String?
@@ -375,6 +377,8 @@ model SourceRecord {
   url          String?
   documentRef  String?
   notes        String?
+  sourceVersion String?
+  confidence    String?
   capturedById String?
   capturedBy   User?     @relation(fields: [capturedById], references: [id])
   capturedAt   DateTime  @default(now())

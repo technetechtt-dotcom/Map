@@ -40,6 +40,7 @@ jobs:
       E2E: "1"
       RATE_LIMIT_ALLOW_MEMORY: "1"
       TRUST_PROXY: "0"
+      KEEP_RESTORE_DB: "1"
       REMOTE_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
     steps:
       - uses: actions/checkout@v7
@@ -50,16 +51,20 @@ jobs:
       - run: npm ci
       - name: PostgreSQL client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-      - name: Build and start staging app
+      - name: Full staging exercise
+        run: npm run staging:exercise
+      - name: Build and start app against restored database
         run: |
           if [ -n "$REMOTE_STAGING_BASE_URL" ]; then
-            echo "Using remote staging app $REMOTE_STAGING_BASE_URL"
             echo "STAGING_BASE_URL=$REMOTE_STAGING_BASE_URL" >> "$GITHUB_ENV"
+            echo "Using remote staging app"
             exit 0
           fi
-          npx prisma generate
+          RESTORE_URL=$(node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("data/dr-restore.json","utf8")); process.stdout.write(r.restoreUrl)')
+          echo "DATABASE_URL=$RESTORE_URL" >> "$GITHUB_ENV"
+          echo "DIRECT_URL=$RESTORE_URL" >> "$GITHUB_ENV"
           npm run build
-          npx next start -p 3000 &
+          DATABASE_URL="$RESTORE_URL" DIRECT_URL="$RESTORE_URL" npx next start -p 3000 &
           echo $! > .staging-app.pid
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null; then
@@ -68,15 +73,24 @@ jobs:
             fi
             sleep 2
           done
-          echo "staging app did not become ready"
+          echo "staging app did not become ready against restored DB"
           exit 1
-      - name: Full staging exercise
-        run: npm run staging:exercise
+      - name: Smoke restored origin
+        env:
+          PRODUCTION_APP_URL: ${{ env.STAGING_BASE_URL }}
+        run: node scripts/post-deploy-verify.js
+      - uses: grafana/setup-k6-action@v1
+        continue-on-error: true
       - name: National load suite
         env:
           BASE_URL: ${{ env.STAGING_BASE_URL }}
-          LOAD_PROFILE: ci
-        run: npm run load:national
+          LOAD_PROFILE: national
+        run: |
+          if command -v k6 >/dev/null; then
+            k6 run scripts/performance/k6-national.js
+          else
+            npm run load:national
+          fi
       - name: Stop local staging app
         if: always()
         run: |

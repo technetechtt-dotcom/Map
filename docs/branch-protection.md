@@ -5,15 +5,14 @@ This repository **pushes commits directly to `main`**. Pull requests are not req
 Keep these GitHub settings:
 
 1. **Do not** require a pull request before merging
-2. **Do not** require status checks to pass before push (CI still runs on `main` after push)
+2. Require status checks `test-and-build`, `postgres-postgis`, `secret-scan`, and `codeql` when a pull request is used
 3. Restrict force pushes and deletions
 4. Do not allow bypassing those restrictions
+5. Do **not** yet require signed commits (the current push path is unsigned)
 
-CI still runs on every push to `main` (`test-and-build`, `postgres-postgis`, `secret-scan`, `codeql`, `dependency-audit-sbom`, `license-check`). Treat a red run on `main` as a production incident and fix it with another commit on `main`.
+Required status checks do not stop a direct push from landing on `main`. Production exposure is blocked by the **Production deploy** workflow: it must deploy a certified SHA, prove `deployedCommit == certifiedCommit`, and smoke the live origin. A red SHA is not promoted.
 
-## CODEOWNERS
-
-`.github/CODEOWNERS` still documents owners for auth, policy, Prisma, and workflows. It does not gate pushes.
+Signed commits remain a follow-up once the operator push path has GPG/SSH signing.
 
 Apply via GitHub UI or:
 

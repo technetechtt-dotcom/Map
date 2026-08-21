@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { geocodeAddress, geocoderDisabled, geocoderReady, isPublicNominatim } from "@/lib/geocode";
+import { geocodeCacheKey } from "@/lib/cache";
 import { objectBackupConfigured } from "@/lib/backup-health";
 import { productionBootGaps } from "@/lib/production-boot";
 
@@ -65,6 +66,11 @@ describe("address geocoding", () => {
       selfHosted
     );
     expect(hit).toBeNull();
+  });
+
+  it("scopes cache keys by provider", () => {
+    expect(geocodeCacheKey("Kimberley", "mapbox")).toBe("geocode:v2:mapbox:kimberley");
+    expect(geocodeCacheKey("Kimberley", "mapbox")).not.toBe(geocodeCacheKey("Kimberley", "google"));
   });
 
   it("is disabled in e2e", () => {

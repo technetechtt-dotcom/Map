@@ -115,6 +115,7 @@ export async function copyStoredObjectsToBackup() {
       failed: [] as string[],
       manifest,
       checksumSha256: manifestChecksum(manifest),
+      mode: "skipped" as const,
     };
   }
   const sdk = await s3();
@@ -128,11 +129,21 @@ export async function copyStoredObjectsToBackup() {
       failed: [] as string[],
       manifest,
       checksumSha256: manifestChecksum(manifest),
+      mode: "skipped" as const,
     };
   }
 
   const source = client(sdk, "source");
   const dest = client(sdk, "backup");
+  const lastFull = await prisma.backupRecord.findFirst({
+    where: { kind: "objects", notes: { contains: "mode=full" } },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  const full =
+    process.env.OBJECT_BACKUP_FULL === "1" ||
+    !lastFull ||
+    Date.now() - lastFull.createdAt.getTime() > 7 * 24 * 3600_000;
   let copied = 0;
   let copiedBytes = 0;
   let verified = 0;
@@ -140,6 +151,15 @@ export async function copyStoredObjectsToBackup() {
   for (const object of objects) {
     const backupKey = backupObjectKey(object.filename, object.createdAt);
     try {
+      if (!full) {
+        try {
+          await dest.send(new sdk.HeadObjectCommand({ Bucket: backupBucket, Key: backupKey }));
+          verified += 1;
+          continue;
+        } catch {
+          // Missing destination object — copy below.
+        }
+      }
       const got = await source.send(new sdk.GetObjectCommand({ Bucket: sourceBucket, Key: object.filename }));
       const body = await sha256Body(got.Body);
       if (!body) throw new Error("empty object body");
@@ -172,9 +192,18 @@ export async function copyStoredObjectsToBackup() {
     }
   }
   if (failed.length) {
-    log.error("backup.objects.incomplete", { failed: failed.length, copied, verified });
+    log.error("backup.objects.incomplete", { failed: failed.length, copied, verified, mode: full ? "full" : "incremental" });
   }
-  return { copied, copiedBytes, verified, skipped: objects.length - copied, failed, manifest, checksumSha256: manifestChecksum(manifest) };
+  return {
+    copied,
+    copiedBytes,
+    verified,
+    skipped: objects.length - copied,
+    failed,
+    manifest,
+    checksumSha256: manifestChecksum(manifest),
+    mode: full ? "full" : "incremental",
+  };
 }
 
 export async function verifyObjectChecksums(manifest: Array<{ filename: string; sha256?: string | null; backupKey?: string }>) {

@@ -8,7 +8,7 @@ import { invitationAcceptSchema } from "@/lib/validation";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { assertStrongPassword } from "@/lib/password";
-import { notify } from "@/lib/notify";
+import type { Prisma } from "@prisma/client";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -62,17 +62,47 @@ export async function POST(req: NextRequest) {
   }
 
   const token = randomBytes(32).toString("hex");
-  const inv = await prisma.adminInvitation.create({
-    data: {
-      email: body.email.toLowerCase(),
-      role: body.role as (typeof allowed)[number],
-      provinceId,
-      organisationId: body.organisationId || null,
-      tokenHash: hashToken(token),
-      invitedById: auth.user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
-    },
-  });
+  const inviteEmail = body.email.toLowerCase();
+  const inviteRole = body.role as (typeof allowed)[number];
+  const production = process.env.NODE_ENV === "production" && process.env.E2E !== "1";
+  if (production && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL) {
+    return jsonError("Invitation email is not configured (RESEND_API_KEY or NOTIFY_WEBHOOK_URL)", 503);
+  }
+
+  const origin = (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
+  const acceptPath = `/accept-invite?token=${token}`;
+  const acceptUrl = origin ? `${origin}${acceptPath}` : acceptPath;
+  const subject = "You were invited to the SA ICT Ecosystem Map";
+  const emailBody = `Use this link to accept your invitation (expires ${new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()}):\n${acceptUrl}`;
+
+  let inv;
+  try {
+    inv = await prisma.$transaction(async (tx) => {
+      const created = await tx.adminInvitation.create({
+        data: {
+          email: inviteEmail,
+          role: inviteRole,
+          provinceId,
+          organisationId: body.organisationId || null,
+          tokenHash: hashToken(token),
+          invitedById: auth.user.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+        },
+      });
+      await tx.notification.create({
+        data: {
+          type: "invite",
+          email: created.email,
+          subject,
+          body: emailBody,
+          metadataJson: { invitationId: created.id } as Prisma.InputJsonValue,
+        },
+      });
+      return created;
+    });
+  } catch {
+    return jsonError("Invitation could not be queued for delivery", 503);
+  }
 
   await writeAudit({
     user: auth.user,
@@ -85,29 +115,9 @@ export async function POST(req: NextRequest) {
     metadata: { email: inv.email, role: inv.role },
   });
 
-  const origin = (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
-  const acceptPath = `/accept-invite?token=${token}`;
-  const acceptUrl = origin ? `${origin}${acceptPath}` : acceptPath;
-  const subject = "You were invited to the SA ICT Ecosystem Map";
-  const emailBody = `Use this link to accept your invitation (expires ${inv.expiresAt.toISOString()}):\n${acceptUrl}`;
-  const production = process.env.NODE_ENV === "production" && process.env.E2E !== "1";
-  if (production && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL) {
-    await prisma.adminInvitation.delete({ where: { id: inv.id } }).catch(() => undefined);
-    return jsonError("Invitation email is not configured (RESEND_API_KEY or NOTIFY_WEBHOOK_URL)", 503);
-  }
-
-  const queued = await notify({
-    type: "invite",
-    to: inv.email,
-    subject,
-    body: emailBody,
-    meta: { invitationId: inv.id },
-  });
-  if (production && !queued) return jsonError("Invitation could not be queued for delivery", 503);
-
   return jsonOk({
     invitation: { id: inv.id, email: inv.email, expiresAt: inv.expiresAt },
-    queued: Boolean(queued),
+    queued: true,
     acceptPath: production ? "/accept-invite" : acceptPath,
     ...(production ? {} : { acceptToken: token }),
   });

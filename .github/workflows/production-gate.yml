@@ -13,7 +13,7 @@ permissions:
   checks: read
 
 jobs:
-  assert-green:
+  certify:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
@@ -35,13 +35,13 @@ jobs:
         run: node scripts/assert-main-green.js --wait
 
   deploy:
-    needs: assert-green
+    needs: certify
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.assert-green.outputs.sha }}
+          ref: ${{ needs.certify.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -49,27 +49,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ needs.assert-green.outputs.sha }}
+          GITHUB_SHA: ${{ needs.certify.outputs.sha }}
         run: node scripts/assert-main-green.js
-      - name: Deploy the green SHA
+      - name: Deploy certified SHA and prove live origin
         env:
+          CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
           PRODUCTION_DEPLOY_HOOK: ${{ secrets.PRODUCTION_DEPLOY_HOOK }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          SHA: ${{ needs.assert-green.outputs.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ -n "$PRODUCTION_DEPLOY_HOOK" ]; then
-            curl -fsS -X POST "$PRODUCTION_DEPLOY_HOOK" -H 'Content-Type: application/json' -d "{\"sha\":\"$SHA\"}"
-            exit 0
-          fi
-          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
-            npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"
-            exit 0
-          fi
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "Set PRODUCTION_DEPLOY_HOOK or Vercel deploy tokens before a manual production deploy"
-            exit 1
-          fi
-          echo "SHA $SHA is certified green. Set PRODUCTION_DEPLOY_HOOK to auto-promote it."
+          PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node scripts/deploy-production.js

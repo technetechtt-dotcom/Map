@@ -105,7 +105,7 @@ export async function geocodeAddress(
     log.warn("geocode.not_configured");
     return null;
   }
-  const cacheKey = geocodeCacheKey(query);
+  const cacheKey = geocodeCacheKey(query, provider(env));
   const cached = await cacheGet(cacheKey);
   if (cached) {
     try {

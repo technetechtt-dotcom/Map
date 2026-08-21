@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
       verification: metrics?.verification ?? null,
       maintenance,
       version: process.env.npm_package_version || "1.3.0",
+      sha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.GIT_COMMIT || null,
       uptimeSec: Math.floor(process.uptime()),
       latencyMs: Date.now() - started,
       ts: new Date().toISOString(),

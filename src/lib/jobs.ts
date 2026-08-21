@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 export const JOB_TYPES = [
   "analytics.aggregate",
   "data.import",
+  "data.ingest",
   "data.duplicates",
   "data.geocode",
   "data.expiry",

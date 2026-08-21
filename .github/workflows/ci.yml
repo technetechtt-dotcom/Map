@@ -103,6 +103,7 @@ jobs:
           test -f docs/staging.md
           test -f docs/pentest.md
           test -f docs/dr-exercise.md
+          test -f docs/national-ingestion.md
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

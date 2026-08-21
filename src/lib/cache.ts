@@ -101,6 +101,6 @@ export function sessionVersionCacheKey(userId: string) {
   return `session-version:${userId}`;
 }
 
-export function geocodeCacheKey(query: string) {
-  return `geocode:${query.trim().toLowerCase()}`;
+export function geocodeCacheKey(query: string, provider = "unknown") {
+  return `geocode:v2:${provider}:${query.trim().toLowerCase()}`;
 }

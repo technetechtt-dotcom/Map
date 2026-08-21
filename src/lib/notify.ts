@@ -63,7 +63,7 @@ export async function deliverNotification(id: string): Promise<void> {
       return;
     }
     const rendered = renderEmail(event.type, event.body, event.subject);
-    const resend = await sendViaResend(event.email, rendered.subject, rendered.html, rendered.text).catch(() => null);
+    const resend = await sendViaResend(event.email, rendered.subject, rendered.html, rendered.text, `notify-${event.id}`).catch(() => null);
     if (resend) {
       await prisma.notification.update({
         where: { id },
@@ -87,6 +87,7 @@ export async function deliverNotification(id: string): Promise<void> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Idempotency-Key": `notify-${event.id}`,
         ...(process.env.NOTIFY_WEBHOOK_TOKEN
           ? { Authorization: `Bearer ${process.env.NOTIFY_WEBHOOK_TOKEN}` }
           : {}),
@@ -97,6 +98,7 @@ export async function deliverNotification(id: string): Promise<void> {
         subject: event.subject,
         body: event.body,
         html: rendered.html,
+        idempotencyKey: `notify-${event.id}`,
         meta: event.metadataJson || {},
       }),
       signal: AbortSignal.timeout(10_000),

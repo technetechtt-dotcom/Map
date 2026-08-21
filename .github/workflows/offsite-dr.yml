@@ -1,0 +1,91 @@
+name: Off-site disaster recovery
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 3 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    environment: production
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ictmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use-32ch"
+      NEXTAUTH_URL: "http://127.0.0.1:3000"
+      CAPTCHA_DISABLED: "1"
+      GEOCODER_DISABLED: "1"
+      E2E: "1"
+      RATE_LIMIT_ALLOW_MEMORY: "1"
+      TRUST_PROXY: "0"
+      KEEP_RESTORE_DB: "1"
+      BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      S3_BACKUP_ACCESS_KEY_ID: ${{ secrets.S3_BACKUP_ACCESS_KEY_ID }}
+      S3_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET_ACCESS_KEY }}
+      S3_REGION: ${{ secrets.S3_REGION }}
+      S3_BACKUP_REGION: ${{ secrets.S3_BACKUP_REGION }}
+      S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      S3_BACKUP_ENDPOINT: ${{ secrets.S3_BACKUP_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Restore latest off-site dump
+        run: node scripts/offsite-restore-exercise.js
+      - name: Point app at restored database
+        run: |
+          node -e 'const r=require("./data/dr-restore.json"); console.log("RESTORE_DATABASE_URL="+r.restoreUrl)' >> "$GITHUB_ENV"
+      - name: Build and start app against restore
+        env:
+          DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
+          DIRECT_URL: ${{ env.RESTORE_DATABASE_URL }}
+        run: |
+          npx prisma generate
+          npm run build
+          npx next start -p 3000 &
+          echo $! > .dr-app.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Smoke restored origin
+        env:
+          PRODUCTION_APP_URL: http://127.0.0.1:3000
+        run: node scripts/post-deploy-verify.js
+      - name: Verify object backup credentials can list destination
+        if: ${{ env.S3_BACKUP_BUCKET != '' }}
+        run: npx tsx -e 'import { objectBackupConfigured } from "./src/lib/backup-health"; if (!objectBackupConfigured()) process.exit(1); console.log("object backup configured")'
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f .dr-app.pid ]; then kill "$(cat .dr-app.pid)" || true; fi

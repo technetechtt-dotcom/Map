@@ -70,6 +70,7 @@ jobs:
                 FROM "StoredObject" ORDER BY "createdAt") objects;
           SQL
           npm ci
+          if [ "$(date -u +%u)" = "7" ]; then export OBJECT_BACKUP_FULL=1; fi
           npm run backup:objects
           test -f data/object-backup-result.json
       - name: Upload and verify off-site copies
@@ -82,9 +83,12 @@ jobs:
           rclone copy database.dump.gpg.sha256 "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
           rclone copy data/object-backup-result.json "$BACKUP_DESTINATION/objects/$DATE/"
-          REMOTE=$(rclone cat "$BACKUP_DESTINATION/database/$DATE/database.dump.gpg.sha256")
-          LOCAL=$(cat database.dump.gpg.sha256)
-          test "$REMOTE" = "$LOCAL"
+          rclone copyto "$BACKUP_DESTINATION/database/$DATE/database.dump.gpg" remote-database.dump.gpg
+          sha256sum remote-database.dump.gpg | tee remote-database.dump.gpg.sha256
+          LOCAL=$(cut -d' ' -f1 database.dump.gpg.sha256)
+          REMOTE_BYTES=$(cut -d' ' -f1 remote-database.dump.gpg.sha256)
+          test "$LOCAL" = "$REMOTE_BYTES"
+          rclone check database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/" --one-way
       - name: Record verified backup health
         env:
           APP_URL: ${{ secrets.PRODUCTION_APP_URL }}

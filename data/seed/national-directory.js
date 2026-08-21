@@ -1,0 +1,40 @@
+/**
+ * Public-directory pins for all nine provinces.
+ * These are well-known public institutions at city-centre quality, not field-verified sites.
+ */
+module.exports = {
+  sourceVersion: "national-directory-2026-08",
+  retrievedAt: "2026-08-21",
+  records: [
+    { slug: "wc-uct", name: "University of Cape Town", province: "western-cape", lat: -33.957, lng: 18.461, category: "skills-education", summary: "Public university knowledge node in Cape Town.", address: "Rondebosch, Cape Town" },
+    { slug: "wc-stellenbosch-university", name: "Stellenbosch University", province: "western-cape", lat: -33.932, lng: 18.864, category: "skills-education", summary: "Public university and innovation campus in Stellenbosch." },
+    { slug: "wc-cput", name: "Cape Peninsula University of Technology", province: "western-cape", lat: -33.932, lng: 18.424, category: "skills-education", summary: "Public university of technology in Cape Town." },
+    { slug: "wc-western-cape-government", name: "Western Cape Government", province: "western-cape", lat: -33.925, lng: 18.424, category: "knowledge-hub", summary: "Provincial government digital services and policy node." },
+    { slug: "ec-nmu", name: "Nelson Mandela University", province: "eastern-cape", lat: -34.009, lng: 25.67, category: "skills-education", summary: "Public university in Gqeberha." },
+    { slug: "ec-ufh", name: "University of Fort Hare", province: "eastern-cape", lat: -32.785, lng: 26.846, category: "skills-education", summary: "Public university in Alice." },
+    { slug: "ec-wsu", name: "Walter Sisulu University", province: "eastern-cape", lat: -31.588, lng: 28.79, category: "skills-education", summary: "Public university in Mthatha." },
+    { slug: "ec-eastern-cape-government", name: "Eastern Cape Provincial Government", province: "eastern-cape", lat: -32.983, lng: 27.867, category: "knowledge-hub", summary: "Provincial government node in Bhisho." },
+    { slug: "fs-ufs", name: "University of the Free State", province: "free-state", lat: -29.108, lng: 26.185, category: "skills-education", summary: "Public university in Bloemfontein." },
+    { slug: "fs-cut", name: "Central University of Technology", province: "free-state", lat: -29.121, lng: 26.214, category: "skills-education", summary: "Public university of technology in Bloemfontein." },
+    { slug: "fs-free-state-government", name: "Free State Provincial Government", province: "free-state", lat: -29.121, lng: 26.214, category: "knowledge-hub", summary: "Provincial government node in Bloemfontein." },
+    { slug: "gp-wits", name: "University of the Witwatersrand", province: "gauteng", lat: -26.191, lng: 28.03, category: "skills-education", summary: "Public university in Johannesburg." },
+    { slug: "gp-up", name: "University of Pretoria", province: "gauteng", lat: -25.754, lng: 28.231, category: "skills-education", summary: "Public university in Pretoria." },
+    { slug: "gp-uj", name: "University of Johannesburg", province: "gauteng", lat: -26.183, lng: 27.998, category: "skills-education", summary: "Public university in Johannesburg." },
+    { slug: "gp-csir", name: "CSIR Pretoria", province: "gauteng", lat: -25.747, lng: 28.277, category: "knowledge-hub", summary: "Public science council and innovation campus." },
+    { slug: "gp-the-innovation-hub", name: "The Innovation Hub", province: "gauteng", lat: -25.747, lng: 28.277, category: "knowledge-hub", summary: "Provincial innovation ecosystem precinct in Pretoria." },
+    { slug: "gp-gauteng-government", name: "Gauteng Provincial Government", province: "gauteng", lat: -25.746, lng: 28.188, category: "knowledge-hub", summary: "Provincial government digital services node." },
+    { slug: "kzn-ukzn", name: "University of KwaZulu-Natal", province: "kwazulu-natal", lat: -29.867, lng: 30.98, category: "skills-education", summary: "Public university in Durban / Pietermaritzburg." },
+    { slug: "kzn-dut", name: "Durban University of Technology", province: "kwazulu-natal", lat: -29.852, lng: 31.007, category: "skills-education", summary: "Public university of technology in Durban." },
+    { slug: "kzn-kzn-government", name: "KwaZulu-Natal Provincial Government", province: "kwazulu-natal", lat: -29.6, lng: 30.38, category: "knowledge-hub", summary: "Provincial government node in Pietermaritzburg." },
+    { slug: "lp-ul", name: "University of Limpopo", province: "limpopo", lat: -23.886, lng: 29.738, category: "skills-education", summary: "Public university in Polokwane / Turfloop." },
+    { slug: "lp-univen", name: "University of Venda", province: "limpopo", lat: -22.975, lng: 30.446, category: "skills-education", summary: "Public university in Thohoyandou." },
+    { slug: "lp-limpopo-government", name: "Limpopo Provincial Government", province: "limpopo", lat: -23.904, lng: 29.469, category: "knowledge-hub", summary: "Provincial government node in Polokwane." },
+    { slug: "mp-ump", name: "University of Mpumalanga", province: "mpumalanga", lat: -25.436, lng: 30.985, category: "skills-education", summary: "Public university in Mbombela." },
+    { slug: "mp-tvet-elhlanzeni", name: "Ehlanzeni TVET College", province: "mpumalanga", lat: -25.465, lng: 30.985, category: "skills-education", summary: "Public TVET college in Mbombela." },
+    { slug: "mp-mpumalanga-government", name: "Mpumalanga Provincial Government", province: "mpumalanga", lat: -25.465, lng: 30.985, category: "knowledge-hub", summary: "Provincial government node in Mbombela." },
+    { slug: "nw-nwu", name: "North-West University", province: "north-west", lat: -26.693, lng: 27.093, category: "skills-education", summary: "Public university in Potchefstroom." },
+    { slug: "nw-mafikeng-campus", name: "NWU Mahikeng Campus", province: "north-west", lat: -25.828, lng: 25.611, category: "skills-education", summary: "Public university campus in Mahikeng." },
+    { slug: "nw-north-west-government", name: "North West Provincial Government", province: "north-west", lat: -25.865, lng: 25.644, category: "knowledge-hub", summary: "Provincial government node in Mahikeng." },
+    { slug: "nc-sarao-directory", name: "SARAO Cape Town / Carnarvon programme", province: "northern-cape", lat: -30.971, lng: 21.98, category: "ska-data", summary: "Public radio astronomy programme directory pin (town-centre)." },
+  ],
+};

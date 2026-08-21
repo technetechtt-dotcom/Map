@@ -5,6 +5,11 @@ const profile = __ENV.LOAD_PROFILE || "national";
 const profiles = {
   ci: { stages: [{ duration: "20s", target: 5 }, { duration: "20s", target: 0 }], p95: 1500 },
   national: { stages: [{ duration: "30s", target: 25 }, { duration: "2m", target: 80 }, { duration: "30s", target: 0 }], p95: 750 },
+  250: { stages: [{ duration: "30s", target: 50 }, { duration: "2m", target: 250 }, { duration: "30s", target: 0 }], p95: 900 },
+  500: { stages: [{ duration: "45s", target: 100 }, { duration: "3m", target: 500 }, { duration: "45s", target: 0 }], p95: 1200 },
+  1000: { stages: [{ duration: "1m", target: 200 }, { duration: "4m", target: 1000 }, { duration: "1m", target: 0 }], p95: 1500 },
+  endurance: { stages: [{ duration: "2m", target: 50 }, { duration: "15m", target: 80 }, { duration: "1m", target: 0 }], p95: 900 },
+  spike: { stages: [{ duration: "10s", target: 20 }, { duration: "10s", target: 400 }, { duration: "1m", target: 40 }, { duration: "20s", target: 0 }], p95: 2000 },
 };
 const selected = profiles[profile] || profiles.national;
 
