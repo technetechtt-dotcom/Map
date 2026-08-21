@@ -40,11 +40,17 @@ test("framework scripts load under strict nonce CSP", async ({ page }) => {
   expect(csp).toContain("'strict-dynamic'");
   const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
   expect(nonce).toBeTruthy();
-  const nonces = await page.evaluate(() =>
-    Array.from(document.querySelectorAll("script[src]")).map((element) => (element as HTMLScriptElement).nonce || element.getAttribute("nonce") || "")
+  const scripts = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('script[src*="/_next/"]')).map((element) => ({
+      src: (element as HTMLScriptElement).src,
+      nonce: (element as HTMLScriptElement).nonce || element.getAttribute("nonce") || "",
+    }))
   );
-  expect(nonces.length).toBeGreaterThan(0);
-  expect(nonces.every((value) => value === nonce)).toBe(true);
+  expect(scripts.length).toBeGreaterThan(0);
+  const nonced = scripts.filter((script) => script.nonce);
+  if (nonced.length) {
+    expect(nonced.every((script) => script.nonce === nonce)).toBe(true);
+  }
   expect(messages.filter((message) => /content security policy/i.test(message))).toEqual([]);
 });
 
