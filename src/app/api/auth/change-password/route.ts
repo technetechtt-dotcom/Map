@@ -6,6 +6,7 @@ import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { assertStrongPassword, PASSWORD_HISTORY_KEEP, wasPasswordReused } from "@/lib/password";
 import { notify } from "@/lib/notify";
+import { clearAuthCookies } from "@/lib/auth";
 import { z } from "zod";
 
 const schema = z.object({
@@ -73,5 +74,5 @@ export async function POST(req: NextRequest) {
     body: "If you did not change your password, contact an administrator immediately.",
   });
 
-  return jsonOk({ ok: true, message: "Password updated — please sign in again." });
+  return clearAuthCookies(jsonOk({ ok: true, message: "Password updated — please sign in again." }));
 }

@@ -178,37 +178,33 @@ export const authOptions: NextAuthOptions = {
         token.lastRefresh = Date.now();
       } else if (token.sub) {
         const last = (token.lastRefresh as number) || 0;
-        if (Date.now() - last > 60_000) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.sub },
-            select: {
-              role: true,
-              provinceId: true,
-              organisationId: true,
-              locale: true,
-              sessionVersion: true,
-              mustChangePassword: true,
-              mfaEnabled: true,
-              active: true,
-            },
-          });
-          if (!dbUser || !dbUser.active) {
-            token.invalid = true;
-          } else if (
-            typeof token.sessionVersion === "number" &&
-            dbUser.sessionVersion !== token.sessionVersion
-          ) {
-            token.invalid = true;
-          } else {
-            token.role = dbUser.role;
-            token.provinceId = dbUser.provinceId;
-            token.organisationId = dbUser.organisationId;
-            token.locale = dbUser.locale;
-            token.sessionVersion = dbUser.sessionVersion;
-            token.mustChangePassword = dbUser.mustChangePassword;
-            token.mfaEnabled = dbUser.mfaEnabled;
-            token.invalid = false;
-          }
+        const stale = Date.now() - last > 60_000;
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: {
+            role: true,
+            provinceId: true,
+            organisationId: true,
+            locale: true,
+            sessionVersion: true,
+            mustChangePassword: true,
+            mfaEnabled: true,
+            active: true,
+          },
+        });
+        if (!dbUser || !dbUser.active) {
+          token.invalid = true;
+        } else if (typeof token.sessionVersion === "number" && dbUser.sessionVersion !== token.sessionVersion) {
+          token.invalid = true;
+        } else if (stale) {
+          token.role = dbUser.role;
+          token.provinceId = dbUser.provinceId;
+          token.organisationId = dbUser.organisationId;
+          token.locale = dbUser.locale;
+          token.sessionVersion = dbUser.sessionVersion;
+          token.mustChangePassword = dbUser.mustChangePassword;
+          token.mfaEnabled = dbUser.mfaEnabled;
+          token.invalid = false;
           token.lastRefresh = Date.now();
         }
       }
@@ -241,6 +237,16 @@ export async function revokeUserSessions(userId: string) {
     where: { id: userId },
     data: { sessionVersion: { increment: 1 } },
   });
+}
+
+/** Expire NextAuth cookies after password change or explicit revocation. */
+export function clearAuthCookies(res: import("next/server").NextResponse) {
+  const expired = { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax" as const };
+  res.cookies.set("next-auth.session-token", "", expired);
+  res.cookies.set("__Secure-next-auth.session-token", "", { ...expired, secure: true });
+  res.cookies.set("next-auth.csrf-token", "", { path: "/", maxAge: 0, sameSite: "lax" });
+  res.cookies.set("__Host-next-auth.csrf-token", "", { path: "/", maxAge: 0, sameSite: "lax", secure: true });
+  return res;
 }
 
 /** @deprecated use policy */
