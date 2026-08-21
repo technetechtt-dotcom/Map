@@ -1,11 +1,12 @@
 ---
-description: Require pull requests into main with review and required checks
+description: Push all git changes directly to main; do not use pull requests
 alwaysApply: true
 ---
 
-# Protect `main` with pull requests
+# Push directly to `main`
 
-- Open a branch and a pull request for application changes. Do not push commits directly to `main` unless GitHub protection is temporarily relaxed for an emergency.
+- Commit and `git push origin main`. Do not create branches, PRs, or `gh pr create` unless the user explicitly asks for a PR.
+- Do not rebase onto a feature branch or open Dependabot-style side branches for our own work.
 - Never force-push `main`.
-- Required checks are listed in `docs/branch-protection.json`.
-- After merging, confirm `main` matches `origin/main`.
+- If GitHub branch protection blocks a direct push, relax the PR/review requirement, push `main`, then restore protection **without** requiring PRs (see `docs/branch-protection.json`).
+- After pushing, confirm `main` matches `origin/main`.
