@@ -19,8 +19,14 @@ export function productionBootGaps(env: NodeJS.ProcessEnv = process.env): string
   if (!/^https:\/\//i.test(env.NEXTAUTH_URL || "")) missing.push("NEXTAUTH_URL(https)");
   if (env.CAPTCHA_DISABLED === "1") missing.push("CAPTCHA_DISABLED(disallowed)");
   if (env.STORAGE_DRIVER !== "s3") missing.push("STORAGE_DRIVER=s3");
-  for (const key of ["S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_BACKUP_BUCKET"]) {
+  for (const key of ["S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_BACKUP_BUCKET", "S3_BACKUP_ACCESS_KEY_ID", "S3_BACKUP_SECRET_ACCESS_KEY"]) {
     if (!env[key]) missing.push(key);
+  }
+  if (env.GEOCODER_DISABLED !== "1") {
+    const url = env.GEOCODER_URL || "";
+    if (!env.GEOCODER_API_KEY && (!url || /nominatim\.openstreetmap\.org/i.test(url))) {
+      missing.push("GEOCODER_URL/GEOCODER_API_KEY");
+    }
   }
   if (env.TRUST_PROXY === "1" && !env.TRUST_PROXY_CIDRS && !env.TRUST_PROXY_HEADER_SECRET) {
     missing.push("TRUST_PROXY_CIDRS/TRUST_PROXY_HEADER_SECRET");

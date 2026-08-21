@@ -9,8 +9,6 @@ import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { assertStrongPassword } from "@/lib/password";
 import { notify } from "@/lib/notify";
-import { renderEmail, sendViaResend } from "@/lib/email";
-import { log } from "@/lib/logger";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -98,32 +96,18 @@ export async function POST(req: NextRequest) {
     return jsonError("Invitation email is not configured (RESEND_API_KEY or NOTIFY_WEBHOOK_URL)", 503);
   }
 
-  await notify({
+  const queued = await notify({
     type: "invite",
     to: inv.email,
     subject,
     body: emailBody,
     meta: { invitationId: inv.id },
   });
-
-  let delivered = false;
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const rendered = renderEmail("invite", emailBody, subject);
-      const sent = await sendViaResend(inv.email, rendered.subject, rendered.html, rendered.text);
-      delivered = Boolean(sent);
-    } catch (error) {
-      log.error("invite.email_failed", { detail: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  if (production && !delivered && !process.env.NOTIFY_WEBHOOK_URL) {
-    return jsonError("Invitation could not be emailed", 503);
-  }
+  if (production && !queued) return jsonError("Invitation could not be queued for delivery", 503);
 
   return jsonOk({
     invitation: { id: inv.id, email: inv.email, expiresAt: inv.expiresAt },
-    delivered: delivered || Boolean(process.env.NOTIFY_WEBHOOK_URL) || !production,
+    queued: Boolean(queued),
     acceptPath: production ? "/accept-invite" : acceptPath,
     ...(production ? {} : { acceptToken: token }),
   });

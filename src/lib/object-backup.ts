@@ -9,7 +9,6 @@ type S3Sdk = {
       ChecksumSHA256?: string;
     }>;
   };
-  CopyObjectCommand: new (input: unknown) => unknown;
   GetObjectCommand: new (input: unknown) => unknown;
   HeadObjectCommand: new (input: unknown) => unknown;
   PutObjectCommand: new (input: unknown) => unknown;
@@ -23,6 +22,8 @@ export type ObjectBackupManifestRow = {
   sizeBytes: number;
 };
 
+type StorageSide = "source" | "backup";
+
 async function s3(): Promise<S3Sdk | null> {
   try {
     return (await import("@aws-sdk/client-s3")) as unknown as S3Sdk;
@@ -31,15 +32,41 @@ async function s3(): Promise<S3Sdk | null> {
   }
 }
 
-function client(sdk: S3Sdk, backup = false) {
+function productionObjectBackup(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {
+  return env.NODE_ENV === "production" && env.E2E !== "1";
+}
+
+export function objectBackupCredentials(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {
+  const source = {
+    accessKeyId: env.S3_ACCESS_KEY_ID || "",
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY || "",
+  };
+  const backup = {
+    accessKeyId: env.S3_BACKUP_ACCESS_KEY_ID || "",
+    secretAccessKey: env.S3_BACKUP_SECRET_ACCESS_KEY || "",
+  };
+  if (backup.accessKeyId && backup.secretAccessKey) return { source, backup, independent: true as const };
+  if (productionObjectBackup(env)) return null;
+  if (source.accessKeyId && source.secretAccessKey) return { source, backup: source, independent: false as const };
+  return null;
+}
+
+export function objectBackupConfigured(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {
+  return Boolean(env.S3_BUCKET && env.S3_BACKUP_BUCKET && objectBackupCredentials(env));
+}
+
+function client(sdk: S3Sdk, side: StorageSide, env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {
+  const creds = objectBackupCredentials(env);
+  if (!creds) throw new Error("Object backup credentials are not configured");
+  const backup = side === "backup";
+  const endpoint = backup
+    ? env.S3_BACKUP_ENDPOINT || undefined
+    : env.S3_ENDPOINT || undefined;
   return new sdk.S3Client({
-    region: process.env.S3_REGION || "auto",
-    endpoint: (backup ? process.env.S3_BACKUP_ENDPOINT : process.env.S3_ENDPOINT) || process.env.S3_ENDPOINT || undefined,
-    credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
-    },
-    forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+    region: (backup ? env.S3_BACKUP_REGION : env.S3_REGION) || env.S3_REGION || "auto",
+    endpoint,
+    credentials: backup ? creds.backup : creds.source,
+    forcePathStyle: Boolean(endpoint),
   });
 }
 
@@ -50,7 +77,19 @@ export function backupObjectKey(filename: string, createdAt: Date) {
 async function sha256Body(body: { transformToByteArray?: () => Promise<Uint8Array> } | undefined) {
   if (!body?.transformToByteArray) return null;
   const bytes = await body.transformToByteArray();
-  return createHash("sha256").update(Buffer.from(bytes)).digest("hex");
+  return { hash: createHash("sha256").update(Buffer.from(bytes)).digest("hex"), bytes: Buffer.from(bytes) };
+}
+
+export function manifestChecksum(manifest: ObjectBackupManifestRow[]) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify(
+        [...manifest]
+          .sort((a, b) => a.id.localeCompare(b.id))
+          .map((row) => ({ id: row.id, sha256: row.sha256, backupKey: row.backupKey, sizeBytes: row.sizeBytes }))
+      )
+    )
+    .digest("hex");
 }
 
 export async function copyStoredObjectsToBackup() {
@@ -64,19 +103,36 @@ export async function copyStoredObjectsToBackup() {
     backupKey: backupObjectKey(row.filename, row.createdAt),
     sizeBytes: row.sizeBytes,
   }));
-  const production = process.env.NODE_ENV === "production" && process.env.E2E !== "1";
-  if (!backupBucket || !sourceBucket) {
-    if (production) throw new Error("S3_BACKUP_BUCKET and S3_BUCKET are required for object backup");
-    log.warn("backup.objects.skipped", { reason: "S3_BACKUP_BUCKET or S3_BUCKET missing", count: objects.length });
-    return { copied: 0, copiedBytes: 0, verified: 0, skipped: objects.length, failed: [] as string[], manifest };
+  const production = productionObjectBackup();
+  if (!backupBucket || !sourceBucket || !objectBackupCredentials()) {
+    if (production) throw new Error("Independent object-backup source and destination credentials are required");
+    log.warn("backup.objects.skipped", { reason: "object backup not configured", count: objects.length });
+    return {
+      copied: 0,
+      copiedBytes: 0,
+      verified: 0,
+      skipped: objects.length,
+      failed: [] as string[],
+      manifest,
+      checksumSha256: manifestChecksum(manifest),
+    };
   }
   const sdk = await s3();
   if (!sdk) {
     if (production) throw new Error("S3 SDK is required for object backup");
-    return { copied: 0, copiedBytes: 0, verified: 0, skipped: objects.length, failed: [] as string[], manifest };
+    return {
+      copied: 0,
+      copiedBytes: 0,
+      verified: 0,
+      skipped: objects.length,
+      failed: [] as string[],
+      manifest,
+      checksumSha256: manifestChecksum(manifest),
+    };
   }
 
-  const dest = client(sdk, true);
+  const source = client(sdk, "source");
+  const dest = client(sdk, "backup");
   let copied = 0;
   let copiedBytes = 0;
   let verified = 0;
@@ -84,23 +140,32 @@ export async function copyStoredObjectsToBackup() {
   for (const object of objects) {
     const backupKey = backupObjectKey(object.filename, object.createdAt);
     try {
-      await dest.send(
-        new sdk.CopyObjectCommand({
-          Bucket: backupBucket,
-          Key: backupKey,
-          CopySource: `${sourceBucket}/${object.filename}`,
-        })
-      );
-      copied += 1;
-      copiedBytes += object.sizeBytes;
-      const got = await dest.send(new sdk.GetObjectCommand({ Bucket: backupBucket, Key: backupKey }));
-      const hash = await sha256Body(got.Body);
-      if (object.sha256 && hash && hash !== object.sha256) {
-        log.warn("backup.object.checksum_mismatch", { id: object.id, expected: object.sha256, actual: hash });
+      const got = await source.send(new sdk.GetObjectCommand({ Bucket: sourceBucket, Key: object.filename }));
+      const body = await sha256Body(got.Body);
+      if (!body) throw new Error("empty object body");
+      if (object.sha256 && body.hash !== object.sha256) {
+        log.warn("backup.object.source_checksum_mismatch", { id: object.id, expected: object.sha256, actual: body.hash });
         failed.push(object.filename);
         continue;
       }
-      if (hash || !object.sha256) verified += 1;
+      await dest.send(
+        new sdk.PutObjectCommand({
+          Bucket: backupBucket,
+          Key: backupKey,
+          Body: body.bytes,
+          ContentType: object.contentType || "application/octet-stream",
+        })
+      );
+      const check = await dest.send(new sdk.GetObjectCommand({ Bucket: backupBucket, Key: backupKey }));
+      const destBody = await sha256Body(check.Body);
+      if (!destBody || destBody.hash !== body.hash) {
+        log.warn("backup.object.dest_checksum_mismatch", { id: object.id, expected: body.hash, actual: destBody?.hash || null });
+        failed.push(object.filename);
+        continue;
+      }
+      copied += 1;
+      copiedBytes += object.sizeBytes;
+      verified += 1;
     } catch (error) {
       failed.push(object.filename);
       log.warn("backup.object.copy_failed", { id: object.id, detail: error instanceof Error ? error.message : String(error) });
@@ -109,22 +174,24 @@ export async function copyStoredObjectsToBackup() {
   if (failed.length) {
     log.error("backup.objects.incomplete", { failed: failed.length, copied, verified });
   }
-  return { copied, copiedBytes, verified, skipped: objects.length - copied, failed, manifest };
+  return { copied, copiedBytes, verified, skipped: objects.length - copied, failed, manifest, checksumSha256: manifestChecksum(manifest) };
 }
 
 export async function verifyObjectChecksums(manifest: Array<{ filename: string; sha256?: string | null; backupKey?: string }>) {
-  const bucket = process.env.S3_BACKUP_BUCKET || process.env.S3_BUCKET;
+  const bucket = process.env.S3_BACKUP_BUCKET;
   const sdk = await s3();
-  if (!bucket || !sdk) return { ok: false, reason: "object storage not configured", missing: manifest.map((row) => row.filename), mismatched: [] as string[] };
-  const dest = client(sdk, Boolean(process.env.S3_BACKUP_BUCKET));
+  if (!bucket || !sdk || !objectBackupCredentials()) {
+    return { ok: false, reason: "object storage not configured", missing: manifest.map((row) => row.filename), mismatched: [] as string[] };
+  }
+  const dest = client(sdk, "backup");
   const missing: string[] = [];
   const mismatched: string[] = [];
   for (const row of manifest) {
     const key = row.backupKey || row.filename;
     try {
       const got = await dest.send(new sdk.GetObjectCommand({ Bucket: bucket, Key: key }));
-      const hash = await sha256Body(got.Body);
-      if (row.sha256 && hash && hash !== row.sha256) mismatched.push(key);
+      const body = await sha256Body(got.Body);
+      if (row.sha256 && body && body.hash !== row.sha256) mismatched.push(key);
     } catch {
       missing.push(key);
     }

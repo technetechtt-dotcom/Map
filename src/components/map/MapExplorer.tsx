@@ -522,7 +522,11 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           </div>
         </aside>
 
-        <section className="relative min-h-[420px] lg:min-h-[calc(100vh-180px)]">
+        <section
+          className="relative min-h-[420px] lg:min-h-[calc(100vh-180px)]"
+          aria-label="Interactive ICT ecosystem map of South Africa"
+          data-testid="ecosystem-map"
+        >
           <EcosystemMap
             locations={locations}
             hubs={hubs}

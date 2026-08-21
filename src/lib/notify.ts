@@ -13,20 +13,17 @@ export type NotifyEvent = {
   meta?: Record<string, unknown>;
 };
 
-export async function notify(event: NotifyEvent): Promise<void> {
+export async function notify(event: NotifyEvent): Promise<{ id: string } | null> {
   try {
     if (event.userId) {
       const preference = await prisma.notificationPreference.findUnique({
         where: { userId_eventType: { userId: event.userId, eventType: event.type } },
         select: { email: true, inApp: true },
       });
-      // A disabled email preference should not create an email delivery job.
-      // Keep in-app events queued when that channel is enabled so the event
-      // remains visible in the account activity stream.
-      if (preference && !preference.email && !preference.inApp) return;
+      if (preference && !preference.email && !preference.inApp) return null;
       if (preference && !preference.email) event = { ...event, to: undefined };
     }
-    await prisma.notification.create({
+    const row = await prisma.notification.create({
       data: {
         type: event.type,
         email: event.to,
@@ -37,11 +34,13 @@ export async function notify(event: NotifyEvent): Promise<void> {
       },
     });
     log.info("notify.queued", { type: event.type, to: event.to ? "[redacted]" : undefined });
+    return { id: row.id };
   } catch (error) {
     log.error("notify.enqueue_failed", {
       type: event.type,
       detail: error instanceof Error ? error.message : String(error),
     });
+    return null;
   }
 }
 

@@ -1,0 +1,27 @@
+config:
+  target: "{{ $processEnvironment.BASE_URL }}"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: warm
+    - duration: 120
+      arrivalRate: 20
+      name: national
+  defaults:
+    headers:
+      Accept: application/json
+scenarios:
+  - name: national-map
+    flow:
+      - get:
+          url: /api/health/live
+      - get:
+          url: /api/locations?province=northern-cape&limit=200
+      - get:
+          url: /api/locations?province=gauteng&limit=200
+      - get:
+          url: /api/locations?lat=-28.738&lng=24.763&radiusKm=100&limit=200
+      - get:
+          url: /api/search?q=digital%20skills&limit=20
+      - get:
+          url: /api/locations/clusters?bounds=16,-35,33,-22&zoom=6

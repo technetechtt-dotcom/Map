@@ -4,7 +4,6 @@ import { findDuplicatePairsSql } from "../duplicates-sql";
 import { deliverNotification } from "../notify";
 import { copyStoredObjectsToBackup } from "../object-backup";
 import { validatePointAssignment } from "../geo-validation";
-import { createHash } from "crypto";
 import { enqueueJob, snapshotSettingKey } from "../jobs";
 import { applyImportBatch } from "../import-apply";
 import { isCoordQuality } from "../coords";
@@ -94,7 +93,9 @@ export async function handleGeocoding(jobId: string, payload: Record<string, unk
         coordQuality = "estimated";
         coordSource = hit.source;
       }
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      if (!process.env.GEOCODER_API_KEY) {
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+      }
     }
     const geometry = location.municipality?.geojson || location.district?.geojson || location.province.geojson;
     const boundaryValid = validatePointAssignment(longitude, latitude, geometry);
@@ -206,7 +207,6 @@ export async function handleBackup(jobId: string) {
   if (objects.failed?.length) {
     throw new Error(`object backup incomplete: ${objects.failed.length} files failed copy or checksum verify`);
   }
-  const checksum = createHash("sha256").update(JSON.stringify({ jobId, at: new Date().toISOString(), objects: objects.manifest })).digest("hex");
   const record = await prisma.backupRecord.create({
     data: {
       filename: `job-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
@@ -214,7 +214,7 @@ export async function handleBackup(jobId: string) {
       sizeBytes: objects.copiedBytes,
       notes: "Scheduled worker backup (object copy + byte checksum verify)",
       kind: "objects",
-      checksumSha256: checksum,
+      checksumSha256: objects.checksumSha256,
       objectsCopied: objects.copied,
       lastVerifiedAt: new Date(),
       rpoMinutes: 24 * 60,

@@ -101,6 +101,8 @@ jobs:
           test -f docs/branch-protection.md
           test -f docs/backup-rpo-rto.md
           test -f docs/staging.md
+          test -f docs/pentest.md
+          test -f docs/dr-exercise.md
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

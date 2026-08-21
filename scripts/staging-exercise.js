@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Production-like staging exercise:
- * migrate → load → backup → destructive restore → load test → defensive security checks.
+ * migrate → load → backup → destructive restore → live staging origin → defensive security checks.
  *
  * Never targets production Neon. Destructive restore uses a disposable local/CI database.
  */
@@ -15,18 +15,6 @@ function run(cmd, opts = {}) {
 
 function isNeon(url) {
   return /neon\.tech|neon\.build/i.test(url || "");
-}
-
-async function loadTest(baseUrl) {
-  const times = [];
-  for (let i = 0; i < 25; i += 1) {
-    const started = Date.now();
-    const res = await fetch(`${baseUrl}/api/health/live`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new Error(`health live ${res.status}`);
-    times.push(Date.now() - started);
-  }
-  times.sort((a, b) => a - b);
-  return { samples: times.length, p50: times[Math.floor(times.length / 2)], p95: times[Math.floor(times.length * 0.95)] };
 }
 
 async function main() {
@@ -54,10 +42,12 @@ async function main() {
   const baseUrl = process.env.STAGING_BASE_URL || "";
   let load = null;
   if (baseUrl && /^https?:\/\//i.test(baseUrl)) {
-    load = await loadTest(baseUrl.replace(/\/$/, ""));
-    console.log("load_test", load);
+    const live = await fetch(`${baseUrl.replace(/\/$/, "")}/api/health/live`, { signal: AbortSignal.timeout(5000) });
+    if (!live.ok) throw new Error(`staging app health live ${live.status}`);
+    load = { origin: baseUrl.replace(/\/$/, ""), live: live.status };
+    console.log("staging_app", load);
   } else {
-    console.log("load_test skipped (set STAGING_BASE_URL)");
+    console.log("staging app skipped (set STAGING_BASE_URL)");
   }
 
   const audit = spawnSync(process.execPath, [path.join(__dirname, "ci-audit.js")], { stdio: "inherit", env: process.env });
@@ -65,7 +55,7 @@ async function main() {
 
   console.log(JSON.stringify({
     ok: true,
-    stages: ["migrate", "load-seed", "backup", "destructive-restore", load ? "load-test" : "load-test-skipped", "defensive-security-audit"],
+    stages: ["migrate", "load-seed", "backup", "destructive-restore", load ? "staging-app" : "staging-app-skipped", "defensive-security-audit"],
     load,
     note: "Independent penetration testing is a scheduled third-party exercise; this run uses dependency audit and restore drills, not exploit payloads.",
   }, null, 2));

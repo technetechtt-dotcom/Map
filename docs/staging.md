@@ -26,11 +26,11 @@ Create a staging stack that is separate from production:
 
 Least privilege: never use the migration owner as `DATABASE_URL` for the Next.js process.
 
-Vercel: set Ignored Build Step to `node scripts/vercel-ignored-build.js` so a failing CI/Security SHA is not promoted.
+Vercel: set Ignored Build Step to `node scripts/vercel-ignored-build.js`. Production promotion also runs GitHub `Production deploy` after green CI/Security; set `PRODUCTION_DEPLOY_HOOK` to auto-promote.
 
 ## Staging exercise
 
-`npm run staging:exercise` runs migrate → seed → encrypted backup smoke → destructive restore into a disposable PostgreSQL → optional `/api/health/live` load → dependency audit.
+`npm run staging:exercise` runs migrate → seed → encrypted backup smoke → destructive restore into a disposable PostgreSQL. The weekly workflow builds and starts a real Next.js staging app (or uses `STAGING_BASE_URL`) then runs `npm run load:national`.
 
-- Use CI PostGIS or a disposable staging database. It refuses Neon URLs unless `ALLOW_DESTRUCTIVE_STAGING=1`.
-- Independent penetration testing remains a scheduled third-party exercise; this repo does not ship exploit payloads.
+- Use CI PostGIS for destructive restore. It refuses Neon URLs unless `ALLOW_DESTRUCTIVE_STAGING=1`.
+- External penetration testing: `docs/pentest.md`. DR runbook: `docs/dr-exercise.md`.

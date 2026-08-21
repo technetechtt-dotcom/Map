@@ -30,6 +30,8 @@
     "backup:objects": "tsx scripts/backup-objects.ts",
     "staging:exercise": "node scripts/staging-exercise.js",
     "deploy:assert-green": "node scripts/assert-main-green.js",
+    "load:national": "node scripts/performance/load-national.js",
+    "load:k6": "k6 run scripts/performance/k6-national.js",
     "neon:verify": "node scripts/neon-verify.js",
     "mfa:rotate": "tsx scripts/rotate-mfa-secrets.ts",
     "sbom": "node scripts/generate-sbom.js",

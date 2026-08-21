@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
         backupStale,
         databaseBackupStale: metrics?.backup.database.stale ?? true,
         objectBackupStale: metrics?.backup.objects.stale ?? true,
-        appExportStale: metrics?.backup.appExport.stale ?? true,
+        appExportStale: metrics?.backup.appExport.stale ?? false,
         workerUnhealthy: metrics ? metrics.worker.healthy === false : true,
       },
     },

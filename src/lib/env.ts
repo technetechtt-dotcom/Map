@@ -3,6 +3,7 @@
  */
 
 import { log } from "./logger";
+import { geocoderReady } from "./geocode";
 
 export type EnvIssue = { key: string; level: "error" | "warn"; message: string };
 
@@ -132,6 +133,8 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     require("S3_ACCESS_KEY_ID", 8);
     require("S3_SECRET_ACCESS_KEY", 8);
     require("S3_BACKUP_BUCKET", 3);
+    require("S3_BACKUP_ACCESS_KEY_ID", 8);
+    require("S3_BACKUP_SECRET_ACCESS_KEY", 8);
     if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
       issues.push({
         key: "STORAGE_ALLOW_LOCAL_FALLBACK",
@@ -171,6 +174,14 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     if (!process.env.TRUST_PROXY_CIDRS && !process.env.TRUST_PROXY_HEADER_SECRET) {
       issues.push({ key: "TRUST_PROXY_CIDRS", level: "error", message: "Allow-list proxy CIDRs or configure a trusted ingress header secret" });
     }
+  }
+
+  if (prod && process.env.GEOCODER_DISABLED !== "1" && !geocoderReady(process.env)) {
+    issues.push({
+      key: "GEOCODER_URL",
+      level: "error",
+      message: "Production geocoding requires a self-hosted GEOCODER_URL or GEOCODER_API_KEY — public Nominatim is not allowed",
+    });
   }
 
   if (prod && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL) {

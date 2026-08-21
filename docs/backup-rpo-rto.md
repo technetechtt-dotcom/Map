@@ -4,7 +4,7 @@
 
 | Metric | Target | How it is measured |
 | --- | --- | --- |
-| RPO | 24 hours (daily 00:25 UTC encrypted dump) | Age of latest `BackupRecord` / off-site GPG dump. `/api/health` flags stale when age > 36h. |
+| RPO | 24 hours (daily 00:25 UTC encrypted dump) | Age of the latest **database** and **objects** `BackupRecord` after verified off-site upload. `/api/health` degrades when a required channel is older than 36h. App-export is supplementary. |
 | RTO | 2 hours | Time to restore dump + object checksum verification + application smoke. CI `npm run backup:dr` records observed minutes. |
 
 ## Restore from zero

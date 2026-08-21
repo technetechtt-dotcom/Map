@@ -80,9 +80,9 @@ describe("public health projection", () => {
         stale: false,
         rpoMinutes: 1440,
         rtoMinutes: 120,
-        database: { kind: "database", ageHours: 1, stale: false, checksum: "secret-checksum", objectsCopied: 0, configured: true, filename: "db.dump", recordedAt: new Date().toISOString() },
-        objects: { kind: "objects", ageHours: 1, stale: false, checksum: "object-checksum", objectsCopied: 4, configured: true, filename: "objects.json", recordedAt: new Date().toISOString() },
-        appExport: { kind: "app-export", ageHours: 1, stale: false, checksum: null, objectsCopied: 0, configured: true, filename: "backup.enc", recordedAt: new Date().toISOString() },
+        database: { kind: "database", ageHours: 1, stale: false, required: true, checksum: "secret-checksum", objectsCopied: 0, configured: true, filename: "db.dump", recordedAt: new Date().toISOString() },
+        objects: { kind: "objects", ageHours: 1, stale: false, required: true, checksum: "object-checksum", objectsCopied: 4, configured: true, filename: "objects.json", recordedAt: new Date().toISOString() },
+        appExport: { kind: "app-export", ageHours: 1, stale: false, required: false, checksum: null, objectsCopied: 0, configured: true, filename: "backup.enc", recordedAt: new Date().toISOString() },
       },
       worker: { workerId: "worker-1", lastSeenAt: new Date(), queueDepth: 2, healthy: true },
     });
