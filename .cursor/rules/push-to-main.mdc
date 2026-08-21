@@ -1,0 +1,12 @@
+---
+description: Push all git changes directly to main; do not use pull requests
+alwaysApply: true
+---
+
+# Push directly to `main`
+
+- Commit and `git push origin main`. Do not create branches, PRs, or `gh pr create` unless the user explicitly asks for a PR.
+- Do not rebase onto a feature branch or open Dependabot-style side branches for our own work.
+- Never force-push `main`.
+- If GitHub branch protection blocks a direct push, relax the PR/review requirement, push `main`, then restore protection **without** requiring PRs (see `docs/branch-protection.json`).
+- After pushing, confirm `main` matches `origin/main`.
