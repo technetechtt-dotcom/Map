@@ -23,20 +23,21 @@ jobs:
           test -n "$DATABASE_URL"
           test -n "$BACKUP_ENCRYPTION_KEY"
           test -n "$BACKUP_DESTINATION"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
       - name: Dump and encrypt database
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
           FALLBACK_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
-          URL="${DATABASE_URL:-$FALLBACK_DATABASE_URL}"
+          RAW="${DATABASE_URL:-$FALLBACK_DATABASE_URL}"
+          URL="$(node -e "process.stdout.write(require('./scripts/pg-url').libpqUrl(process.argv[1] || ''))" "$RAW")"
           pg_dump --format=custom --no-owner --file=database.dump "$URL"
           printf '%s' "$BACKUP_ENCRYPTION_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 --output database.dump.gpg database.dump
           sha256sum database.dump | tee database.dump.sha256
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-          cache: npm
       - name: Export object-storage manifest and copy objects
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
@@ -51,7 +52,8 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           mkdir -p data
-          psql "$DATABASE_URL" -At > data/object-storage-manifest.json <<'SQL'
+          PSQL_URL="$(node -e "process.stdout.write(require('./scripts/pg-url').libpqUrl(process.argv[1] || ''))" "${DIRECT_URL:-$DATABASE_URL}")"
+          psql "$PSQL_URL" -At > data/object-storage-manifest.json <<'SQL'
           SELECT COALESCE(json_agg(row_to_json(objects)), '[]'::json)
           FROM (SELECT id, filename, url, "contentType", "sizeBytes", sha256, access, driver, "organisationId", "uploadedById", "createdAt"
                 FROM "StoredObject" ORDER BY "createdAt") objects;

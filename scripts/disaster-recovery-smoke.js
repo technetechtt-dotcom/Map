@@ -6,8 +6,9 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
+const { libpqUrl } = require("./pg-url");
 
-const url = process.env.DATABASE_URL || "";
+const url = libpqUrl(process.env.DIRECT_URL || process.env.DATABASE_URL || "");
 if (!/^postgres(ql)?:\/\//i.test(url)) {
   console.log("Skipping DR smoke (DATABASE_URL is not PostgreSQL)");
   process.exit(0);
@@ -28,7 +29,7 @@ function fromHttp(httpUrl, original) {
 function withDatabase(connectionUrl, dbName) {
   const parsed = new URL(toHttp(connectionUrl));
   parsed.pathname = `/${dbName}`;
-  return fromHttp(parsed.toString(), connectionUrl);
+  return libpqUrl(fromHttp(parsed.toString(), connectionUrl));
 }
 
 function databaseName(connectionUrl) {

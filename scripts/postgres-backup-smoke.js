@@ -6,8 +6,9 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { libpqUrl } = require("./pg-url");
 
-const url = process.env.DATABASE_URL || "";
+const url = libpqUrl(process.env.DIRECT_URL || process.env.DATABASE_URL || "");
 if (!url.startsWith("postgres")) {
   console.log("Skipping pg backup smoke (DATABASE_URL is not PostgreSQL)");
   process.exit(0);
