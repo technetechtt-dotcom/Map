@@ -37,7 +37,9 @@ describe("maintenance job roles", () => {
     expect(authorizeJobRole(provincial, "expiry")).toEqual({ ok: true, provinceId: "prov-a" });
     expect(authorizeJobRole(provincial, "notify").ok).toBe(false);
     expect(authorizeJobRole(provincial, "requeue").ok).toBe(false);
+    expect(authorizeJobRole(provincial, "ingest").ok).toBe(false);
     expect(authorizeJobRole(superAdmin, "requeue").ok).toBe(true);
+    expect(authorizeJobRole(superAdmin, "ingest").ok).toBe(true);
   });
 
   it("blocks org admins from maintenance jobs", () => {

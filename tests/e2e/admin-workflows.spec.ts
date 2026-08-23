@@ -108,3 +108,40 @@ test("admin invitation is accepted and the new user can sign in", async ({ page 
     await prisma.user.delete({ where: { id: admin.id } }).catch(() => undefined);
   }
 });
+
+test("ops dashboard is visible to super admins and blocked for contributors", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "ops access runs once");
+  const superEmail = `e2e-ops-super-${Date.now()}@example.test`;
+  const contribEmail = `e2e-ops-contrib-${Date.now()}@example.test`;
+  const password = "E2E-Ops-Dashboard-42!";
+  const superUser = await prisma.user.create({
+    data: { email: superEmail, name: "E2E Ops Super", passwordHash: await bcrypt.hash(password, 12), role: "SUPER_ADMIN" },
+  });
+  const contrib = await prisma.user.create({
+    data: { email: contribEmail, name: "E2E Ops Contrib", passwordHash: await bcrypt.hash(password, 12), role: "CONTRIBUTOR" },
+  });
+  try {
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill(superEmail);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await page.goto("/admin/ops");
+    await expect(page.getByRole("heading", { name: /operations dashboard/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("link", { name: "Operations" }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /sign out/i }).click();
+    await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill(contribEmail);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await page.goto("/admin/ops");
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /operations dashboard/i })).toHaveCount(0);
+  } finally {
+    await prisma.notification.deleteMany({ where: { userId: { in: [superUser.id, contrib.id] } } }).catch(() => undefined);
+    await prisma.user.deleteMany({ where: { id: { in: [superUser.id, contrib.id] } } }).catch(() => undefined);
+  }
+});

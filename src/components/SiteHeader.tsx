@@ -58,6 +58,9 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
           {(session?.user as any)?.role ? (
             <>
               <Link href="/admin" className="secondary-button">{t(L, "admin")}</Link>
+              {["SUPER_ADMIN", "PROVINCIAL_ADMIN"].includes(String((session?.user as { role?: string })?.role || "")) && (
+                <Link href="/admin/ops" className="secondary-button">Ops</Link>
+              )}
               <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/" })}>
                 Sign out
               </button>

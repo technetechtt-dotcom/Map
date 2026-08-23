@@ -105,6 +105,10 @@ export function canManageBackups(user?: AuthUser | null) {
   return isSuperAdmin(user);
 }
 
+export function canAccessOpsDashboard(user?: AuthUser | null) {
+  return isSuperAdmin(user) || isProvincialAdmin(user);
+}
+
 export function canModerateSubmissions(user?: AuthUser | null) {
   return isSuperAdmin(user) || isProvincialAdmin(user);
 }

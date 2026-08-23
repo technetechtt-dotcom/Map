@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       report: "system.report",
       notify: "notify.deliver",
       expiry: "data.expiry",
+      ingest: "data.ingest",
     };
     if (queued[job]) {
       if (job === "import") {

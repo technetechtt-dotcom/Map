@@ -33,6 +33,10 @@ See `.env.example`. Production must set:
 3. Smoke: login, map load, admin locations, submission.  
 4. Rollback: redeploy previous image; restore DB from last good `pg_dump` or encrypted app backup.
 
+## Ops dashboard
+
+Signed-in super and provincial admins use `/admin/ops` (API `GET /api/admin/ops/summary`). It does **not** expose `METRICS_TOKEN` to the browser. Super admins can run global jobs, toggle maintenance, and requeue dead letters. Provincial admins see tenant work only.
+
 ## Monitoring (targets)
 
 Wire `SENTRY_DSN` / log shipper to capture:

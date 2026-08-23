@@ -51,6 +51,9 @@ export async function middleware(req: NextRequest) {
     if (!allowed.includes(role)) {
       return NextResponse.redirect(new URL("/", req.url));
     }
+    if (pathname.startsWith("/admin/ops") && role !== "SUPER_ADMIN" && role !== "PROVINCIAL_ADMIN") {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
     if (
       (token as { mustChangePassword?: boolean }).mustChangePassword &&
       !pathname.startsWith("/account/security")
