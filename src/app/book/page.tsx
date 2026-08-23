@@ -18,9 +18,8 @@ export default async function BookIndexPage() {
       <p className="eyebrow">Publications</p>
       <h1>Printable system book</h1>
       <p className="text-muted mb-6 max-w-2xl">
-        Printable Northern Cape ICT Ecosystem Map — styled after the mLab NC presentation, with
-        PDF pages 3–7 opportunity zones, district municipality maps, and exact key-contact pins.
-        Print to paper or <strong>Save as PDF</strong> from your browser.
+        Printable Northern Cape volume of the SA ICT Ecosystem Map — mLab NC presentation
+        pages 3–7, district maps, and key-contact pins. Print or <strong>Save as PDF</strong>.
       </p>
 
       <div className="card-grid">

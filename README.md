@@ -1,6 +1,10 @@
-# SA ICT Ecosystem Map — Phases 1–4
+# SA ICT Ecosystem Map
 
-Full-stack platform evolving the Northern Cape ICT Interactive Map MVP into a national innovation ecosystem map with management workflows, community submissions, analytics and multi-province support.
+Northern Cape pilot on a national platform. Interactive map, organisation directory, and governed admin workflows.
+
+Live seed is **9 NC towns + 49 organisations + 30 national directory pins**. A larger candidate CSV is research only — do not claim 100+ locations.
+
+Presentation: [demo script](docs/demo-script.md) · [one-pager](docs/one-pager.md) · [demo accounts](docs/demo-accounts.md) · public `/about`
 
 ## Quick start (local PostgreSQL/PostGIS)
 
@@ -25,7 +29,9 @@ Users are **never** seeded with a fixed public password. Create administrators b
 - optional `SEED_ADMIN_EMAIL`, `SEED_NC_ADMIN_EMAIL`, `SEED_ORG_ADMIN_EMAIL`
 - non-production only: `ALLOW_DEMO_USERS=1` (uses seed password or a local-only default that is **not** logged)
 
-Never deploy demo credentials to production.
+Default seed emails: `admin@ictmap.gov.za` (super) and `nc.admin@ictmap.gov.za` (Northern Cape provincial). Same password. For a local walkthrough set `NEXT_PUBLIC_DEMO_HINTS=1`. Never deploy demo credentials to production.
+
+Already-seeded databases: `npm run db:refresh-presentation` writes current desktop-verification dates on curated NC towns without wiping data.
 
 ### Security hardening (P0)
 

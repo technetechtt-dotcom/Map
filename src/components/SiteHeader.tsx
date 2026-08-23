@@ -20,6 +20,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
 
   const nav = [
     { href: "/", label: "Map" },
+    { href: "/about", label: t(L, "about") },
     { href: "/organisations", label: "Contacts" },
     { href: "/book", label: "Book" },
     { href: "/national", label: t(L, "national") },
@@ -36,7 +37,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
     <header className="site-header">
       <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="eyebrow">Phase 1–4 platform</p>
+          <p className="eyebrow">{t(L, "pilot")}</p>
           <Link href="/" className="block text-2xl font-extrabold tracking-tight text-white md:text-3xl">
             {t(L, "brand")}
           </Link>

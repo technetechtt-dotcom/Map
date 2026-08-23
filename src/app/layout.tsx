@@ -3,11 +3,11 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import SiteHeader from "@/components/SiteHeader";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_PILOT_LINE } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "SA ICT Ecosystem Map",
-  description:
-    "Interactive South African ICT and innovation ecosystem map — Northern Cape public MVP with national expansion.",
+  title: PRODUCT_NAME,
+  description: PRODUCT_DESCRIPTION,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -22,9 +22,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteHeader locale={locale} />
           <main id="main-content">{children}</main>
           <footer className="site-footer">
-            <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/rights">Data rights</a></span>
-            <span>SA ICT Ecosystem Platform · Phases 1–4</span>
-            <span>Map data © OpenStreetMap contributors · Boundaries: seed envelopes (swap for official MDB layers in production)</span>
+            <span>
+              <a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·{" "}
+              <a href="/rights">Data rights</a>
+            </span>
+            <span>
+              {PRODUCT_NAME} · {PRODUCT_PILOT_LINE}
+            </span>
+            <span>
+              Map tiles © OpenStreetMap contributors. Northern Cape districts and municipalities use
+              Municipal Demarcation Board geometry where published; other provinces use generalised
+              envelopes.
+            </span>
           </footer>
         </Providers>
       </body>

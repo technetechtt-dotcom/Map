@@ -4,11 +4,12 @@
 
 | Source | Count | Reality |
 |--------|------:|---------|
-| Presentation PDF towns (seed locations) | ~9–15 | **Active published/curated set** for the map MVP |
-| PDF organisations / contacts | ~49 | Directory + hub pins; many use **town-centre** coordinates |
-| `data/NC_ICT_Locations_Full.csv` | 100+ | Historical/curated **candidate** list — not automatically loaded as live DB truth |
+| Presentation PDF towns (seed locations) | **9** | Active curated set. Desktop-verified (`lastVerifiedAt` = 2026-08-21, expires 2027-08-21). Town-centre coordinates, not field surveys. |
+| PDF organisations / contacts | **49** | Directory + hub pins; many use **town-centre** coordinates |
+| National public directory | **30** | Scaffold pins across nine provinces. `lastVerifiedAt` is null. |
+| Candidate spreadsheet | 100+ | Research list only — **not** live map truth |
 
-Public marketing copy must not claim “100+ verified pins” unless the seeded Location table count matches after a full import + verification cycle.
+Public marketing copy must not claim “100+ verified pins.” Live seed is 9 + 49 + 30.
 
 ## Verification workflow fields
 
@@ -16,7 +17,7 @@ On `Location`:
 
 - `status`: DRAFT → PENDING_REVIEW → VERIFIED → PUBLISHED (org/contributor stop at PENDING_REVIEW)
 - `lastVerifiedAt`, `reviewedById`, `verificationSource`, `verificationNotes`
-- `verificationExpiresAt` — re-review due date (seed uses +12 months for PDF-checked rows)
+- `verificationExpiresAt` — re-review due date (curated NC towns expire 2027-08-21)
 - `coordQuality`: `verified` | `estimated` | `town-centre` | `unknown`
 - `coordSource` — how the coordinate was obtained
 - `evidenceJson` — supporting evidence list (document refs, URLs, dates)

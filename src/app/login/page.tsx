@@ -5,6 +5,8 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const showDemoHints = process.env.NEXT_PUBLIC_DEMO_HINTS === "1";
+const demoSuperEmail = process.env.NEXT_PUBLIC_DEMO_SUPER_EMAIL || "admin@ictmap.gov.za";
+const demoProvincialEmail = process.env.NEXT_PUBLIC_DEMO_PROVINCIAL_EMAIL || "nc.admin@ictmap.gov.za";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,10 +48,21 @@ export default function LoginPage() {
       <p className="eyebrow">Secure access</p>
       <h1>Administrator login</h1>
       {showDemoHints ? (
-        <p className="text-muted mb-6 text-sm">
-          Local demo hints enabled. Seed with <code>ALLOW_DEMO_USERS=1</code> and a strong{" "}
-          <code>SEED_ADMIN_PASSWORD</code>.
-        </p>
+        <div className="panel-card mb-6 text-sm">
+          <p className="font-semibold">Local presentation logins</p>
+          <p className="text-muted mt-1">
+            Seeded when <code>ALLOW_DEMO_USERS=1</code> or <code>SEED_ADMIN_PASSWORD</code> is set.
+            Use that same password for both accounts. Never enable this in production.
+          </p>
+          <ul className="mt-2 space-y-1">
+            <li>
+              Super admin — <code>{demoSuperEmail}</code>
+            </li>
+            <li>
+              Northern Cape provincial — <code>{demoProvincialEmail}</code>
+            </li>
+          </ul>
+        </div>
       ) : (
         <p className="text-muted mb-6 text-sm">
           Use credentials issued by your platform administrator. Session lasts 8 hours.

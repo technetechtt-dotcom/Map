@@ -22,6 +22,7 @@
     "db:reset": "node -e \"if(process.env.ALLOW_DATABASE_RESET!=='1'){console.error('Set ALLOW_DATABASE_RESET=1');process.exit(1)}\" && node prisma/seed.js",
     "db:setup": "prisma generate && prisma migrate deploy",
     "db:setup:dev": "prisma generate && prisma migrate deploy && node prisma/seed.js",
+    "db:refresh-presentation": "node scripts/refresh-presentation-data.js",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "backup:restore-test": "node scripts/restore-backup-smoke.js",

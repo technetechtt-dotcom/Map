@@ -140,6 +140,8 @@ test("ops dashboard is visible to super admins and blocked for contributors", as
     await page.goto("/admin/ops");
     await expect(page).toHaveURL(/\/admin$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: /operations dashboard/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Submissions" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Users & roles" })).toHaveCount(0);
   } finally {
     await prisma.notification.deleteMany({ where: { userId: { in: [superUser.id, contrib.id] } } }).catch(() => undefined);
     await prisma.user.deleteMany({ where: { id: { in: [superUser.id, contrib.id] } } }).catch(() => undefined);

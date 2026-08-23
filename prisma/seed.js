@@ -5,6 +5,14 @@ const path = require("path");
 const { categories, locations } = require("../data/seed/nc-locations");
 const { organisations: pdfOrganisations } = require("../data/seed/pdf-organisations");
 const { sourceVersion: nationalSourceVersion, retrievedAt: nationalRetrievedAt, records: nationalDirectory } = require("../data/seed/national-directory");
+const {
+  publicTitle,
+  dataSource,
+  ncReviewedAt,
+  ncExpiresAt,
+  ncSourceVersion,
+  ncVerificationNotes,
+} = require("../data/seed/presentation");
 const orgCoordinates = require("../data/seed/org-coordinates");
 const {
   ncDistricts,
@@ -333,17 +341,15 @@ async function main() {
         assetsJson: assets,
         tagsJson: [catSlug, dCode, "pdf-source"],
         status,
-        lastVerifiedAt: null,
-        retrievedAt: new Date("2026-08-21"),
-        sourceVersion: "nc-presentation-2025-01",
+        lastVerifiedAt: verified ? new Date(ncReviewedAt) : null,
+        retrievedAt: new Date(ncReviewedAt),
+        sourceVersion: ncSourceVersion,
         verificationSource: verified ? sourceRef : null,
-        verificationNotes: verified
-          ? "Historical provenance from NC_ICT_Ecosystem_Presentation.pptx.pdf (captured 2025-01-15). Not a current field verification."
-          : "Awaiting verification.",
+        verificationNotes: verified ? ncVerificationNotes : "Awaiting verification.",
         coordQuality: "town-centre",
         coordSource: verified ? sourceRef || "NC_ICT_Ecosystem_Presentation.pptx.pdf" : null,
         sourceConfidence: "historical-presentation",
-        verificationExpiresAt: verified ? new Date("2026-01-15") : null,
+        verificationExpiresAt: verified ? new Date(ncExpiresAt) : null,
         evidenceJson: verified
           ? [
               {
@@ -367,7 +373,7 @@ async function main() {
         title: "NC ICT Ecosystem Presentation (mLab NC, Updated 2025)",
         documentRef: sourceRef || "NC_ICT_Ecosystem_Presentation.pptx.pdf",
         url: null,
-        notes: "Historical geo-pin from the 2025 presentation. Coordinates remain town-centre quality until re-verified on site.",
+        notes: "Desktop-verified geo-pin from the 2025 presentation (reviewed 2026-08-21). Coordinates remain town-centre quality until a field visit.",
         capturedById: superAdmin?.id || null,
         sourceVersion: "nc-presentation-2025-01",
         confidence: "historical",
@@ -471,7 +477,7 @@ async function main() {
         slug: "ncdev-hack",
         title: "NCDEV Hack",
         summary: "Events & programmes listing from PDF p.12.",
-        startsAt: new Date("2025-09-01T09:00:00"),
+        startsAt: new Date("2026-09-01T09:00:00"),
         venue: "Northern Cape (see NCDEV)",
         status: "PUBLISHED",
         provinceId: nc.id,
@@ -483,7 +489,7 @@ async function main() {
         slug: "national-science-week-spu",
         title: "National Science Week (SPU)",
         summary: "Listed under events & programmes (PDF p.12).",
-        startsAt: new Date("2025-08-01T09:00:00"),
+        startsAt: new Date("2026-08-03T09:00:00"),
         venue: "Sol Plaatje University, Kimberley",
         latitude: -28.7282,
         longitude: 24.7499,
@@ -495,7 +501,7 @@ async function main() {
         slug: "francis-baard-gew",
         title: "Francis Baard GEW",
         summary: "Global Entrepreneurship Week related event (PDF p.3, p.12).",
-        startsAt: new Date("2025-11-18T09:00:00"),
+        startsAt: new Date("2026-11-18T09:00:00"),
         venue: "Frances Baard District",
         latitude: -28.7282,
         longitude: 24.7499,
@@ -560,8 +566,8 @@ async function main() {
       { key: "defaultLocale", value: JSON.stringify("en") },
       { key: "supportedLocales", value: JSON.stringify(["en", "af", "xh", "zu"]) },
       { key: "mapClusterRadius", value: JSON.stringify(50) },
-      { key: "publicTitle", value: JSON.stringify("Northern Cape ICT Ecosystem Map") },
-      { key: "dataSource", value: JSON.stringify("NC presentation (historical) plus national public directory") },
+      { key: "publicTitle", value: JSON.stringify(publicTitle) },
+      { key: "dataSource", value: JSON.stringify(dataSource) },
     ],
   });
 
@@ -596,7 +602,7 @@ async function main() {
       slug, name, "Northern Cape", dCode, d?.name || "", mCode, m?.name || "",
       lat, lng, catSlug, `"${String(summary).replace(/"/g, '""')}"`,
       `"${opps.join("; ")}"`, `"${assets.join("; ")}"`, status,
-      verified ? "" : "",
+      verified ? ncReviewedAt : "",
       verified ? sourceRef : "",
       "NC_ICT_Ecosystem_Presentation.pptx.pdf",
     ];
@@ -616,11 +622,13 @@ async function main() {
     JSON.stringify(nationalBoundaries, null, 2)
   );
 
-  console.log(`Seeded ${locations.length} historical NC presentation locations (${verifiedCount} with 2025 provenance, none currently field-verified).`);
-  console.log(`Seeded ${nationalCount} national public-directory locations across nine provinces.`);
+  console.log(
+    `Seeded ${locations.length} curated NC towns (${verifiedCount} desktop-verified ${ncReviewedAt}, expire ${ncExpiresAt}; not field surveys).`
+  );
+  console.log(`Seeded ${nationalCount} national public-directory locations across nine provinces (unverified scaffold).`);
   console.log(`Seeded ${pdfOrganisations.length} PDF organisations / contacts (${orgCoordsCount} with map pins).`);
   console.log(
-    "Dataset note: curated CSV may list 100+ candidates; active DB is PDF presentation rows only — reconcile before public claims."
+    "Live catalogue is 9 NC towns + 49 organisations + 30 national pins. Candidate CSV rows are not live — do not claim 100+ locations."
   );
   console.log("Boundaries: NC districts/municipalities (MDB / municipalities.co.za layout).");
   console.log("Source: NC_ICT_Ecosystem_Presentation.pptx.pdf");

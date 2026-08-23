@@ -2,6 +2,8 @@ export const messages = {
   en: {
     brand: "SA ICT Ecosystem Map",
     tagline: "Explore innovation, skills and technology opportunities across South Africa",
+    about: "About",
+    pilot: "Northern Cape pilot",
     search: "Search towns, sectors, institutions…",
     district: "District",
     category: "Category",
@@ -28,6 +30,8 @@ export const messages = {
   af: {
     brand: "SA IKT-ekosisteemkaart",
     tagline: "Verken innovasie-, vaardigheids- en tegnologiegeleenthede dwarsoor Suid-Afrika",
+    about: "Oor",
+    pilot: "Noord-Kaap loodsprojek",
     search: "Soek dorpe, sektore, instellings…",
     district: "Distrik",
     category: "Kategorie",
@@ -54,6 +58,8 @@ export const messages = {
   xh: {
     brand: "Imephu ye-ICT yaseMzantsi Afrika",
     tagline: "Khangela amathuba obuchwepheshe kuMzantsi Afrika",
+    about: "Malunga",
+    pilot: "Ipilot yaseMntla-Koloni",
     search: "Khangela idolophu, icandelo…",
     district: "Isithili",
     category: "Udidi",
@@ -80,6 +86,8 @@ export const messages = {
   zu: {
     brand: "Imephu ye-ICT yaseNingizimu Afrika",
     tagline: "Hlola amathuba ezobuchwepheshe eNingizimu Afrika",
+    about: "Mayelana",
+    pilot: "Iphayilothi yaseNyakatho-Kapa",
     search: "Sesha idolobha, umkhakha…",
     district: "Isifunda",
     category: "Isigaba",

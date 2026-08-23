@@ -16,6 +16,15 @@ test("login page renders", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /login/i })).toBeVisible();
 });
 
+test("about page states the live catalogue honestly", async ({ page }) => {
+  const res = await page.goto("/about");
+  expect(res?.ok()).toBeTruthy();
+  await expect(page.getByRole("heading", { name: /SA ICT Ecosystem Map/i })).toBeVisible();
+  await expect(page.getByText(/9 Northern Cape towns/i)).toBeVisible();
+  await expect(page.getByText(/not.*100\+ verified locations/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: "About" }).first()).toBeVisible();
+});
+
 test("liveness is a bare ok and public health exposes only status", async ({ request }) => {
   const live = await request.get("/api/health/live");
   expect(live.ok()).toBeTruthy();

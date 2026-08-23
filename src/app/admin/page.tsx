@@ -18,11 +18,11 @@ export default function AdminHome() {
 
   return (
     <AdminShell>
-      <p className="eyebrow">Phase 2</p>
+      <p className="eyebrow">Administration</p>
       <h1 className="text-2xl font-extrabold">Management system</h1>
       <p className="text-muted mb-4 max-w-2xl">
-        Create, edit, verify and publish locations; moderate community submissions; manage organisation accounts,
-        provincial roles, audit logs and backups.
+        Create, edit, verify and publish locations. Moderators review community submissions.
+        User invites, imports and backups sit under Advanced.
       </p>
       {data && (
         <div className="stat-grid">
@@ -37,9 +37,7 @@ export default function AdminHome() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link href="/admin/ops" className="btn">Operations</Link>
         <Link href="/admin/locations" className="btn btn-outline">Manage locations</Link>
-        <Link href="/admin/imports" className="btn btn-outline">Import staging</Link>
         <Link href="/admin/submissions" className="btn btn-outline">Review submissions</Link>
-        <Link href="/admin/backups" className="btn btn-outline">Create backup</Link>
       </div>
     </AdminShell>
   );

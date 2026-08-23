@@ -307,6 +307,11 @@ body {
   font-size: 0.78rem;
 }
 
+.site-footer a {
+  color: #ecfdf5;
+  text-decoration: underline;
+}
+
 .text-button {
   border: 0;
   background: transparent;
@@ -415,6 +420,26 @@ body {
 .admin-nav a:hover,
 .admin-nav a.active {
   background: #e7f6f1;
+  color: var(--g700);
+}
+
+.admin-advanced {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-advanced summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-advanced summary:hover {
   color: var(--g700);
 }
 
@@ -1070,6 +1095,15 @@ body {
   @page {
     size: A4;
     margin: 10mm 12mm;
+  }
+
+  .about-page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .about-page h1 {
+    font-size: 1.6rem;
   }
 
   .site-header,
