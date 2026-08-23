@@ -23,6 +23,8 @@
     "db:setup": "prisma generate && prisma migrate deploy",
     "db:setup:dev": "prisma generate && prisma migrate deploy && node prisma/seed.js",
     "db:refresh-presentation": "node scripts/refresh-presentation-data.js",
+    "db:ensure-demo-users": "node scripts/ensure-demo-users.js",
+    "demo:walkthrough": "node scripts/run-walkthrough.js",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "backup:restore-test": "node scripts/restore-backup-smoke.js",

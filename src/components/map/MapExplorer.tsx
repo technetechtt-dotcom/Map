@@ -324,6 +324,14 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
+              checked={verifiedOnly}
+              onChange={(e) => setVerifiedOnly(e.target.checked)}
+            />
+            {t(L, "verifiedOnly")}
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
               checked={searchVisible}
               onChange={(e) => {
                 setSearchVisible(e.target.checked);

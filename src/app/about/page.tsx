@@ -13,7 +13,7 @@ export const metadata = {
 export default async function AboutPage() {
   const [ncTowns, organisations, nationalPins, verified] = await Promise.all([
     prisma.location.count({
-      where: { province: { slug: "northern-cape" }, sourceVersion: { startsWith: "nc-presentation" } },
+      where: { province: { slug: "northern-cape" }, lastVerifiedAt: { not: null } },
     }),
     prisma.organisation.count({ where: { status: "PUBLISHED" } }),
     prisma.location.count({ where: { sourceConfidence: "public-directory" } }),

@@ -10,6 +10,7 @@ const {
   dataSource,
   ncReviewedAt,
   ncExpiresAt,
+  ncSourceVersion,
   ncVerificationNotes,
 } = require("../data/seed/presentation");
 
@@ -33,6 +34,8 @@ async function main() {
     where: { slug: { in: slugs } },
     data: {
       lastVerifiedAt: reviewedAt,
+      retrievedAt: reviewedAt,
+      sourceVersion: ncSourceVersion,
       verificationExpiresAt: expiresAt,
       verificationNotes: ncVerificationNotes,
     },
