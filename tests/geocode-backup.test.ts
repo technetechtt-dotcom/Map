@@ -3,6 +3,7 @@ import { geocodeAddress, geocoderDisabled, geocoderReady, isPublicNominatim } fr
 import { geocodeCacheKey } from "@/lib/cache";
 import { objectBackupConfigured } from "@/lib/backup-health";
 import { productionBootGaps } from "@/lib/production-boot";
+import { manifestChecksum } from "@/lib/object-backup";
 
 describe("object backup configuration", () => {
   it("requires independent backup credentials in production", () => {
@@ -32,6 +33,20 @@ describe("object backup configuration", () => {
     const gaps = productionBootGaps({ NODE_ENV: "production", STORAGE_DRIVER: "s3", S3_BUCKET: "src" });
     expect(gaps).toContain("S3_BACKUP_BUCKET");
     expect(gaps).toContain("S3_BACKUP_ACCESS_KEY_ID");
+  });
+
+  it("persists a stable manifest checksum used by full and incremental backups", () => {
+    const checksum = manifestChecksum([
+      { id: "b", sha256: "aa", filename: "b.bin", backupKey: "objects/b", sizeBytes: 2 },
+      { id: "a", sha256: "bb", filename: "a.bin", backupKey: "objects/a", sizeBytes: 1 },
+    ]);
+    expect(checksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(
+      manifestChecksum([
+        { id: "a", sha256: "bb", filename: "a.bin", backupKey: "objects/a", sizeBytes: 1 },
+        { id: "b", sha256: "aa", filename: "b.bin", backupKey: "objects/b", sizeBytes: 2 },
+      ])
+    ).toBe(checksum);
   });
 });
 

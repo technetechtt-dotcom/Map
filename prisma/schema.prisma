@@ -238,6 +238,8 @@ model Location {
   boundaryValid         String?
   staleAt               DateTime?
   verificationExpiresAt DateTime?
+  verificationTier      String         @default("unverified")
+  canonicalKey          String?        @unique
   evidenceJson          Json           @default("[]")
   ownerId               String?
   owner                 User?          @relation("LocationOwner", fields: [ownerId], references: [id])
@@ -246,6 +248,7 @@ model Location {
   organisationId        String?
   organisation          Organisation?  @relation(fields: [organisationId], references: [id])
   sources               SourceRecord[]
+  ingestionChanges      IngestionChange[]
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   publishedAt           DateTime?
@@ -259,6 +262,8 @@ model Location {
   @@index([createdAt])
   @@index([status])
   @@index([coordQuality])
+  @@index([verificationTier])
+  @@index([canonicalKey])
 }
 
 model Organisation {
@@ -379,6 +384,9 @@ model SourceRecord {
   notes        String?
   sourceVersion String?
   confidence    String?
+  connector     String?
+  retrievedAt   DateTime?
+  licence       String?
   capturedById String?
   capturedBy   User?     @relation(fields: [capturedById], references: [id])
   capturedAt   DateTime  @default(now())
@@ -673,6 +681,21 @@ model ImportBatch {
 
   @@index([status, createdAt])
   @@index([provinceId])
+}
+
+model IngestionChange {
+  id          String   @id @default(cuid())
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  connector   String
+  action      String
+  canonicalKey String?
+  beforeJson  Json     @default("{}")
+  afterJson   Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([locationId, createdAt])
+  @@index([connector, createdAt])
 }
 
 model Translation {

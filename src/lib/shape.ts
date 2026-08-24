@@ -46,6 +46,7 @@ export type PublicLocation = {
   address?: string | null;
   imageUrl?: string | null;
   lastVerifiedAt?: string | null;
+  verificationTier?: string | null;
   verificationSource?: string | null;
   verificationNotes?: string | null;
   coordQuality?: string | null;
@@ -80,6 +81,7 @@ export function shapeLocation(loc: any, distanceKm?: number): PublicLocation {
     address: loc.address,
     imageUrl: loc.imageUrl,
     lastVerifiedAt: loc.lastVerifiedAt ? new Date(loc.lastVerifiedAt).toISOString() : null,
+    verificationTier: loc.verificationTier || "unverified",
     verificationSource: loc.verificationSource,
     verificationNotes: loc.verificationNotes ?? null,
     coordQuality: loc.coordQuality ?? "unknown",

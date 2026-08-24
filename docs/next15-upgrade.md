@@ -1,21 +1,19 @@
-# Next.js 15 upgrade plan
+# Next.js 15.5 LTS
 
-Current production target: **Next 14.2.35** (App Router) — last fully green build in this repo.
+Production now runs **Next.js 15.5.23** with `eslint-config-next@15.5.23` and React 18 (kept for `react-leaflet`).
 
-## Why not automated yet
+## Security line
 
-- `next-auth` v4 + App Router middleware typing needs a checkout of Auth.js v5 for first-class Next 15 support.
-- React 19 peer range on Next 15 may pull ecosystem churn (`react-leaflet`, `recharts`, `next-intl`).
-- CI currently pins `eslint-config-next@14.2.35` together with Next.
+- July 2026 patches landed in 15.5.21+. This repo is on **15.5.23**, the latest published 15.5 Maintenance LTS as of 24 August 2026.
+- The scheduled **15.5.24** August security release is embargoed until **26 August 2026** and is not on npm yet. Pin moves to 15.5.24 the day it publishes; do not invent a version number.
 
-## Recommended sequence
+## App Router changes applied
 
-1. Branch `chore/next-15`; bump next, eslint-config-next, and types.
-2. Fix app-router async request APIs (`params` / `searchParams` promises) file-by-file.
-3. Run full suite: `npm test`, typecheck, lint, production build.
-4. Manual smoke: login + MFA, map tiles, book print, admin locations, imports.
-5. Only then merge; keep rollback image on 14.2.x.
+- `cookies()` is awaited in `layout` and the home page
+- `params` and `searchParams` are Promises on location, organisation, book-print, and dynamic API routes
+- `serverExternalPackages` replaced `experimental.serverComponentsExternalPackages`
+- `prisma generate` runs as part of `npm run build` so Vercel always has a client
 
-## Interim
+## Verification
 
-Stay on 14.2.x patch line; continue dependency audit in CI (`npm audit --audit-level=high`).
+`npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` must stay green on `main`.

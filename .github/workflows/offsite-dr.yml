@@ -61,6 +61,8 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
       - name: Restore latest off-site dump
         run: node scripts/offsite-restore-exercise.js
+      - name: Verify off-site object backup sidecars
+        run: node scripts/offsite-object-restore-exercise.js
       - name: Point app at restored database
         run: |
           node -e 'const r=require("./data/dr-restore.json"); console.log("RESTORE_DATABASE_URL="+r.restoreUrl)' >> "$GITHUB_ENV"
@@ -68,6 +70,9 @@ jobs:
         env:
           DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
           DIRECT_URL: ${{ env.RESTORE_DATABASE_URL }}
+          GIT_COMMIT: ${{ github.sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          METRICS_TOKEN: dr-restore-metrics
         run: |
           npx prisma generate
           npm run build
@@ -81,6 +86,8 @@ jobs:
       - name: Smoke restored origin
         env:
           PRODUCTION_APP_URL: http://127.0.0.1:3000
+          CERTIFIED_SHA: ${{ github.sha }}
+          METRICS_TOKEN: dr-restore-metrics
         run: node scripts/post-deploy-verify.js
       - name: Verify object backup credentials can list destination
         if: ${{ env.S3_BACKUP_BUCKET != '' }}

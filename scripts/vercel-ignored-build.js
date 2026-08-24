@@ -13,6 +13,11 @@ if (branch && branch !== "main" && branch !== "master") {
   process.exit(0);
 }
 
+if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+  console.warn("No GitHub token on Vercel — cannot certify SHA; continuing the production build");
+  process.exit(1);
+}
+
 const result = spawnSync(process.execPath, [require("path").join(__dirname, "assert-main-green.js")], {
   stdio: "inherit",
   env: process.env,

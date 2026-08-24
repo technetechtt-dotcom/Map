@@ -22,8 +22,8 @@ test.describe("10-minute investor walkthrough", () => {
     await expect(townsChip).toBeVisible({ timeout: 20_000 });
     await expect(townsChip).not.toHaveText(/Towns \(0\)/);
 
-    const verified = page.getByLabel(/verified only/i);
-    await verified.check();
+    const verification = page.getByLabel(/^verification$/i);
+    await verification.selectOption("current");
     await expect(townsChip).toHaveText(/Towns \(9\)/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Kimberley" })).toBeVisible();
 

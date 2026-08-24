@@ -112,7 +112,7 @@ export default async function AboutPage() {
             <Link className="text-g700 font-semibold" href="/">
               Map
             </Link>{" "}
-            — Kimberley and the Northern Cape towns. Use Verified only for the desktop-reviewed set.
+            — Kimberley and the Northern Cape towns. Set Verification to Current (desktop + field) for the desktop-reviewed set.
           </li>
           <li>
             <Link className="text-g700 font-semibold" href="/organisations">

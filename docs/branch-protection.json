@@ -1,9 +1,16 @@
 {
   "required_status_checks": {
-    "strict": false,
-    "contexts": ["test-and-build", "postgres-postgis", "secret-scan", "codeql"]
+    "strict": true,
+    "contexts": [
+      "test-and-build",
+      "postgres-postgis",
+      "secret-scan",
+      "codeql",
+      "dependency-audit-sbom",
+      "license-check"
+    ]
   },
-  "enforce_admins": false,
+  "enforce_admins": true,
   "required_pull_request_reviews": null,
   "restrictions": null,
   "allow_force_pushes": false,

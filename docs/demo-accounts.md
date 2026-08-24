@@ -19,4 +19,4 @@ SEED_ADMIN_PASSWORD=<your 12+ character password>
 
 `ALLOW_DEMO_USERS` is ignored in production. Never commit passwords or enable demo hints on a public host.
 
-Walkthrough: `/about` → map (Verified only) → contacts → `/national` → `/admin/locations` → `/admin/ops`. Hide Advanced (users, imports, backups) unless asked.
+Walkthrough: `/about` → map (Current verification tier) → contacts → `/national` → `/admin/locations` → `/admin/ops`. Hide Advanced (users, imports, backups) unless asked.

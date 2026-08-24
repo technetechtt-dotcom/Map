@@ -47,3 +47,6 @@ tsconfig.tsbuildinfo
 /test-results/
 /blob-report/
 /sbom.cdx.json
+/data/performance/generated-locations.json
+/data/dr-restore.json
+/data/dr-objects.json

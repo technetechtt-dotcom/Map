@@ -44,6 +44,8 @@ jobs:
       RATE_LIMIT_ALLOW_MEMORY: "1"
       POSTGRES_INTEGRATION: "1"
       GEOCODER_DISABLED: "1"
+      GIT_COMMIT: ${{ github.sha }}
+      GITHUB_SHA: ${{ github.sha }}
 
     steps:
       - uses: actions/checkout@v7
@@ -102,6 +104,7 @@ jobs:
           test -f docs/backup-rpo-rto.md
           test -f docs/staging.md
           test -f docs/pentest.md
+          test -f docs/pentest-commission.md
           test -f docs/dr-exercise.md
           test -f docs/national-ingestion.md
 

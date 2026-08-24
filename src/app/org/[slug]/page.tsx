@@ -5,9 +5,10 @@ import { parseJsonArray } from "@/lib/shape";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrgPage({ params }: { params: { slug: string } }) {
+export default async function OrgPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const org = await prisma.organisation.findFirst({
-    where: { slug: params.slug, status: "PUBLISHED" },
+    where: { slug, status: "PUBLISHED" },
     include: {
       province: true,
       category: true,

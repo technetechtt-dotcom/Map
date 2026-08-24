@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   description: PRODUCT_DESCRIPTION,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = cookies().get("locale")?.value || "en";
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = (await cookies()).get("locale")?.value || "en";
   return (
     <html lang={locale}>
       <body>

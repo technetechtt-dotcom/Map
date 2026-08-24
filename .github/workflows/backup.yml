@@ -73,6 +73,8 @@ jobs:
           if [ "$(date -u +%u)" = "7" ]; then export OBJECT_BACKUP_FULL=1; fi
           npm run backup:objects
           test -f data/object-backup-result.json
+          sha256sum data/object-backup-result.json | tee data/object-backup-result.json.sha256
+          sha256sum data/object-storage-manifest.json | tee data/object-storage-manifest.json.sha256
       - name: Upload and verify off-site copies
         env:
           BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
@@ -82,7 +84,9 @@ jobs:
           rclone copy database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy database.dump.gpg.sha256 "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
+          rclone copy data/object-storage-manifest.json.sha256 "$BACKUP_DESTINATION/objects/$DATE/"
           rclone copy data/object-backup-result.json "$BACKUP_DESTINATION/objects/$DATE/"
+          rclone copy data/object-backup-result.json.sha256 "$BACKUP_DESTINATION/objects/$DATE/"
           rclone copyto "$BACKUP_DESTINATION/database/$DATE/database.dump.gpg" remote-database.dump.gpg
           sha256sum remote-database.dump.gpg | tee remote-database.dump.gpg.sha256
           LOCAL=$(cut -d' ' -f1 database.dump.gpg.sha256)

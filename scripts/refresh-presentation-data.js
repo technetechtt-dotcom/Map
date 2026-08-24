@@ -38,6 +38,7 @@ async function main() {
       sourceVersion: ncSourceVersion,
       verificationExpiresAt: expiresAt,
       verificationNotes: ncVerificationNotes,
+      verificationTier: "desktop",
     },
   });
 

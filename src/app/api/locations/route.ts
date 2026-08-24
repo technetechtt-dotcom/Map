@@ -7,6 +7,7 @@ import { tenantWhere } from "@/lib/policy";
 import { rateLimitAsync } from "@/lib/rate-limit";
 import { clientIdentity } from "@/lib/security";
 import { log } from "@/lib/logger";
+import { verificationFilterWhere } from "@/lib/verification";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,9 +26,10 @@ export async function GET(req: NextRequest) {
     const q = (sp.get("q")?.trim() || "").slice(0, 100);
     const province = sp.get("province") || "";
     const district = sp.get("district") || "";
+    const municipality = sp.get("municipality") || "";
     const category = sp.get("category") || "";
     const status = sp.get("status") || "";
-    const verifiedOnly = sp.get("verified") === "1";
+    const verification = sp.get("verification") || (sp.get("verified") === "1" ? "current" : "");
     const bounds = sp.get("bounds");
     const adminList = sp.get("scope") === "manage";
     const requestedLimit = Number(sp.get("limit") || 100);
@@ -63,8 +65,9 @@ export async function GET(req: NextRequest) {
 
     if (province) where.province = { OR: [{ slug: province }, { code: province }, { name: province }] };
     if (district) where.district = { OR: [{ code: district }, { name: district }] };
+    if (municipality) where.municipality = { OR: [{ code: municipality }, { name: municipality }] };
     if (category) where.category = { OR: [{ slug: category }, { name: category }] };
-    if (verifiedOnly) where.lastVerifiedAt = { not: null };
+    Object.assign(where, verificationFilterWhere(verification));
 
     if (bounds) {
       const [west, south, east, north] = bounds.split(",").map(Number);

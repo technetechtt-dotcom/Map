@@ -1,0 +1,29 @@
+[
+  {
+    "name": "University of the Witwatersrand",
+    "provinceSlug": "gauteng",
+    "latitude": -26.191,
+    "longitude": 28.03,
+    "categorySlug": "skills-education",
+    "summary": "Public university.",
+    "website": "https://www.wits.ac.za/"
+  },
+  {
+    "name": "University of Cape Town",
+    "provinceSlug": "western-cape",
+    "latitude": -33.957,
+    "longitude": 18.461,
+    "categorySlug": "skills-education",
+    "summary": "Public university.",
+    "website": "https://www.uct.ac.za/"
+  },
+  {
+    "name": "University of Pretoria",
+    "provinceSlug": "gauteng",
+    "latitude": -25.754,
+    "longitude": 28.231,
+    "categorySlug": "skills-education",
+    "summary": "Public university.",
+    "website": "https://www.up.ac.za/"
+  }
+]

@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { verificationFilterWhere } from "@/lib/verification";
+import { PUBLIC_STATUSES } from "@/lib/shape";
 
 export const dynamic = "force-dynamic";
 
 export default async function NationalReportPage() {
   const [byProvince, verified, published, total] = await Promise.all([
     prisma.location.groupBy({ by: ["provinceId"], _count: true }),
-    prisma.location.count({ where: { lastVerifiedAt: { not: null } } }),
+    prisma.location.count({
+      where: { status: { in: [...PUBLIC_STATUSES] }, ...verificationFilterWhere("current") },
+    }),
     prisma.location.count({ where: { status: "PUBLISHED" } }),
     prisma.location.count(),
   ]);

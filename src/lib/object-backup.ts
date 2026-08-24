@@ -70,8 +70,32 @@ function client(sdk: S3Sdk, side: StorageSide, env: NodeJS.ProcessEnv | Record<s
   });
 }
 
-export function backupObjectKey(filename: string, createdAt: Date) {
-  return `objects/${createdAt.toISOString().slice(0, 10)}/${filename}`;
+const OBJECT_BACKUP_CURSOR_KEY = "objectBackup.cursor";
+
+type ObjectBackupCursor = { lastFullAt: string | null; keys: string[] };
+
+async function readObjectBackupCursor(): Promise<ObjectBackupCursor> {
+  const row = await prisma.appSetting.findUnique({ where: { key: OBJECT_BACKUP_CURSOR_KEY } });
+  if (!row?.value) return { lastFullAt: null, keys: [] };
+  try {
+    const parsed = JSON.parse(row.value) as ObjectBackupCursor;
+    return { lastFullAt: parsed.lastFullAt || null, keys: Array.isArray(parsed.keys) ? parsed.keys : [] };
+  } catch {
+    return { lastFullAt: null, keys: [] };
+  }
+}
+
+async function writeObjectBackupCursor(cursor: ObjectBackupCursor) {
+  const value = JSON.stringify(cursor);
+  await prisma.appSetting.upsert({
+    where: { key: OBJECT_BACKUP_CURSOR_KEY },
+    create: { key: OBJECT_BACKUP_CURSOR_KEY, value },
+    update: { value },
+  });
+}
+
+function sidecarKey(backupKey: string) {
+  return `${backupKey}.sha256`;
 }
 
 async function sha256Body(body: { transformToByteArray?: () => Promise<Uint8Array> } | undefined) {
@@ -90,6 +114,10 @@ export function manifestChecksum(manifest: ObjectBackupManifestRow[]) {
       )
     )
     .digest("hex");
+}
+
+export function backupObjectKey(filename: string, createdAt: Date) {
+  return `objects/${createdAt.toISOString().slice(0, 10)}/${filename}`;
 }
 
 export async function copyStoredObjectsToBackup() {
@@ -135,29 +163,29 @@ export async function copyStoredObjectsToBackup() {
 
   const source = client(sdk, "source");
   const dest = client(sdk, "backup");
-  const lastFull = await prisma.backupRecord.findFirst({
-    where: { kind: "objects", notes: { contains: "mode=full" } },
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true },
-  });
+  const cursor = await readObjectBackupCursor();
+  const lastFullAt = cursor.lastFullAt ? new Date(cursor.lastFullAt) : null;
   const full =
     process.env.OBJECT_BACKUP_FULL === "1" ||
-    !lastFull ||
-    Date.now() - lastFull.createdAt.getTime() > 7 * 24 * 3600_000;
+    !lastFullAt ||
+    Date.now() - lastFullAt.getTime() > 7 * 24 * 3600_000;
   let copied = 0;
   let copiedBytes = 0;
   let verified = 0;
   const failed: string[] = [];
+  const keys = new Set(cursor.keys);
   for (const object of objects) {
     const backupKey = backupObjectKey(object.filename, object.createdAt);
     try {
       if (!full) {
         try {
           await dest.send(new sdk.HeadObjectCommand({ Bucket: backupBucket, Key: backupKey }));
+          await dest.send(new sdk.HeadObjectCommand({ Bucket: backupBucket, Key: sidecarKey(backupKey) }));
           verified += 1;
+          keys.add(backupKey);
           continue;
         } catch {
-          // Missing destination object — copy below.
+          // Missing destination object or sidecar — copy below.
         }
       }
       const got = await source.send(new sdk.GetObjectCommand({ Bucket: sourceBucket, Key: object.filename }));
@@ -176,6 +204,14 @@ export async function copyStoredObjectsToBackup() {
           ContentType: object.contentType || "application/octet-stream",
         })
       );
+      await dest.send(
+        new sdk.PutObjectCommand({
+          Bucket: backupBucket,
+          Key: sidecarKey(backupKey),
+          Body: `${body.hash}  ${backupKey}\n`,
+          ContentType: "text/plain",
+        })
+      );
       const check = await dest.send(new sdk.GetObjectCommand({ Bucket: backupBucket, Key: backupKey }));
       const destBody = await sha256Body(check.Body);
       if (!destBody || destBody.hash !== body.hash) {
@@ -186,6 +222,7 @@ export async function copyStoredObjectsToBackup() {
       copied += 1;
       copiedBytes += object.sizeBytes;
       verified += 1;
+      keys.add(backupKey);
     } catch (error) {
       failed.push(object.filename);
       log.warn("backup.object.copy_failed", { id: object.id, detail: error instanceof Error ? error.message : String(error) });
@@ -194,6 +231,23 @@ export async function copyStoredObjectsToBackup() {
   if (failed.length) {
     log.error("backup.objects.incomplete", { failed: failed.length, copied, verified, mode: full ? "full" : "incremental" });
   }
+  const mode = full ? "full" : "incremental";
+  await writeObjectBackupCursor({
+    lastFullAt: full && failed.length === 0 ? new Date().toISOString() : cursor.lastFullAt,
+    keys: [...keys],
+  });
+  await prisma.backupRecord.create({
+    data: {
+      filename: "object-storage-manifest.json",
+      path: "object-backup-cursor",
+      sizeBytes: copiedBytes,
+      kind: "objects",
+      notes: `mode=${mode}`,
+      checksumSha256: manifestChecksum(manifest),
+      objectsCopied: copied,
+      lastVerifiedAt: new Date(),
+    },
+  });
   return {
     copied,
     copiedBytes,
@@ -202,7 +256,7 @@ export async function copyStoredObjectsToBackup() {
     failed,
     manifest,
     checksumSha256: manifestChecksum(manifest),
-    mode: full ? "full" : "incremental",
+    mode,
   };
 }
 
@@ -218,9 +272,21 @@ export async function verifyObjectChecksums(manifest: Array<{ filename: string; 
   for (const row of manifest) {
     const key = row.backupKey || row.filename;
     try {
+      const sidecar = await dest.send(new sdk.GetObjectCommand({ Bucket: bucket, Key: sidecarKey(key) }));
+      const sidecarBody = await sha256Body(sidecar.Body);
+      const sidecarHash = sidecarBody?.bytes ? Buffer.from(sidecarBody.bytes).toString("utf8").trim().split(/\s+/)[0] : "";
+      if (!sidecarHash) {
+        missing.push(sidecarKey(key));
+        continue;
+      }
       const got = await dest.send(new sdk.GetObjectCommand({ Bucket: bucket, Key: key }));
       const body = await sha256Body(got.Body);
-      if (row.sha256 && body && body.hash !== row.sha256) mismatched.push(key);
+      if (!body) {
+        missing.push(key);
+        continue;
+      }
+      if (sidecarHash !== body.hash) mismatched.push(key);
+      if (row.sha256 && body.hash !== row.sha256) mismatched.push(key);
     } catch {
       missing.push(key);
     }

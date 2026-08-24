@@ -71,12 +71,22 @@ const remoteHash = crypto.createHash("sha256").update(fs.readFileSync(gpgPath)).
 const sidecarPath = path.join(dir, "database.dump.gpg.sha256");
 try {
   run(`rclone copyto "${remotePrefix}/database.dump.gpg.sha256" "${sidecarPath}"`);
-  const sidecar = fs.readFileSync(sidecarPath, "utf8").trim().split(/\s+/)[0];
-  if (sidecar && sidecar !== remoteHash) {
-    throw new Error("off-site ciphertext hash does not match sidecar");
-  }
-} catch (error) {
-  if (String(error.message || error).includes("does not match")) throw error;
+} catch {
+  console.error("Checksum sidecar database.dump.gpg.sha256 is required for off-site restore");
+  process.exit(1);
+}
+if (!fs.existsSync(sidecarPath)) {
+  console.error("Checksum sidecar was not downloaded");
+  process.exit(1);
+}
+const sidecar = fs.readFileSync(sidecarPath, "utf8").trim().split(/\s+/)[0];
+if (!sidecar) {
+  console.error("Checksum sidecar is empty");
+  process.exit(1);
+}
+if (sidecar !== remoteHash) {
+  console.error("off-site ciphertext hash does not match sidecar");
+  process.exit(1);
 }
 execSync(`gpg --batch --yes --pinentry-mode loopback --passphrase "${key}" --decrypt --output "${dumpPath}" "${gpgPath}"`);
 

@@ -1,14 +1,15 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
 /** @type {import('next').NextConfig} */
 const tileCspConnect =
   process.env.MAP_TILE_CONNECT_SRC ||
   "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
 
 const nextConfig = {
+  outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
   reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: ["@prisma/client", "bcryptjs", "sharp"],
-    instrumentationHook: true,
-  },
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp"],
   poweredByHeader: false,
   // Security headers for all routes including static (middleware also sets CSP dynamically)
   async headers() {
@@ -36,6 +37,8 @@ const nextConfig = {
     ];
   },
   env: {
+    GIT_COMMIT:
+      process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.GIT_COMMIT || "",
     NEXT_PUBLIC_MAP_TILE_URL:
       process.env.NEXT_PUBLIC_MAP_TILE_URL ||
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",

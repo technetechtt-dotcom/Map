@@ -21,7 +21,14 @@ const {
   nationalBoundaries,
 } = require("../data/seed/boundaries");
 
-/** Prefer MDB pack (same as book / live map API) for NC geometry when present. */
+function canonicalEntityKey(provinceSlug, name, latitude, longitude) {
+  const slug = String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 80);
+  return `${provinceSlug}|${slug}|${Number(latitude).toFixed(3)}|${Number(longitude).toFixed(3)}`;
+}
 function loadMdbPack() {
   try {
     const p = path.join(__dirname, "..", "data", "boundaries", "mdb", "nc_mdb_book.json");
@@ -342,6 +349,8 @@ async function main() {
         tagsJson: [catSlug, dCode, "pdf-source"],
         status,
         lastVerifiedAt: verified ? new Date(ncReviewedAt) : null,
+        verificationTier: verified ? "desktop" : "unverified",
+        canonicalKey: canonicalEntityKey("northern-cape", name, lat, lng),
         retrievedAt: new Date(ncReviewedAt),
         sourceVersion: ncSourceVersion,
         verificationSource: verified ? sourceRef : null,
@@ -377,6 +386,9 @@ async function main() {
         capturedById: superAdmin?.id || null,
         sourceVersion: "nc-presentation-2025-01",
         confidence: "historical",
+        connector: "nc-presentation",
+        retrievedAt: new Date(ncReviewedAt),
+        licence: "historical-presentation",
       },
     });
     if (verified) verifiedCount += 1;
@@ -406,6 +418,8 @@ async function main() {
         tagsJson: ["public-directory", row.province, row.category],
         status: "PUBLISHED",
         lastVerifiedAt: null,
+        verificationTier: "directory",
+        canonicalKey: canonicalEntityKey(row.province, row.name, row.lat, row.lng),
         retrievedAt: new Date(nationalRetrievedAt),
         sourceVersion: nationalSourceVersion,
         verificationSource: "public-directory",
@@ -425,6 +439,9 @@ async function main() {
         capturedById: superAdmin?.id || null,
         sourceVersion: nationalSourceVersion,
         confidence: "public-directory",
+        connector: "national-directory",
+        retrievedAt: new Date(nationalRetrievedAt),
+        licence: "public-directory",
       },
     });
     nationalCount += 1;

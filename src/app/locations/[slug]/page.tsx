@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function LocationProfilePage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
   const row = await prisma.location.findFirst({
     where: {
-      OR: [{ slug: params.slug }, { id: params.slug }],
+      OR: [{ slug }, { id: slug }],
       status: { in: [...PUBLIC_STATUSES] },
     },
     include: {
@@ -78,7 +79,7 @@ export default async function LocationProfilePage({
         <span className="chip chip-active">Published</span>
         {loc.lastVerifiedAt && (
           <span className="chip">
-            Verified {new Date(loc.lastVerifiedAt).toLocaleDateString()}
+            {loc.verificationTier || "desktop"} · verified {new Date(loc.lastVerifiedAt).toLocaleDateString()}
           </span>
         )}
         {isStale && <span className="chip">Verification review due</span>}

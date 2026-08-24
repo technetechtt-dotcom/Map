@@ -1,0 +1,118 @@
+name: Production-scale load
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: k6 / node load profile
+        required: true
+        default: "250"
+        type: choice
+        options: ["ci", "250", "500", "1000"]
+      locations:
+        description: Generated location count
+        required: true
+        default: "5000"
+  push:
+    branches: [main, master]
+    paths:
+      - "scripts/performance/**"
+      - ".github/workflows/load-test.yml"
+      - "src/app/api/locations/**"
+      - "src/app/api/search/**"
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ictmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use-32ch"
+      NEXTAUTH_URL: "http://127.0.0.1:3000"
+      CAPTCHA_DISABLED: "1"
+      BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
+      MFA_ENCRYPTION_KEY: "ci-mfa-encryption-key-at-least-32-characters"
+      ALLOW_DEMO_USERS: "0"
+      SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
+      ALLOW_DATABASE_RESET: "1"
+      GEOCODER_DISABLED: "1"
+      HIBP_DISABLED: "1"
+      RATE_LIMIT_ALLOW_MEMORY: "1"
+      TRUST_PROXY: "0"
+      GIT_COMMIT: ${{ github.sha }}
+      GITHUB_SHA: ${{ github.sha }}
+      SCALE_LOCATIONS: ${{ github.event.inputs.locations || '800' }}
+      LOAD_PROFILE: ${{ github.event.inputs.profile || 'ci' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate && npx prisma migrate deploy
+      - run: node prisma/seed.js
+      - name: Generate and seed production-scale catalog
+        run: |
+          npm run load:scale-generate
+          npm run load:scale-seed
+      - run: npm run build
+      - name: Start app
+        run: |
+          npx next start -p 3000 &
+          echo $! > .load-app.pid
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - uses: grafana/setup-k6-action@v1
+        continue-on-error: true
+      - name: Run 250 / 500 / 1000 VU profiles
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          if [ "$LOAD_PROFILE" = "ci" ]; then
+            LOAD_PROFILE=ci npm run load:national
+            exit 0
+          fi
+          if command -v k6 >/dev/null; then
+            k6 run -e LOAD_PROFILE="$LOAD_PROFILE" -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+          else
+            npm run load:national
+          fi
+      - name: Dispatch full VU ladder on manual runs
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.profile == '1000' }}
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          if command -v k6 >/dev/null; then
+            k6 run -e LOAD_PROFILE=250 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+            k6 run -e LOAD_PROFILE=500 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+            k6 run -e LOAD_PROFILE=1000 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+          else
+            LOAD_PROFILE=250 npm run load:national
+            LOAD_PROFILE=500 npm run load:national
+            LOAD_PROFILE=1000 npm run load:national
+          fi
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f .load-app.pid ]; then kill "$(cat .load-app.pid)" || true; fi

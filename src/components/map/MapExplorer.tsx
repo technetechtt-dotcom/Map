@@ -23,6 +23,7 @@ type Meta = {
   districts: {
     code: string;
     name: string;
+    fill?: string;
     municipalities: { code: string; name: string }[];
   }[];
 };
@@ -41,8 +42,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   const [q, setQ] = useState("");
   const [province, setProvince] = useState(initialProvince);
   const [district, setDistrict] = useState("");
+  const [municipality, setMunicipality] = useState("");
   const [category, setCategory] = useState("");
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [verification, setVerification] = useState("all");
   const [searchVisible, setSearchVisible] = useState(false);
   const [bounds, setBounds] = useState<string>("");
   const [boundaryMode, setBoundaryMode] = useState<"districts" | "municipalities" | "none">(
@@ -67,8 +69,8 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   const L = (locale in { en: 1, af: 1, xh: 1, zu: 1 } ? locale : "en") as Locale;
 
   useEffect(() => {
-    const p = province || "northern-cape";
-    fetch(`/api/meta?province=${encodeURIComponent(p)}`)
+    const p = province;
+    fetch(`/api/meta${p ? `?province=${encodeURIComponent(p)}` : ""}`)
       .then(async (r) => {
         const data = await r.json().catch(() => null);
         if (!r.ok || !data || !Array.isArray(data.provinces)) {
@@ -89,8 +91,12 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     if (q) params.set("q", q);
     if (province) params.set("province", province);
     if (district) params.set("district", district);
+    if (municipality) params.set("municipality", municipality);
     if (category) params.set("category", category);
-    if (verifiedOnly) params.set("verified", "1");
+    if (verification && verification !== "all") {
+      if (verification === "current") params.set("verified", "1");
+      else params.set("verification", verification);
+    }
     if (searchVisible && bounds) params.set("bounds", bounds);
 
     const controller = new AbortController();
@@ -131,7 +137,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
       clearTimeout(handle);
       controller.abort();
     };
-  }, [q, province, district, category, verifiedOnly, bounds, searchVisible]);
+  }, [q, province, district, municipality, category, verification, bounds, searchVisible]);
 
   useEffect(() => {
     const params = new URLSearchParams({ map: "1" });
@@ -183,12 +189,18 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
   const provinces = meta?.provinces ?? [];
   const districts = meta?.districts ?? [];
+  const municipalities = districts.find((d) => d.code === district)?.municipalities ?? [];
   const categories = meta?.categories ?? [];
-  const provMeta = provinces.find((p) => p.slug === province || p.code === province);
-  const mapCenter: [number, number] = provMeta
-    ? [provMeta.centerLat, provMeta.centerLng]
+  const selectedProvince = provinces.find((p) => p.slug === province || p.code === province);
+  const legendTitle = selectedProvince
+    ? `${selectedProvince.name} districts`
+    : province
+      ? "Districts"
+      : "Districts (all provinces)";
+  const mapCenter: [number, number] = selectedProvince
+    ? [selectedProvince.centerLat, selectedProvince.centerLng]
     : [-29, 21.5];
-  const mapZoom = provMeta?.defaultZoom || 6;
+  const mapZoom = selectedProvince?.defaultZoom || 6;
 
   const selectFromList = useCallback((loc: PublicLocation) => {
     setSelectedId(loc.id);
@@ -237,8 +249,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   function resetView() {
     setQ("");
     setDistrict("");
+    setMunicipality("");
     setCategory("");
-    setVerifiedOnly(false);
+    setVerification("all");
     setSearchVisible(false);
     setBounds("");
     setSelectedId(null);
@@ -274,6 +287,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             onChange={(e) => {
               setProvince(e.target.value);
               setDistrict("");
+              setMunicipality("");
               setBounds("");
               setViewKey(e.target.value || "all");
             }}
@@ -290,11 +304,36 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
             {t(L, "district")}
           </span>
-          <select className="field" value={district} onChange={(e) => setDistrict(e.target.value)}>
+          <select
+            className="field"
+            value={district}
+            onChange={(e) => {
+              setDistrict(e.target.value);
+              setMunicipality("");
+            }}
+          >
             <option value="">All districts</option>
             {districts.map((d) => (
               <option key={d.code} value={d.code}>
                 {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+            {t(L, "municipality")}
+          </span>
+          <select
+            className="field"
+            value={municipality}
+            onChange={(e) => setMunicipality(e.target.value)}
+            disabled={!district}
+          >
+            <option value="">All municipalities</option>
+            {municipalities.map((m) => (
+              <option key={m.code} value={m.code}>
+                {m.name}
               </option>
             ))}
           </select>
@@ -321,13 +360,24 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             />
             Show hubs &amp; organisations
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={verifiedOnly}
-              onChange={(e) => setVerifiedOnly(e.target.checked)}
-            />
-            {t(L, "verifiedOnly")}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {t(L, "verification")}
+            </span>
+            <select
+              className="field"
+              aria-label="Verification"
+              value={verification}
+              onChange={(e) => setVerification(e.target.value)}
+            >
+              <option value="all">All records</option>
+              <option value="current">Current (desktop + field)</option>
+              <option value="field">Field</option>
+              <option value="desktop">Desktop</option>
+              <option value="directory">Directory</option>
+              <option value="expired">Expired</option>
+              <option value="unverified">Unverified</option>
+            </select>
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -406,36 +456,34 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           </div>
 
           <div className="mb-3 rounded-xl border border-line bg-white px-3 py-2 text-xs">
-            <p className="mb-2 font-bold text-ink">Northern Cape districts</p>
+            <p className="mb-2 font-bold text-ink">{legendTitle}</p>
             <div className="grid grid-cols-1 gap-1.5">
-              {[
-                { name: "Frances Baard", color: "#C9B3E0" },
-                { name: "John Taolo Gaetsewe", color: "#8EC4E8" },
-                { name: "Namakwa", color: "#E8C84A" },
-                { name: "Pixley ka Seme", color: "#A8D08D" },
-                { name: "ZF Mgcawu", color: "#7A9EAD" },
-              ].map((d) => (
-                <div key={d.name} className="flex items-center gap-2">
+              {districts.length === 0 && <span className="text-muted">No district metadata for this view.</span>}
+              {districts.map((d) => (
+                <div key={d.code} className="flex items-center gap-2">
                   <span
                     className="inline-block h-3 w-5 shrink-0 rounded-sm border border-black/10"
-                    style={{ background: d.color }}
+                    style={{ background: d.fill || "#0f766e" }}
                   />
                   <span className="text-muted">{d.name}</span>
                 </div>
               ))}
             </div>
             <p className="mt-2 text-[10px] leading-snug text-muted">
-              Live map borders use the same MDB district/municipality shapes and colours as the
-              opportunity book (municipalities.co.za palette). Tear-drop = towns · square ◎ = hubs.
+              District and municipality borders follow the selected province. Northern Cape uses
+              Municipal Demarcation Board geometry where published; other provinces use published
+              envelopes. Tear-drop = towns · square ◎ = hubs.
             </p>
-            <a
-              className="mt-2 inline-block text-[10px] font-semibold text-g700"
-              href="/maps/nc-district-municipalities-official.png"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open official district map (reference) →
-            </a>
+            {province === "northern-cape" && (
+              <a
+                className="mt-2 inline-block text-[10px] font-semibold text-g700"
+                href="/maps/nc-district-municipalities-official.png"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open official Northern Cape district map (reference) →
+              </a>
+            )}
           </div>
 
           <div ref={listRef} className="grid gap-3" role="list" aria-label="Matching towns and hubs">

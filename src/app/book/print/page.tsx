@@ -20,9 +20,10 @@ function fmtDate(d?: string | Date | null) {
 export default async function BookPrintPage({
   searchParams,
 }: {
-  searchParams: { province?: string };
+  searchParams: Promise<{ province?: string }>;
 }) {
-  const provinceSlug = searchParams.province || "northern-cape";
+  const { province } = await searchParams;
+  const provinceSlug = province || "northern-cape";
   const book = await getBookData(provinceSlug);
   const title = `Northern Cape ICT Ecosystem Map — ${book.scope}`;
   const genDate = fmtDate(book.generatedAt);

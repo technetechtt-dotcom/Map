@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export default function AdminHome() {
+  const { data: session } = useSession();
+  const role = String((session?.user as { role?: string } | undefined)?.role || "");
+  const canOps = role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN";
   const [data, setData] = useState<{
     totals: Record<string, number>;
   } | null>(null);
@@ -35,9 +39,11 @@ export default function AdminHome() {
         </div>
       )}
       <div className="mt-6 flex flex-wrap gap-3">
-        <Link href="/admin/ops" className="btn">Operations</Link>
+        {canOps && <Link href="/admin/ops" className="btn">Operations</Link>}
         <Link href="/admin/locations" className="btn btn-outline">Manage locations</Link>
-        <Link href="/admin/submissions" className="btn btn-outline">Review submissions</Link>
+        {(role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN") && (
+          <Link href="/admin/submissions" className="btn btn-outline">Review submissions</Link>
+        )}
       </div>
     </AdminShell>
   );

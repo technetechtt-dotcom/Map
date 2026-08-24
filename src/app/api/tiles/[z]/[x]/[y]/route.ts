@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest, context: { params: { z: string; x: string; y: string } }) {
-  const z = Number(context.params.z);
-  const x = Number(context.params.x);
-  const y = Number(context.params.y);
+export async function GET(_req: NextRequest, context: { params: Promise<{ z: string; x: string; y: string }> }) {
+  const routeParams = await context.params;
+  const z = Number(routeParams.z);
+  const x = Number(routeParams.x);
+  const y = Number(routeParams.y);
   const max = 2 ** z;
   if (![z, x, y].every(Number.isInteger) || z < 0 || z > 18 || x < 0 || y < 0 || x >= max || y >= max) {
     return NextResponse.json({ error: "Invalid tile" }, { status: 400 });

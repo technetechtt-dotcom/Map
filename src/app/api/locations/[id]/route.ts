@@ -19,10 +19,11 @@ import { log } from "@/lib/logger";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const loc = await prisma.location.findFirst({
-    where: { OR: [{ id: params.id }, { slug: params.id }] },
+    where: { OR: [{ id }, { slug: id }] },
     include: {
       category: true,
       province: true,
@@ -71,8 +72,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const auth = await requireSession();
   if (auth.error) return auth.error;
   if (!canEditDrafts(auth.user)) return jsonError("Forbidden", 403);
@@ -86,7 +88,7 @@ export async function PATCH(
   const body = bodyResult.data;
 
   const existing = await prisma.location.findFirst({
-    where: { OR: [{ id: params.id }, { slug: params.id }] },
+    where: { OR: [{ id }, { slug: id }] },
   });
   if (!existing) return jsonError("Not found", 404);
 
@@ -237,14 +239,15 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const auth = await requireSession();
   if (auth.error) return auth.error;
   if (!canPublish(auth.user)) return jsonError("Forbidden", 403);
 
   const existing = await prisma.location.findFirst({
-    where: { OR: [{ id: params.id }, { slug: params.id }] },
+    where: { OR: [{ id }, { slug: id }] },
   });
   if (!existing) return jsonError("Not found", 404);
 

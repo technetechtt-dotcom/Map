@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_STATUSES } from "@/lib/shape";
+import { districtFill } from "@/lib/boundary-colors";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const province = req.nextUrl.searchParams.get("province") || "northern-cape";
+    const province = req.nextUrl.searchParams.get("province") || "";
 
     const [categories, provinces, districts, stats] = await Promise.all([
       prisma.category.findMany({
@@ -59,6 +60,7 @@ export async function GET(req: NextRequest) {
           id: d.id,
           code: d.code,
           name: d.name,
+          fill: districtFill(d.code, d.name),
           municipalities: d.municipalities.map((m) => ({
             id: m.id,
             code: m.code,

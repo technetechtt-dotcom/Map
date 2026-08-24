@@ -41,6 +41,9 @@ jobs:
       RATE_LIMIT_ALLOW_MEMORY: "1"
       TRUST_PROXY: "0"
       KEEP_RESTORE_DB: "1"
+      GIT_COMMIT: ${{ github.sha }}
+      GITHUB_SHA: ${{ github.sha }}
+      METRICS_TOKEN: staging-restore-metrics
       REMOTE_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
     steps:
       - uses: actions/checkout@v7
@@ -78,6 +81,8 @@ jobs:
       - name: Smoke restored origin
         env:
           PRODUCTION_APP_URL: ${{ env.STAGING_BASE_URL }}
+          CERTIFIED_SHA: ${{ github.sha }}
+          METRICS_TOKEN: staging-restore-metrics
         run: node scripts/post-deploy-verify.js
       - uses: grafana/setup-k6-action@v1
         continue-on-error: true
@@ -87,7 +92,9 @@ jobs:
           LOAD_PROFILE: national
         run: |
           if command -v k6 >/dev/null; then
-            k6 run scripts/performance/k6-national.js
+            k6 run -e LOAD_PROFILE=250 scripts/performance/k6-national.js
+            k6 run -e LOAD_PROFILE=500 scripts/performance/k6-national.js
+            k6 run -e LOAD_PROFILE=1000 scripts/performance/k6-national.js
           else
             npm run load:national
           fi

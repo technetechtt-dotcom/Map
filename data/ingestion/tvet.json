@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Ehlanzeni TVET College",
+    "provinceSlug": "mpumalanga",
+    "latitude": -25.465,
+    "longitude": 30.985,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college."
+  },
+  {
+    "name": "False Bay TVET College",
+    "provinceSlug": "western-cape",
+    "latitude": -34.125,
+    "longitude": 18.387,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college."
+  }
+]

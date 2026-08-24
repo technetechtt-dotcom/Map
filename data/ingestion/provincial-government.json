@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Western Cape Government",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government digital services.",
+    "address": "Cape Town"
+  },
+  {
+    "name": "Gauteng Provincial Government",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government digital services.",
+    "address": "Johannesburg"
+  },
+  {
+    "name": "KwaZulu-Natal Provincial Government",
+    "provinceSlug": "kwazulu-natal",
+    "latitude": -29.858,
+    "longitude": 31.029,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government digital services.",
+    "address": "Pietermaritzburg"
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "name": "MICT SETA",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "skills-education",
+    "summary": "Sector education and training authority for ICT.",
+    "website": "https://www.mict.org.za/"
+  },
+  {
+    "name": "Technology Innovation Agency",
+    "provinceSlug": "gauteng",
+    "latitude": -25.747,
+    "longitude": 28.277,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public innovation funding agency.",
+    "website": "https://www.tia.org.za/"
+  }
+]

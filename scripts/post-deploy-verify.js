@@ -24,16 +24,25 @@ async function main() {
     console.error("PRODUCTION_APP_URL is required for post-deploy verification");
     process.exit(1);
   }
+  if (!expectedSha) {
+    console.error("CERTIFIED_SHA is required and must be non-null");
+    process.exit(1);
+  }
+  if (!token) {
+    console.error("METRICS_TOKEN or CRON_SECRET is required to read the deployed SHA");
+    process.exit(1);
+  }
   const live = await get("/api/health/live");
   if (!live.res.ok || live.json?.status !== "ok") throw new Error(`health live ${live.res.status}`);
 
-  const headers = token ? { "x-metrics-token": token, authorization: `Bearer ${token}` } : {};
+  const headers = { "x-metrics-token": token, authorization: `Bearer ${token}` };
   const ready = await get("/api/health", headers);
   if (!ready.res.ok) throw new Error(`health ${ready.res.status}`);
-  if (token && ready.json?.sha && expectedSha && ready.json.sha !== expectedSha) {
+  if (!ready.json?.sha) throw new Error("deployed SHA is missing");
+  if (ready.json.sha !== expectedSha) {
     throw new Error(`deployed sha ${ready.json.sha} != certified ${expectedSha}`);
   }
-  if (token && ready.json?.db === "error") throw new Error("database not ready");
+  if (ready.json?.db === "error") throw new Error("database not ready");
 
   const search = await get("/api/search?q=digital%20skills&limit=5");
   if (!search.res.ok) throw new Error(`search ${search.res.status}`);

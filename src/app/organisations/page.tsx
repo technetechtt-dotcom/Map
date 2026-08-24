@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function OrganisationsPage({
   searchParams,
 }: {
-  searchParams: { type?: string; location?: string };
+  searchParams: Promise<{ type?: string; location?: string }>;
 }) {
+  const filters = await searchParams;
   const rows = await prisma.organisation.findMany({
     where: { status: "PUBLISHED" },
     orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -20,13 +21,13 @@ export default async function OrganisationsPage({
     locationSlugs: parseJsonArray(o.locationSlugsJson),
   }));
 
-  if (searchParams.type) {
-    orgs = orgs.filter((o) => o.type === searchParams.type);
+  if (filters.type) {
+    orgs = orgs.filter((o) => o.type === filters.type);
   }
-  if (searchParams.location) {
+  if (filters.location) {
     orgs = orgs.filter(
       (o) =>
-        o.locationSlugs.includes(searchParams.location!) ||
+        o.locationSlugs.includes(filters.location!) ||
         o.locationSlugs.includes("province")
     );
   }
@@ -51,7 +52,7 @@ export default async function OrganisationsPage({
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
           href="/organisations"
-          className={`chip ${!searchParams.type ? "chip-active" : ""}`}
+          className={`chip ${!filters.type ? "chip-active" : ""}`}
         >
           All ({rows.length})
         </Link>
@@ -59,7 +60,7 @@ export default async function OrganisationsPage({
           <Link
             key={t}
             href={`/organisations?type=${encodeURIComponent(t)}`}
-            className={`chip ${searchParams.type === t ? "chip-active" : ""}`}
+            className={`chip ${filters.type === t ? "chip-active" : ""}`}
           >
             {t}
           </Link>
@@ -68,8 +69,8 @@ export default async function OrganisationsPage({
 
       <p className="text-sm text-muted mb-6">
         Showing {orgs.length} organisation{orgs.length === 1 ? "" : "s"}
-        {searchParams.type ? ` · ${searchParams.type}` : ""}
-        {searchParams.location ? ` · linked to ${searchParams.location}` : ""}.
+        {filters.type ? ` · ${filters.type}` : ""}
+        {filters.location ? ` · linked to ${filters.location}` : ""}.
       </p>
 
       {Array.from(byType.entries()).map(([type, list]) => (

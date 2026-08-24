@@ -5,6 +5,7 @@ import {
   mdbDistrictFeatureCollection,
   mdbMunicipalityFeatureCollection,
 } from "@/lib/mdb-boundaries";
+import { withBoundaryFill } from "@/lib/boundary-colors";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -83,14 +84,8 @@ export async function GET(req: NextRequest) {
         where: { district: { provinceId: prov.id } },
       });
       const features = muns
-        .map((m) => {
-          try {
-            return m.geojson || null;
-          } catch {
-            return null;
-          }
-        })
-        .filter(Boolean);
+        .map((m) => withBoundaryFill(m.geojson, m.code, m.name))
+        .filter((feature): feature is GeoJSON.Feature => Boolean(feature));
       return NextResponse.json({ type: "FeatureCollection", features, count: muns.length });
     }
 
@@ -99,14 +94,8 @@ export async function GET(req: NextRequest) {
       include: { municipalities: true },
     });
     const features = districts
-      .map((d) => {
-        try {
-          return d.geojson || null;
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
+      .map((d) => withBoundaryFill(d.geojson, d.code, d.name))
+      .filter((feature): feature is GeoJSON.Feature => Boolean(feature));
 
     return NextResponse.json({
       type: "FeatureCollection",
@@ -115,6 +104,7 @@ export async function GET(req: NextRequest) {
         id: d.id,
         code: d.code,
         name: d.name,
+        fill: withBoundaryFill(d.geojson, d.code, d.name)?.properties?.fill,
         municipalities: d.municipalities.map((m) => ({
           id: m.id,
           code: m.code,

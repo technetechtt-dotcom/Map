@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { parseLatitude, parseLongitude } from "./coords";
+import { canonicalEntityKey, snapshotEntity } from "./ingestion/resolve";
+import { deriveVerificationTier } from "./verification";
 import { validatePointAssignment } from "./geo-validation";
 
 export type ImportSourceRow = {
@@ -18,6 +20,12 @@ export type ImportSourceRow = {
   provinceSlug?: string;
   provinceId?: string;
   tags?: string[];
+  source?: string;
+  retrievedAt?: string;
+  sourceVersion?: string;
+  confidence?: string;
+  licence?: string;
+  verificationTier?: string;
 };
 
 export type ImportRowState = {
@@ -167,11 +175,74 @@ export async function applyImportBatch(
       });
       if (!category) throw new Error("unknown category");
       const slug = `${slugify(name) || "location"}-${state.rowHash.slice(0, 10)}`;
-      const existing = await prisma.location.findUnique({ where: { slug } });
+      const canonicalKey = canonicalEntityKey({
+        name,
+        provinceSlug: province.slug,
+        latitude: lat,
+        longitude: lng,
+      });
+      const existing =
+        (await prisma.location.findUnique({ where: { canonicalKey } })) ||
+        (await prisma.location.findUnique({ where: { slug } }));
+      const retrievedAt = row.retrievedAt ? new Date(String(row.retrievedAt)) : new Date();
+      const sourceVersion = String(row.sourceVersion || batch.sourceVersion || batch.source);
+      const confidence = String(row.confidence || batch.licence || "import");
+      const connector = String(row.source || batch.source);
+      const verificationTier = deriveVerificationTier({
+        verificationTier: row.verificationTier,
+        sourceConfidence: confidence,
+        lastVerifiedAt: null,
+        coordQuality: "directory-only",
+      });
+      const provenance = {
+        retrievedAt,
+        sourceVersion,
+        sourceConfidence: confidence,
+        verificationSource: connector,
+        verificationTier,
+        coordSource: connector,
+        coordQuality: "directory-only" as const,
+        canonicalKey,
+      };
       if (existing) {
+        const before = snapshotEntity(existing as unknown as Record<string, unknown>);
+        const updated = await prisma.location.update({
+          where: { id: existing.id },
+          data: {
+            summary: String(row.summary || existing.summary).slice(0, 500),
+            latitude: lat,
+            longitude: lng,
+            address: row.address ? String(row.address).slice(0, 500) : existing.address,
+            website: row.website ? String(row.website).slice(0, 500) : existing.website,
+            ...provenance,
+          },
+        });
+        await prisma.sourceRecord.create({
+          data: {
+            locationId: existing.id,
+            title: `${connector} catalog`,
+            notes: `Upserted via batch ${batchId} row ${state.index}`,
+            documentRef: sourceVersion,
+            sourceVersion,
+            confidence,
+            connector,
+            retrievedAt,
+            licence: String(row.licence || batch.licence || ""),
+          },
+        });
+        await prisma.ingestionChange.create({
+          data: {
+            locationId: existing.id,
+            connector,
+            action: "update",
+            canonicalKey,
+            beforeJson: before,
+            afterJson: snapshotEntity(updated as unknown as Record<string, unknown>),
+          },
+        });
         state.status = "APPLIED";
         state.locationId = existing.id;
-        state.slug = slug;
+        state.slug = existing.slug;
         applied += 1;
         continue;
       }
@@ -191,11 +262,32 @@ export async function applyImportBatch(
           categoryId: category.id,
           provinceId: province.id,
           status: "DRAFT",
-          coordQuality: "estimated",
-          coordSource: batch.source,
-          sourceConfidence: "import",
           verificationNotes: `Imported via batch ${batchId} row ${state.index}`,
           ownerId: options?.ownerId || batch.createdById,
+          ...provenance,
+        },
+      });
+      await prisma.sourceRecord.create({
+        data: {
+          locationId: created.id,
+          title: `${connector} catalog`,
+          notes: `Created via batch ${batchId} row ${state.index}`,
+          documentRef: sourceVersion,
+          sourceVersion,
+          confidence,
+          connector,
+          retrievedAt,
+          licence: String(row.licence || batch.licence || ""),
+        },
+      });
+      await prisma.ingestionChange.create({
+        data: {
+          locationId: created.id,
+          connector,
+          action: "create",
+          canonicalKey,
+          beforeJson: {},
+          afterJson: snapshotEntity(created as unknown as Record<string, unknown>),
         },
       });
       state.status = "APPLIED";
