@@ -22,6 +22,7 @@ export const locationWriteSchema = z.object({
   coordQuality: z.enum(COORD_QUALITY).optional(),
   coordSource: z.string().max(500).nullable().optional(),
   verificationExpiresAt: z.string().datetime().nullable().optional(),
+  verificationTier: z.enum(["unverified", "directory", "desktop", "field"]).optional(),
   categoryId: z.string().max(40).optional(),
   districtId: z.string().max(40).nullable().optional(),
   municipalityId: z.string().max(40).nullable().optional(),

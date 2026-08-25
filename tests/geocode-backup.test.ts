@@ -3,7 +3,7 @@ import { geocodeAddress, geocoderDisabled, geocoderReady, isPublicNominatim } fr
 import { geocodeCacheKey } from "@/lib/cache";
 import { objectBackupConfigured } from "@/lib/backup-health";
 import { productionBootGaps } from "@/lib/production-boot";
-import { manifestChecksum } from "@/lib/object-backup";
+import { manifestChecksum, parseObjectBackupCursor, parseObjectManifest } from "@/lib/object-backup";
 
 describe("object backup configuration", () => {
   it("requires independent backup credentials in production", () => {
@@ -47,6 +47,22 @@ describe("object backup configuration", () => {
         { id: "b", sha256: "aa", filename: "b.bin", backupKey: "objects/b", sizeBytes: 2 },
       ])
     ).toBe(checksum);
+  });
+
+  it("requires backupKey on every object-storage manifest row", () => {
+    expect(() => parseObjectManifest([{ id: "a", filename: "a.bin", sha256: "aa", sizeBytes: 1 }])).toThrow(/backupKey/);
+    expect(
+      parseObjectManifest({
+        objects: [{ id: "a", filename: "a.bin", backupKey: "objects/2026-08-25/a.bin", sha256: "aa", sizeBytes: 1 }],
+        checksumSha256: "ff",
+      })
+    ).toEqual([
+      { id: "a", filename: "a.bin", backupKey: "objects/2026-08-25/a.bin", sha256: "aa", sizeBytes: 1 },
+    ]);
+    expect(parseObjectBackupCursor({ lastFullAt: "2026-08-25T00:00:00Z", keys: ["objects/a"] })).toEqual({
+      lastFullAt: "2026-08-25T00:00:00Z",
+      keys: ["objects/a"],
+    });
   });
 });
 

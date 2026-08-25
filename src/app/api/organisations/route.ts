@@ -6,9 +6,13 @@ import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { assertProvinceAccess, canPublish, canVerify, isOrgAdmin, isSuperAdmin } from "@/lib/policy";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
+import { memoizeAsync } from "@/lib/server-memo";
+import { organisationVerificationStamp, verificationFilterWhere } from "@/lib/verification";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const memoPublicOrgs = memoizeAsync<Record<string, unknown>>("orgs-public", 120_000);
 
 const TYPE_COLORS: Record<string, string> = {
   Education: "#0f766e",
@@ -33,6 +37,7 @@ export async function GET(req: NextRequest) {
     const q = (req.nextUrl.searchParams.get("q") || "").trim().toLowerCase();
     const province = req.nextUrl.searchParams.get("province") || "";
     const manage = req.nextUrl.searchParams.get("scope") === "manage";
+    const verification = req.nextUrl.searchParams.get("verification") || (req.nextUrl.searchParams.get("verified") === "1" ? "current" : "");
     const auth = manage ? await requireSession() : null;
     if (auth?.error) return auth.error;
     const actor = auth && "user" in auth ? auth.user : null;
@@ -50,52 +55,56 @@ export async function GET(req: NextRequest) {
             : { id: "__none__" }
       : { status: "PUBLISHED" as const };
 
-    const [rows, towns] = await Promise.all([
-      prisma.organisation.findMany({
-        where: {
-          ...manageWhere,
-          ...(province
-            ? {
-                province: {
-                  OR: [{ slug: province }, { code: province }, { name: province }],
-                },
-              }
-            : {}),
+    if (!manage) {
+      const cached = memoPublicOrgs.peek(req.nextUrl.search || "all");
+      if (cached) return NextResponse.json(cached);
+    }
+
+    const rows = await prisma.organisation.findMany({
+      where: {
+        ...manageWhere,
+        ...(!manage ? verificationFilterWhere(verification) : {}),
+        ...(province
+          ? {
+              province: {
+                OR: [{ slug: province }, { code: province }, { name: province }],
+              },
+            }
+          : {}),
+      },
+      include: {
+        province: true,
+        category: true,
+        relationshipsFrom: {
+          where: { status: "PUBLISHED" },
+          include: { target: { select: { id: true, slug: true, name: true, type: true } } },
         },
-        include: {
-          province: true,
-          category: true,
-          relationshipsFrom: {
-            where: { status: "PUBLISHED" },
-            include: { target: { select: { id: true, slug: true, name: true, type: true } } },
-          },
-          relationshipsTo: {
-            where: { status: "PUBLISHED" },
-            include: { source: { select: { id: true, slug: true, name: true, type: true } } },
-          },
+        relationshipsTo: {
+          where: { status: "PUBLISHED" },
+          include: { source: { select: { id: true, slug: true, name: true, type: true } } },
         },
-        orderBy: [{ type: "asc" }, { name: "asc" }],
-      }),
-      prisma.location.findMany({
-        where: {
-          status: { in: ["PUBLISHED", "VERIFIED"] },
-          ...(province
-            ? {
-                province: {
-                  OR: [{ slug: province }, { code: province }, { name: province }],
-                },
-              }
-            : {}),
-        },
-        select: {
-          slug: true,
-          name: true,
-          latitude: true,
-          longitude: true,
-          district: { select: { name: true } },
-        },
-      }),
-    ]);
+      },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+    });
+    const towns = await prisma.location.findMany({
+      where: {
+        status: { in: ["PUBLISHED", "VERIFIED"] },
+        ...(province
+          ? {
+              province: {
+                OR: [{ slug: province }, { code: province }, { name: province }],
+              },
+            }
+          : {}),
+      },
+      select: {
+        slug: true,
+        name: true,
+        latitude: true,
+        longitude: true,
+        district: { select: { name: true } },
+      },
+    });
 
     const townBySlug = Object.fromEntries(towns.map((t) => [t.slug, t]));
 
@@ -113,6 +122,10 @@ export async function GET(req: NextRequest) {
         phone: o.phone,
         sourcePage: o.sourcePage,
         verified: o.verified,
+        status: o.status,
+        lastVerifiedAt: o.lastVerifiedAt,
+        verificationTier: o.verificationTier,
+        verificationExpiresAt: o.verificationExpiresAt,
         province: o.province ? { name: o.province.name, slug: o.province.slug } : null,
         locationSlugs,
         latitude: o.latitude,
@@ -133,7 +146,6 @@ export async function GET(req: NextRequest) {
         companySize: o.companySize,
         cipcNumber: o.cipcNumber,
         beeLevel: o.beeLevel,
-        verificationExpiresAt: o.verificationExpiresAt,
         relationships: [
           ...o.relationshipsFrom.map((r) => ({ id: r.id, type: r.type, direction: "outgoing", organisation: r.target })),
           ...o.relationshipsTo.map((r) => ({ id: r.id, type: r.type, direction: "incoming", organisation: r.source })),
@@ -197,6 +209,10 @@ export async function GET(req: NextRequest) {
       wasSpread: boolean;
       hostTown: string | null;
       hostTownName: string | null;
+      verificationTier: string;
+      lastVerifiedAt: Date | string | null;
+      verificationExpiresAt: Date | string | null;
+      verified: boolean;
       kind: "hub";
     };
 
@@ -230,6 +246,10 @@ export async function GET(req: NextRequest) {
             longitude: o.longitude as number,
             hostTown: o.hostTownSlug,
             hostTownName: host?.name ?? o.hostTownName,
+            verificationTier: o.verificationTier || "unverified",
+            lastVerifiedAt: o.lastVerifiedAt,
+            verificationExpiresAt: o.verificationExpiresAt,
+            verified: o.verified,
           };
         });
 
@@ -257,19 +277,25 @@ export async function GET(req: NextRequest) {
         wasSpread: h.wasSpread,
         hostTown: h.hostTown,
         hostTownName: h.hostTownName,
+        verificationTier: h.verificationTier,
+        lastVerifiedAt: h.lastVerifiedAt,
+        verificationExpiresAt: h.verificationExpiresAt,
+        verified: h.verified,
         kind: "hub" as const,
       }));
     }
 
     const types = Array.from(new Set(rows.map((o) => o.type))).sort();
 
-    return NextResponse.json({
+    const payload = {
       count: organisations.length,
       types,
       organisations,
       hubs: mapMode || req.nextUrl.searchParams.get("includeCoords") === "1" ? hubs : undefined,
       hubCount: hubs.length || undefined,
-    });
+    };
+    if (!manage) memoPublicOrgs.store(req.nextUrl.search || "all", payload);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("[api/organisations]", error);
     return NextResponse.json(
@@ -347,6 +373,21 @@ export async function PATCH(req: NextRequest) {
   for (const key of allowed) if (body[key] !== undefined) data[key] = body[key];
   for (const [input, column] of [["services", "servicesJson"], ["skills", "skillsJson"], ["technologies", "technologiesJson"], ["certifications", "certificationsJson"], ["serviceAreas", "serviceAreasJson"], ["industrySectors", "industrySectorsJson"], ["portfolio", "portfolioJson"]] as const) {
     if (Array.isArray(body[input])) data[column] = body[input];
+  }
+  if (canVerify(auth.user) && (body.status === "VERIFIED" || body.status === "PUBLISHED")) {
+    Object.assign(
+      data,
+      organisationVerificationStamp({
+        tier:
+          body.verificationTier === "field" || body.verificationTier === "desktop"
+            ? body.verificationTier
+            : undefined,
+        existingTier: current.verificationTier,
+        source: typeof body.verificationSource === "string" ? body.verificationSource : current.verificationSource,
+      })
+    );
+  } else if (body.verificationTier === "desktop" || body.verificationTier === "field" || body.verificationTier === "directory" || body.verificationTier === "unverified") {
+    data.verificationTier = body.verificationTier;
   }
   const organisation = await prisma.organisation.update({ where: { id }, data });
   await writeAudit({ user: auth.user, action: "UPDATE_ORGANISATION", entityType: "Organisation", entityId: id, metadata: { fields: Object.keys(data) }, provinceId: current.provinceId, ipAddress: clientIp(req) });

@@ -72,14 +72,28 @@ function client(sdk: S3Sdk, side: StorageSide, env: NodeJS.ProcessEnv | Record<s
 
 const OBJECT_BACKUP_CURSOR_KEY = "objectBackup.cursor";
 
-type ObjectBackupCursor = { lastFullAt: string | null; keys: string[] };
+export type ObjectBackupCursor = { lastFullAt: string | null; keys: string[] };
 
-async function readObjectBackupCursor(): Promise<ObjectBackupCursor> {
+export function parseObjectBackupCursor(value: unknown): ObjectBackupCursor {
+  if (!value || typeof value !== "object") return { lastFullAt: null, keys: [] };
+  const parsed = value as { lastFullAt?: string | null; keys?: unknown };
+  return {
+    lastFullAt: typeof parsed.lastFullAt === "string" ? parsed.lastFullAt : null,
+    keys: Array.isArray(parsed.keys) ? parsed.keys.filter((key): key is string => typeof key === "string") : [],
+  };
+}
+
+export async function readObjectBackupCursor(): Promise<ObjectBackupCursor> {
+  const latest = await prisma.backupRecord.findFirst({
+    where: { kind: "objects" },
+    orderBy: { createdAt: "desc" },
+  });
+  const fromRecord = parseObjectBackupCursor(latest?.cursorJson);
+  if (fromRecord.lastFullAt || fromRecord.keys.length) return fromRecord;
   const row = await prisma.appSetting.findUnique({ where: { key: OBJECT_BACKUP_CURSOR_KEY } });
   if (!row?.value) return { lastFullAt: null, keys: [] };
   try {
-    const parsed = JSON.parse(row.value) as ObjectBackupCursor;
-    return { lastFullAt: parsed.lastFullAt || null, keys: Array.isArray(parsed.keys) ? parsed.keys : [] };
+    return parseObjectBackupCursor(JSON.parse(row.value));
   } catch {
     return { lastFullAt: null, keys: [] };
   }
@@ -92,6 +106,32 @@ async function writeObjectBackupCursor(cursor: ObjectBackupCursor) {
     create: { key: OBJECT_BACKUP_CURSOR_KEY, value },
     update: { value },
   });
+}
+
+export function parseObjectManifest(raw: unknown): ObjectBackupManifestRow[] {
+  const rows = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { objects?: unknown }).objects)
+      ? (raw as { objects: unknown[] }).objects
+      : null;
+  if (!rows) throw new Error("invalid object storage manifest");
+  return rows.map((item, index) => {
+    const row = item as Partial<ObjectBackupManifestRow>;
+    if (!row.backupKey) {
+      throw new Error(`object storage manifest row ${index} missing backupKey`);
+    }
+    return {
+      id: String(row.id || ""),
+      sha256: row.sha256 ?? null,
+      filename: String(row.filename || ""),
+      backupKey: row.backupKey,
+      sizeBytes: Number(row.sizeBytes || 0),
+    };
+  });
+}
+
+export function objectStorageManifestPayload(manifest: ObjectBackupManifestRow[], checksumSha256: string) {
+  return { objects: manifest, checksumSha256 };
 }
 
 function sidecarKey(backupKey: string) {
@@ -144,6 +184,7 @@ export async function copyStoredObjectsToBackup() {
       manifest,
       checksumSha256: manifestChecksum(manifest),
       mode: "skipped" as const,
+      cursor: null,
     };
   }
   const sdk = await s3();
@@ -158,6 +199,7 @@ export async function copyStoredObjectsToBackup() {
       manifest,
       checksumSha256: manifestChecksum(manifest),
       mode: "skipped" as const,
+      cursor: null,
     };
   }
 
@@ -232,10 +274,12 @@ export async function copyStoredObjectsToBackup() {
     log.error("backup.objects.incomplete", { failed: failed.length, copied, verified, mode: full ? "full" : "incremental" });
   }
   const mode = full ? "full" : "incremental";
-  await writeObjectBackupCursor({
+  const nextCursor: ObjectBackupCursor = {
     lastFullAt: full && failed.length === 0 ? new Date().toISOString() : cursor.lastFullAt,
     keys: [...keys],
-  });
+  };
+  const checksumSha256 = manifestChecksum(manifest);
+  await writeObjectBackupCursor(nextCursor);
   await prisma.backupRecord.create({
     data: {
       filename: "object-storage-manifest.json",
@@ -243,9 +287,10 @@ export async function copyStoredObjectsToBackup() {
       sizeBytes: copiedBytes,
       kind: "objects",
       notes: `mode=${mode}`,
-      checksumSha256: manifestChecksum(manifest),
+      checksumSha256,
       objectsCopied: copied,
       lastVerifiedAt: new Date(),
+      cursorJson: nextCursor,
     },
   });
   return {
@@ -255,8 +300,9 @@ export async function copyStoredObjectsToBackup() {
     skipped: objects.length - copied,
     failed,
     manifest,
-    checksumSha256: manifestChecksum(manifest),
+    checksumSha256,
     mode,
+    cursor: nextCursor,
   };
 }
 
@@ -270,7 +316,11 @@ export async function verifyObjectChecksums(manifest: Array<{ filename: string; 
   const missing: string[] = [];
   const mismatched: string[] = [];
   for (const row of manifest) {
-    const key = row.backupKey || row.filename;
+    if (!row.backupKey) {
+      missing.push(row.filename || "(missing backupKey)");
+      continue;
+    }
+    const key = row.backupKey;
     try {
       const sidecar = await dest.send(new sdk.GetObjectCommand({ Bucket: bucket, Key: sidecarKey(key) }));
       const sidecarBody = await sha256Body(sidecar.Body);

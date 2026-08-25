@@ -12,7 +12,9 @@ Keep these GitHub settings:
 
 Required status checks do not stop a direct push from landing on `main`. Production exposure is blocked by the **Production deploy** workflow: it must deploy a certified SHA, prove a non-null live SHA matches `CERTIFIED_SHA`, and smoke the live origin. A red SHA is not promoted.
 
-Apply via:
+A later launch gate (`docs/branch-protection-launch.json`) records required reviewed PRs and signed commits. **Do not apply that file while this repository still ships by direct push to `main`.**
+
+Apply the live settings via:
 
 ```bash
 gh api -X PUT repos/OWNER/REPO/branches/main/protection \

@@ -231,6 +231,7 @@ model Location {
   lastVerifiedAt        DateTime?
   retrievedAt           DateTime?
   sourceVersion         String?
+  sourceUrl             String?
   verificationSource    String?
   coordQuality          String         @default("unknown")
   coordSource           String?
@@ -240,6 +241,7 @@ model Location {
   verificationExpiresAt DateTime?
   verificationTier      String         @default("unverified")
   canonicalKey          String?        @unique
+  externalId            String?
   evidenceJson          Json           @default("[]")
   ownerId               String?
   owner                 User?          @relation("LocationOwner", fields: [ownerId], references: [id])
@@ -264,6 +266,7 @@ model Location {
   @@index([coordQuality])
   @@index([verificationTier])
   @@index([canonicalKey])
+  @@index([externalId])
 }
 
 model Organisation {
@@ -306,8 +309,16 @@ model Organisation {
   province                 Province?                  @relation(fields: [provinceId], references: [id])
   verified                 Boolean                    @default(false)
   verifiedAt               DateTime?
+  lastVerifiedAt           DateTime?
   verificationExpiresAt    DateTime?
+  verificationTier         String                     @default("unverified")
+  verificationSource       String?
   verificationEvidenceJson Json                       @default("[]")
+  canonicalKey             String?                    @unique
+  externalId               String?
+  sourceVersion            String?
+  sourceUrl                String?
+  retrievedAt              DateTime?
   status                   RecordStatus               @default(DRAFT)
   users                    User[]
   locations                Location[]
@@ -326,6 +337,8 @@ model Organisation {
   @@index([status])
   @@index([categoryId])
   @@index([verificationExpiresAt])
+  @@index([verificationTier])
+  @@index([externalId])
 }
 
 model OrganisationCategory {
@@ -375,23 +388,39 @@ model OrganisationClaim {
 }
 
 model SourceRecord {
-  id           String    @id @default(cuid())
-  locationId   String?
-  location     Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  title        String
-  url          String?
-  documentRef  String?
-  notes        String?
+  id            String    @id @default(cuid())
+  locationId    String?
+  location      Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  title         String
+  url           String?
+  sourceUrl     String?
+  documentRef   String?
+  notes         String?
   sourceVersion String?
+  etag          String?
+  contentHash   String?
   confidence    String?
   connector     String?
   retrievedAt   DateTime?
   licence       String?
-  capturedById String?
-  capturedBy   User?     @relation(fields: [capturedById], references: [id])
-  capturedAt   DateTime  @default(now())
+  capturedById  String?
+  capturedBy    User?     @relation(fields: [capturedById], references: [id])
+  capturedAt    DateTime  @default(now())
 
   @@index([locationId])
+}
+
+model ExternalIdentity {
+  id         String   @id @default(cuid())
+  connector  String
+  externalId String
+  entityType String
+  entityId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([connector, externalId, entityType])
+  @@index([entityType, entityId])
 }
 
 model FundingCall {
@@ -607,6 +636,7 @@ model BackupRecord {
   lastVerifiedAt DateTime?
   rpoMinutes     Int?
   rtoMinutes     Int?
+  cursorJson     Json?
   createdById    String?
   createdAt      DateTime  @default(now())
 

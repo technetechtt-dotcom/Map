@@ -30,7 +30,7 @@ export default async function BookIndexPage() {
             mLab presentation zones.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link className="btn" href="/book/print?province=northern-cape">
+            <Link className="btn" href="/book/print?province=northern-cape" prefetch={false}>
               Open book
             </Link>
             <a
@@ -50,7 +50,7 @@ export default async function BookIndexPage() {
               {countMap[p.id] || 0} locations · code {p.code}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link className="btn" href={`/book/print?province=${p.slug}`}>
+              <Link className="btn" href={`/book/print?province=${p.slug}`} prefetch={false}>
                 Open provincial book
               </Link>
               <a

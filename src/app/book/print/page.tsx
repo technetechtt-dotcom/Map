@@ -5,6 +5,8 @@ import {
   buildPinsFromOrgs,
   primaryDistrictCode,
 } from "@/components/book/DistrictPinMap";
+import { ProvinceOverviewMap } from "@/components/book/ProvinceOverviewMap";
+import { resolveCapitalPins } from "@/lib/nc-capitals";
 
 export const dynamic = "force-dynamic";
 
@@ -161,21 +163,10 @@ export default async function BookPrintPage({
           <h3>Official district municipalities map</h3>
           <p className="meta">
             Authoritative administrative layout for the five district municipalities and all local
-            municipalities in the Northern Cape (source: municipalities.co.za). Interactive and book
-            district colours match this legend.
+            municipalities in the Northern Cape. Colours match municipalities.co.za. Pins mark the
+            capital cities: Kimberley, Kuruman, Kathu, Upington and Springbok.
           </p>
-          <figure className="official-admin-map">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/maps/nc-district-municipalities-official.png"
-              alt="Northern Cape district and local municipalities map — Frances Baard, John Taolo Gaetsewe, Namakwa, Pixley ka Seme, ZF Mgcawu"
-              className="official-admin-map-img"
-            />
-            <figcaption>
-              © municipalities.co.za · Northern Cape districts &amp; local municipalities (visual
-              source of truth for district colours and municipal names)
-            </figcaption>
-          </figure>
+          <ProvinceOverviewMap pins={resolveCapitalPins(book.locations)} />
 
           <div className="pdf-district-legend">
             <div>

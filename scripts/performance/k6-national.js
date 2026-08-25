@@ -32,6 +32,10 @@ export default function () {
     ["search", `${base}/api/search?q=digital%20skills&limit=20`],
     ["clusters", `${base}/api/locations/clusters?bounds=16,-35,33,-22&zoom=6`],
     ["organisations", `${base}/api/organisations?limit=50`],
+    ["organisations-map", `${base}/api/organisations?map=1&province=northern-cape`],
+    ["funding", `${base}/api/ecosystem?type=funding`],
+    ["events", `${base}/api/ecosystem?type=events`],
+    ["programmes", `${base}/api/ecosystem?type=programmes`],
   ];
   for (const [name, url] of requests) {
     const response = http.get(url, { tags: { endpoint: name } });

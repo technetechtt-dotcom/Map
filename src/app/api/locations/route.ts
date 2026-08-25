@@ -8,9 +8,12 @@ import { rateLimitAsync } from "@/lib/rate-limit";
 import { clientIdentity } from "@/lib/security";
 import { log } from "@/lib/logger";
 import { verificationFilterWhere } from "@/lib/verification";
+import { memoizeAsync } from "@/lib/server-memo";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const memoPublicLocations = memoizeAsync<Record<string, unknown>>("locations-public", 120_000);
 
 export async function GET(req: NextRequest) {
   try {
@@ -162,6 +165,38 @@ export async function GET(req: NextRequest) {
     }
 
     if (candidateIds) where.id = { in: candidateIds };
+    const cacheable = !adminList && !q && !bounds && !cursor && !radiusRaw;
+    const cacheKey = cacheable ? req.nextUrl.search || "default" : "";
+    if (cacheable) {
+      const cached = await memoPublicLocations(cacheKey, async () => {
+        const total = await prisma.location.count({ where });
+        const rows = await prisma.location.findMany({
+          where,
+          include: { category: true, province: true, district: true, municipality: true, organisation: true },
+          orderBy: { name: "asc" },
+          take: limit,
+          ...(offset ? { skip: offset } : {}),
+        });
+        const shaped = rows.map((row) => shapeLocation(row));
+        const nextCursor = rows.length === limit ? rows[rows.length - 1]?.id : null;
+        return {
+          count: shaped.length,
+          total,
+          limit,
+          offset,
+          nextCursor,
+          query: { searchMode: "none", spatialMode: "none" },
+          locations: shaped,
+        };
+      });
+      trackEvent({
+        eventType: "locations.search",
+        path: "/api/locations",
+        metadata: { q, province, district, category, count: Number(cached.count), adminList, searchMode: "none", spatialMode: "none" },
+      }).catch(() => undefined);
+      return NextResponse.json(cached);
+    }
+
     const total = await prisma.location.count({ where });
     const ranked = searchMode === "postgres-fts" || spatialMode === "postgis";
     const rows = await prisma.location.findMany({

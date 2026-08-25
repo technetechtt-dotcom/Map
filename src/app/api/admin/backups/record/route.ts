@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     sizeBytes?: number;
     checksumSha256?: string;
     objectsCopied?: number;
+    cursorJson?: unknown;
   };
   if (!BACKUP_KINDS.includes((body.kind || "") as BackupKind)) {
     return jsonError("kind must be database, objects, or app-export", 400);
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       rpoMinutes: 24 * 60,
       rtoMinutes: 120,
       notes: "Recorded by scheduled backup pipeline",
+      cursorJson: body.cursorJson && typeof body.cursorJson === "object" ? body.cursorJson : undefined,
     },
   });
   return jsonOk({ id: record.id, kind: record.kind });

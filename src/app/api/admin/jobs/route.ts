@@ -80,6 +80,16 @@ export async function POST(req: NextRequest) {
         take: 500,
       });
 
+      const expiredOrgs = await prisma.organisation.findMany({
+        where: {
+          status: { in: ["PUBLISHED", "VERIFIED"] },
+          verificationExpiresAt: { lt: new Date() },
+          ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
+        },
+        select: { id: true, name: true, status: true, provinceId: true },
+        take: 500,
+      });
+
       let demoted = 0;
       if (process.env.ENFORCE_EXPIRY_DOWNGRADE === "1") {
         for (const loc of expired) {
@@ -94,8 +104,22 @@ export async function POST(req: NextRequest) {
             demoted += 1;
           }
         }
+        for (const org of expiredOrgs) {
+          if (org.status === "PUBLISHED") {
+            await prisma.organisation.update({
+              where: { id: org.id },
+              data: { status: "VERIFIED", verified: false },
+            });
+            demoted += 1;
+          }
+        }
       }
-      results.expiry = { found: expired.length, demoted, sample: expired.slice(0, 10) };
+      results.expiry = {
+        found: expired.length,
+        organisations: expiredOrgs.length,
+        demoted,
+        sample: expired.slice(0, 10),
+      };
     }
 
     if (job === "prune" || job === "all") {
@@ -157,12 +181,19 @@ export async function GET(req: NextRequest) {
   if (!authz.ok) return authz.error;
   const scope = authz.user ? tenantWhere(authz.user) : {};
 
-  const [expired, openDsar, openSubmissions, deadLetters] = await Promise.all([
+  const [expired, expiredOrgs, openDsar, openSubmissions, deadLetters] = await Promise.all([
     prisma.location.count({
       where: {
         ...scope,
         status: { in: ["PUBLISHED", "VERIFIED"] },
         verificationExpiresAt: { lt: new Date() },
+      },
+    }),
+    prisma.organisation.count({
+      where: {
+        status: { in: ["PUBLISHED", "VERIFIED"] },
+        verificationExpiresAt: { lt: new Date() },
+        ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
       },
     }),
     prisma.dataSubjectRequest.count({
@@ -176,6 +207,7 @@ export async function GET(req: NextRequest) {
 
   return jsonOk({
     expiredVerifications: expired,
+    expiredOrganisationVerifications: expiredOrgs,
     openDsar,
     openSubmissions,
     deadLetters,

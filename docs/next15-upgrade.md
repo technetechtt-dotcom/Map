@@ -4,8 +4,8 @@ Production now runs **Next.js 15.5.23** with `eslint-config-next@15.5.23` and Re
 
 ## Security line
 
-- July 2026 patches landed in 15.5.21+. This repo is on **15.5.23**, the latest published 15.5 Maintenance LTS as of 24 August 2026.
-- The scheduled **15.5.24** August security release is embargoed until **26 August 2026** and is not on npm yet. Pin moves to 15.5.24 the day it publishes; do not invent a version number.
+- July 2026 patches landed in 15.5.21+. This repo is on **15.5.23**, the latest published 15.5 Maintenance LTS as of 25 August 2026.
+- The scheduled **15.5.24** August security release is embargoed until **26 August 2026** and is not on npm yet. Pin moves to 15.5.24 the day it publishes; do not invent a version number. Checked again on 25 August 2026: stay on 15.5.23.
 
 ## App Router changes applied
 

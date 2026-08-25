@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asRows, loadConnectorSource, loadNationalCatalog } from "@/lib/ingestion/connectors";
+import { asRows, loadConnectorSource, loadNationalCatalog, trueSourceVersion } from "@/lib/ingestion/connectors";
 
 describe("national ingestion connectors", () => {
   it("loads licensed public-directory catalogs for multiple provinces", async () => {
@@ -44,7 +44,7 @@ describe("national ingestion connectors", () => {
             categorySlug: "skills-education",
           },
         ]),
-        { status: 200 }
+        { status: 200, headers: { ETag: '"uni-etag-1"', "Last-Modified": "Mon, 24 Aug 2026 12:00:00 GMT" } }
       );
     process.env.INGEST_UNIVERSITIES_URL = "https://directory.example.test/universities.json";
     try {
@@ -57,9 +57,18 @@ describe("national ingestion connectors", () => {
       expect(rows[0]?.name).toBe("HTTP University");
       expect(rows[0]?.source).toBe("universities");
       expect(rows[0]?.licence).toBe("public-directory");
+      expect(rows[0]?.sourceUrl).toBe("https://directory.example.test/universities.json");
+      expect(rows[0]?.sourceVersion).toBe("uni-etag-1");
+      expect(rows[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
     } finally {
       delete process.env.INGEST_UNIVERSITIES_URL;
       globalThis.fetch = original;
     }
+  });
+
+  it("prefers ETag, then last-modified, then content hash for sourceVersion", () => {
+    expect(trueSourceVersion({ etag: '"abc"', contentHash: "ffffffffffffffff" })).toBe("abc");
+    expect(trueSourceVersion({ lastModified: "Mon, 24 Aug 2026", contentHash: "ffffffffffffffff" })).toBe("Mon, 24 Aug 2026");
+    expect(trueSourceVersion({ contentHash: "ffffffffffffffff" })).toBe("ffffffffffffffff".slice(0, 16));
   });
 });

@@ -44,9 +44,10 @@ try {
   requireSidecar(dir, "object-storage-manifest.json");
   const result = JSON.parse(fs.readFileSync(path.join(dir, "object-backup-result.json"), "utf8"));
   if (result.ok !== true) throw new Error("recorded object backup was not ok");
+  const manifestPath = path.join(dir, "object-storage-manifest.json");
   const report = { ok: true, latest, copied: result.copied, checksumSha256: result.checksumSha256 };
   if (process.env.S3_BACKUP_BUCKET && process.env.S3_BACKUP_ACCESS_KEY_ID) {
-    execSync("npx tsx -e \"import { verifyObjectChecksums } from './src/lib/object-backup'; const manifest=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); const rows=Array.isArray(manifest)?manifest:(manifest.objects||[]); verifyObjectChecksums(rows).then(r=>{ if(!r.ok) { console.error(r); process.exit(1);} console.log('s3 objects verified'); })\"", {
+    execSync(`npx tsx scripts/verify-object-manifest.ts ${JSON.stringify(manifestPath)}`, {
       stdio: "inherit",
       env: process.env,
     });

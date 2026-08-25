@@ -91,11 +91,11 @@ export default function AdminLocationsPage() {
     setForm(emptyForm);
   }
 
-  async function setStatus(id: string, status: string) {
+  async function setStatus(id: string, status: string, extra: Record<string, unknown> = {}) {
     const r = await fetch(`/api/locations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...extra }),
     });
     if (r.ok) {
       setMessage(`${status} applied`);
@@ -450,8 +450,11 @@ export default function AdminLocationsPage() {
                   <button className="chip" type="button" onClick={() => openEdit(l)}>
                     Edit
                   </button>
-                  <button className="chip" type="button" onClick={() => setStatus(l.id, "VERIFIED")}>
-                    Verify
+                  <button className="chip" type="button" onClick={() => setStatus(l.id, "VERIFIED", { verificationTier: "desktop" })}>
+                    Desktop verify
+                  </button>
+                  <button className="chip" type="button" onClick={() => setStatus(l.id, "VERIFIED", { verificationTier: "field" })}>
+                    Field verify
                   </button>
                   <button
                     className="chip chip-active"

@@ -143,6 +143,10 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     const params = new URLSearchParams({ map: "1" });
     if (q) params.set("q", q);
     if (province) params.set("province", province);
+    if (verification && verification !== "all") {
+      if (verification === "current") params.set("verified", "1");
+      else params.set("verification", verification);
+    }
 
     const controller = new AbortController();
     const handle = setTimeout(() => {
@@ -163,7 +167,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
       clearTimeout(handle);
       controller.abort();
     };
-  }, [q, province]);
+  }, [q, province, verification]);
 
   const selectedTown = useMemo(
     () => locations.find((l) => l.id === selectedId) || null,
@@ -550,6 +554,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                         <p className="card-meta">
                           {hub.type}
                           {hub.hostTownName ? ` · ${hub.hostTownName}` : ""}
+                          {hub.verificationTier ? ` · ${hub.verificationTier}` : ""}
                         </p>
                       </span>
                       <span className="badge" style={{ color: hub.color }}>

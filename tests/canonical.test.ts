@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalEntityKey, snapshotEntity } from "@/lib/ingestion/resolve";
+import { canonicalEntityKey, contentFingerprint, resolveIdentityOrder, snapshotEntity } from "@/lib/ingestion/resolve";
 
 describe("canonical entity resolution", () => {
   it("collapses name, province and rounded coordinates onto one key", () => {
@@ -32,5 +32,30 @@ describe("canonical entity resolution", () => {
       sourceVersion: "universities-2026-08-24",
       verificationTier: "directory",
     });
+  });
+
+  it("fingerprints content without retrievedAt so no-op ingest can skip", () => {
+    expect(resolveIdentityOrder()).toEqual(["externalId", "canonicalKey", "slug"]);
+    expect(
+      contentFingerprint({
+        name: "UCT",
+        summary: "Campus",
+        latitude: -33.957,
+        longitude: 18.461,
+        address: "Rondebosch",
+        website: "https://uct.ac.za",
+        verificationTier: "desktop",
+      })
+    ).toBe(
+      contentFingerprint({
+        name: "UCT",
+        summary: "Campus",
+        latitude: -33.957,
+        longitude: 18.461,
+        address: "Rondebosch",
+        website: "https://uct.ac.za",
+        verificationTier: "desktop",
+      })
+    );
   });
 });

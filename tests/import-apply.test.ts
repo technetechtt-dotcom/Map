@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseLatitude, parseLongitude } from "@/lib/coords";
-import { resolveImportRowStates } from "@/lib/import-apply";
+import { mergeExistingLocation, resolveImportRowStates } from "@/lib/import-apply";
 import { snapshotSettingKey } from "@/lib/jobs";
 
 describe("import coordinates", () => {
@@ -31,6 +31,57 @@ describe("import apply staging flags", () => {
     expect(states[0].status).toBe("SKIPPED");
     expect(states[0].error).toMatch(/boundary/);
     expect(states[1].status).toBe("PENDING");
+  });
+});
+
+describe("existing-record merge policy", () => {
+  const existing = {
+    id: "loc-1",
+    slug: "uct",
+    name: "University of Cape Town",
+    summary: "Desktop verified campus",
+    latitude: -33.957,
+    longitude: 18.461,
+    address: "Rondebosch",
+    website: "https://uct.ac.za",
+    verificationTier: "desktop",
+    lastVerifiedAt: new Date("2026-08-01"),
+    verificationExpiresAt: new Date("2027-08-01"),
+    coordQuality: "verified",
+    coordSource: "field",
+  };
+
+  it("does not overwrite coordinates or name on desktop/field records", () => {
+    const merged = mergeExistingLocation(
+      existing,
+      {
+        name: "UCT directory alias",
+        summary: "Directory summary",
+        latitude: -26.1,
+        longitude: 28.1,
+        address: "Cape Town",
+        website: "https://directory.example/uct",
+      },
+      { verificationTier: "directory", coordQuality: "directory-only", coordSource: "universities" }
+    );
+    expect(merged).toMatchObject({
+      name: "University of Cape Town",
+      latitude: -33.957,
+      longitude: 18.461,
+      verificationTier: "desktop",
+      coordQuality: "verified",
+      website: "https://directory.example/uct",
+    });
+  });
+
+  it("fills coordinates on unprotected directory records", () => {
+    const merged = mergeExistingLocation(
+      { ...existing, verificationTier: "directory", coordQuality: "directory-only" },
+      { name: "UCT", summary: "Updated", latitude: -33.96, longitude: 18.46 },
+      { verificationTier: "directory" }
+    );
+    expect(merged.latitude).toBe(-33.96);
+    expect(merged.longitude).toBe(18.46);
   });
 });
 

@@ -34,5 +34,33 @@ export function snapshotEntity(row: Record<string, unknown>) {
     sourceVersion: row.sourceVersion || null,
     retrievedAt: row.retrievedAt || null,
     verificationTier: row.verificationTier || null,
+    sourceUrl: row.sourceUrl || null,
+    etag: row.etag || null,
+    contentHash: row.contentHash || null,
+    externalId: row.externalId || null,
   };
+}
+
+export function contentFingerprint(row: {
+  name?: unknown;
+  summary?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  address?: unknown;
+  website?: unknown;
+  verificationTier?: unknown;
+}) {
+  return JSON.stringify({
+    name: row.name ?? null,
+    summary: row.summary ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    address: row.address ?? null,
+    website: row.website ?? null,
+    verificationTier: row.verificationTier ?? null,
+  });
+}
+
+export function resolveIdentityOrder() {
+  return ["externalId", "canonicalKey", "slug"] as const;
 }

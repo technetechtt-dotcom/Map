@@ -16,6 +16,7 @@ import { locationWriteSchema } from "@/lib/validation";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { pointInGeoJson, validatePointAssignment } from "@/lib/geo-validation";
 import { log } from "@/lib/logger";
+import { verificationActionData } from "@/lib/verification";
 
 export async function GET(
   _req: NextRequest,
@@ -187,10 +188,8 @@ export async function PATCH(
   if (body.tags) data.tagsJson = serializeArray(body.tags);
   if (body.coordQuality) data.coordQuality = body.coordQuality;
   if (body.coordSource !== undefined) data.coordSource = body.coordSource;
-  if (body.verificationExpiresAt !== undefined) {
-    data.verificationExpiresAt = body.verificationExpiresAt
-      ? new Date(body.verificationExpiresAt)
-      : null;
+  if (body.verificationTier === "desktop" || body.verificationTier === "field" || body.verificationTier === "directory" || body.verificationTier === "unverified") {
+    data.verificationTier = body.verificationTier;
   }
   if (body.evidence) {
     data.evidenceJson = body.evidence;
@@ -198,15 +197,24 @@ export async function PATCH(
 
   if (body.status) {
     data.status = body.status;
+    const stamp = verificationActionData({
+      status: body.status,
+      requestedTier: typeof body.verificationTier === "string" ? body.verificationTier : null,
+      existingTier: existing.verificationTier,
+      source: typeof body.verificationSource === "string" ? body.verificationSource : existing.verificationSource,
+    });
     if (body.status === "VERIFIED" && canVerify(auth.user)) {
-      data.lastVerifiedAt = new Date();
+      Object.assign(data, stamp);
       data.reviewedById = auth.user.id;
     }
     if (body.status === "PUBLISHED" && canPublish(auth.user)) {
-      data.lastVerifiedAt = data.lastVerifiedAt || new Date();
+      Object.assign(data, stamp);
       data.reviewedById = auth.user.id;
       data.publishedAt = new Date();
     }
+  }
+  if (body.verificationExpiresAt) {
+    data.verificationExpiresAt = new Date(body.verificationExpiresAt);
   }
 
   const updated = await prisma.location.update({

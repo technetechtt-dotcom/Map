@@ -21,6 +21,8 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
   const nav = [
     { href: "/", label: "Map" },
     { href: "/about", label: t(L, "about") },
+    { href: "/profile", label: "Profile" },
+    { href: "/proposal", label: "Proposal" },
     { href: "/organisations", label: "Contacts" },
     { href: "/book", label: "Book" },
     { href: "/national", label: t(L, "national") },
@@ -58,9 +60,9 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {(session?.user as any)?.role ? (
             <>
-              <Link href="/admin" className="secondary-button">{t(L, "admin")}</Link>
+              <Link href="/admin" prefetch={false} className="secondary-button">{t(L, "admin")}</Link>
               {["SUPER_ADMIN", "PROVINCIAL_ADMIN"].includes(String((session?.user as { role?: string })?.role || "")) && (
-                <Link href="/admin/ops" className="secondary-button">Ops</Link>
+                <Link href="/admin/ops" prefetch={false} className="secondary-button">Ops</Link>
               )}
               <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/" })}>
                 Sign out
@@ -76,6 +78,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
               pathname === item.href ? "bg-white text-g950" : "bg-white/10 text-white hover:bg-white/20"
             }`}

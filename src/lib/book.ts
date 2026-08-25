@@ -3,7 +3,34 @@ import type { RecordStatus } from "@prisma/client";
 import { parseJsonArray, shapeLocation } from "@/lib/shape";
 import { OPPORTUNITY_CHAPTERS } from "@/lib/opportunity-chapters";
 
+const BOOK_CACHE_MS = 120_000;
+type LoadedBook = Awaited<ReturnType<typeof loadBookData>>;
+const globalForBook = globalThis as unknown as {
+  bookCache?: Map<string, { expires: number; value: LoadedBook }>;
+  bookInflight?: Map<string, Promise<LoadedBook>>;
+};
+const bookCache = globalForBook.bookCache ?? new Map<string, { expires: number; value: LoadedBook }>();
+const bookInflight = globalForBook.bookInflight ?? new Map<string, Promise<LoadedBook>>();
+globalForBook.bookCache = bookCache;
+globalForBook.bookInflight = bookInflight;
+
 export async function getBookData(provinceSlug?: string) {
+  const key = provinceSlug || "all";
+  const hit = bookCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.value;
+  const pending = bookInflight.get(key);
+  if (pending) return pending;
+  const load = loadBookData(provinceSlug)
+    .then((value) => {
+      bookCache.set(key, { expires: Date.now() + BOOK_CACHE_MS, value });
+      return value;
+    })
+    .finally(() => bookInflight.delete(key));
+  bookInflight.set(key, load);
+  return load;
+}
+
+async function loadBookData(provinceSlug?: string) {
   const provinceWhere = provinceSlug
     ? { OR: [{ slug: provinceSlug }, { code: provinceSlug }, { name: provinceSlug }] }
     : undefined;
@@ -17,68 +44,60 @@ export async function getBookData(provinceSlug?: string) {
     ...(province ? { provinceId: province.id } : {}),
   };
 
-  const [locations, categories, provinces, districts, funding, events, programmes, procurements, orgs] =
-    await Promise.all([
-      prisma.location.findMany({
-        where: locationWhere,
-        include: {
-          category: true,
-          province: true,
-          district: true,
-          municipality: true,
-          organisation: true,
-          sources: true,
-        },
-        orderBy: [{ province: { name: "asc" } }, { district: { name: "asc" } }, { name: "asc" }],
-      }),
-      prisma.category.findMany({ orderBy: { name: "asc" } }),
-      prisma.province.findMany({ orderBy: { name: "asc" } }),
-      prisma.district.findMany({
-        where: province ? { provinceId: province.id } : undefined,
-        include: { municipalities: true, province: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.fundingCall.findMany({
-        where: {
-          status: "PUBLISHED",
-          ...(province ? { provinceId: province.id } : {}),
-        },
-        include: { organisation: true, province: true },
-        orderBy: { title: "asc" },
-      }),
-      prisma.ecosystemEvent.findMany({
-        where: {
-          status: "PUBLISHED",
-          ...(province ? { provinceId: province.id } : {}),
-        },
-        include: { organisation: true, province: true },
-        orderBy: { startsAt: "asc" },
-      }),
-      prisma.programme.findMany({
-        where: {
-          status: "PUBLISHED",
-          ...(province ? { provinceId: province.id } : {}),
-        },
-        include: { organisation: true, province: true },
-        orderBy: { title: "asc" },
-      }),
-      prisma.procurement.findMany({
-        where: {
-          status: "PUBLISHED",
-          ...(province ? { provinceId: province.id } : {}),
-        },
-        include: { organisation: true, province: true },
-        orderBy: { title: "asc" },
-      }),
-      prisma.organisation.findMany({
-        where: {
-          status: "PUBLISHED",
-          ...(province ? { provinceId: province.id } : {}),
-        },
-        include: { province: true },
-        orderBy: { name: "asc" },
-      }),
-    ]);
+  const scopeWhere = province ? { provinceId: province.id } : {};
+  const publishedScope = { status: "PUBLISHED" as const, ...scopeWhere };
+
+  // Peak 3 connections (fits Neon/dev pool of 5) instead of 9-way Promise.all.
+  const [locations, categories, provinces] = await Promise.all([
+    prisma.location.findMany({
+      where: locationWhere,
+      include: {
+        category: true,
+        province: true,
+        district: true,
+        municipality: true,
+        organisation: true,
+        sources: true,
+      },
+      orderBy: [{ province: { name: "asc" } }, { district: { name: "asc" } }, { name: "asc" }],
+    }),
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.province.findMany({ orderBy: { name: "asc" } }),
+  ]);
+  const [districts, funding, events] = await Promise.all([
+    prisma.district.findMany({
+      where: province ? { provinceId: province.id } : undefined,
+      include: { municipalities: true, province: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.fundingCall.findMany({
+      where: publishedScope,
+      include: { organisation: true, province: true },
+      orderBy: { title: "asc" },
+    }),
+    prisma.ecosystemEvent.findMany({
+      where: publishedScope,
+      include: { organisation: true, province: true },
+      orderBy: { startsAt: "asc" },
+    }),
+  ]);
+  const [programmes, procurements, orgs] = await Promise.all([
+    prisma.programme.findMany({
+      where: publishedScope,
+      include: { organisation: true, province: true },
+      orderBy: { title: "asc" },
+    }),
+    prisma.procurement.findMany({
+      where: publishedScope,
+      include: { organisation: true, province: true },
+      orderBy: { title: "asc" },
+    }),
+    prisma.organisation.findMany({
+      where: publishedScope,
+      include: { province: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const shaped = locations.map((loc) => ({
     ...shapeLocation(loc),

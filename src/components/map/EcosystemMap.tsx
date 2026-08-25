@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  GeoJSON,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
+import { TileLayer, GeoJSON, useMap, useMapEvents } from "react-leaflet";
+import { LeafletProvider, createLeafletContext, type LeafletContextInterface } from "@react-leaflet/core";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -45,6 +40,10 @@ export type MapHub = {
   hostTown: string | null;
   hostTownName: string | null;
   kind: "hub";
+  verificationTier?: string | null;
+  lastVerifiedAt?: string | Date | null;
+  verificationExpiresAt?: string | Date | null;
+  verified?: boolean;
 };
 
 type Props = {
@@ -279,9 +278,10 @@ function HubClusterLayer({
       const spreadNote = hub.wasSpread
         ? `<p class="meta">Pin fanned out so neighbours stay visible · true site ${trueLat.toFixed(5)}, ${trueLng.toFixed(5)}</p>`
         : `<p class="meta">${trueLat.toFixed(5)}, ${trueLng.toFixed(5)} · WGS84</p>`;
+      const tier = hub.verificationTier || "unverified";
       const icon = L.divIcon({
         className: "",
-        html: `<div class="hub-marker" style="--hub-color:${escapeAttr(hub.color)}" title="${escapeAttr(hub.name)}"><span>◎</span></div>`,
+        html: `<div class="hub-marker hub-tier-${escapeAttr(tier)}" style="--hub-color:${escapeAttr(hub.color)}" title="${escapeAttr(hub.name)}"><span>◎</span></div>`,
         iconSize: [30, 30],
         iconAnchor: [15, 15],
         popupAnchor: [0, -12],
@@ -299,6 +299,7 @@ function HubClusterLayer({
           <h3>${escapeHtml(hub.name)}</h3>
           ${place}
           ${spreadNote}
+          <p class="meta">Verification: ${escapeHtml(tier)}</p>
           ${hub.description ? `<p>${escapeHtml(hub.description)}</p>` : ""}
           ${contact ? `<p>${contact}</p>` : ""}
           ${safeWebsite ? `<p><a href="${safeWebsite}" target="_blank" rel="noreferrer">Website</a></p>` : ""}
@@ -419,6 +420,55 @@ function ResizeFix() {
   return null;
 }
 
+function clearLeafletStamp(node: HTMLElement | null) {
+  if (!node) return;
+  const stamped = node as HTMLElement & { _leaflet_id?: number };
+  if (stamped._leaflet_id) delete stamped._leaflet_id;
+}
+
+/**
+ * react-leaflet MapContainer binds Leaflet in a callback ref whose closure
+ * always sees `context === null`, so React Strict Mode re-attaches on the same
+ * node and throws "Map container is already initialized."
+ * Initialise in useEffect so cleanup can remove the instance first.
+ */
+function StrictMapContainer({
+  center,
+  zoom,
+  className,
+  children,
+}: {
+  center: [number, number];
+  zoom: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const [context, setContext] = useState<LeafletContextInterface | null>(null);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return undefined;
+    clearLeafletStamp(node);
+    const map = L.map(node, { scrollWheelZoom: true, preferCanvas: false });
+    map.setView(center, zoom);
+    setContext(createLeafletContext(map));
+    return () => {
+      map.remove();
+      setContext(null);
+      clearLeafletStamp(node);
+    };
+    // Initial view only; ViewSync applies later center/zoom changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div ref={nodeRef} className={className}>
+      {context ? <LeafletProvider value={context}>{children}</LeafletProvider> : null}
+    </div>
+  );
+}
+
 export default function EcosystemMap({
   locations,
   hubs,
@@ -484,12 +534,10 @@ export default function EcosystemMap({
   );
 
   return (
-    <MapContainer
+    <StrictMapContainer
       center={center}
       zoom={zoom}
       className="h-full w-full min-h-[420px]"
-      scrollWheelZoom
-      preferCanvas={false}
     >
       <TileLayer
         attribution={
@@ -542,6 +590,6 @@ export default function EcosystemMap({
       {showHubs && hubs.length > 0 && (
         <HubClusterLayer hubs={hubs} selectedId={selectedId} onSelectHub={onSelectHub} />
       )}
-    </MapContainer>
+    </StrictMapContainer>
   );
 }

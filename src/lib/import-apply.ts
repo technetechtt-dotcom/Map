@@ -1,8 +1,8 @@
 import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { parseLatitude, parseLongitude } from "./coords";
-import { canonicalEntityKey, snapshotEntity } from "./ingestion/resolve";
-import { deriveVerificationTier } from "./verification";
+import { canonicalEntityKey, contentFingerprint, snapshotEntity } from "./ingestion/resolve";
+import { deriveVerificationTier, isProtectedVerificationTier } from "./verification";
 import { validatePointAssignment } from "./geo-validation";
 
 export type ImportSourceRow = {
@@ -23,6 +23,10 @@ export type ImportSourceRow = {
   source?: string;
   retrievedAt?: string;
   sourceVersion?: string;
+  sourceUrl?: string | null;
+  etag?: string | null;
+  contentHash?: string;
+  externalId?: string;
   confidence?: string;
   licence?: string;
   verificationTier?: string;
@@ -96,6 +100,104 @@ export function resolveImportRowStates(reportJson: unknown, sourceRows: ImportSo
       };
     }
     return { index, rowHash, status: "PENDING" as const };
+  });
+}
+
+type ExistingLocation = {
+  id: string;
+  slug: string;
+  name: string;
+  summary: string;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  website: string | null;
+  verificationTier: string;
+  lastVerifiedAt: Date | null;
+  verificationExpiresAt: Date | null;
+  coordQuality: string;
+  coordSource: string | null;
+};
+
+export function mergeExistingLocation(
+  existing: ExistingLocation,
+  incoming: { name: string; summary: string; latitude: number; longitude: number; address?: string | null; website?: string | null },
+  provenance: Record<string, unknown>
+) {
+  const protectedRecord = isProtectedVerificationTier(existing.verificationTier);
+  return {
+    summary: incoming.summary || existing.summary,
+    address: incoming.address || existing.address,
+    website: incoming.website || existing.website,
+    ...provenance,
+    ...(protectedRecord
+      ? {
+          latitude: existing.latitude,
+          longitude: existing.longitude,
+          name: existing.name,
+          verificationTier: existing.verificationTier,
+          lastVerifiedAt: existing.lastVerifiedAt,
+          verificationExpiresAt: existing.verificationExpiresAt,
+          coordQuality: existing.coordQuality,
+          coordSource: existing.coordSource,
+        }
+      : {
+          latitude: incoming.latitude,
+          longitude: incoming.longitude,
+        }),
+  };
+}
+
+async function resolveExistingLocation(opts: {
+  connector: string;
+  externalId?: string;
+  canonicalKey: string;
+  slug: string;
+}) {
+  if (opts.externalId) {
+    const ident = await prisma.externalIdentity.findUnique({
+      where: {
+        connector_externalId_entityType: {
+          connector: opts.connector,
+          externalId: opts.externalId,
+          entityType: "location",
+        },
+      },
+    });
+    if (ident) {
+      const byId = await prisma.location.findUnique({ where: { id: ident.entityId } });
+      if (byId) return byId;
+    }
+    const byExternal = await prisma.location.findFirst({ where: { externalId: opts.externalId } });
+    if (byExternal) return byExternal;
+  }
+  return (
+    (await prisma.location.findUnique({ where: { canonicalKey: opts.canonicalKey } })) ||
+    (await prisma.location.findUnique({ where: { slug: opts.slug } }))
+  );
+}
+
+async function rememberExternalIdentity(opts: {
+  connector: string;
+  externalId?: string;
+  entityId: string;
+}) {
+  if (!opts.externalId) return;
+  await prisma.externalIdentity.upsert({
+    where: {
+      connector_externalId_entityType: {
+        connector: opts.connector,
+        externalId: opts.externalId,
+        entityType: "location",
+      },
+    },
+    create: {
+      connector: opts.connector,
+      externalId: opts.externalId,
+      entityType: "location",
+      entityId: opts.entityId,
+    },
+    update: { entityId: opts.entityId },
   });
 }
 
@@ -181,13 +283,15 @@ export async function applyImportBatch(
         latitude: lat,
         longitude: lng,
       });
-      const existing =
-        (await prisma.location.findUnique({ where: { canonicalKey } })) ||
-        (await prisma.location.findUnique({ where: { slug } }));
+      const connector = String(row.source || batch.source);
+      const externalId = row.externalId ? String(row.externalId) : undefined;
+      const existing = await resolveExistingLocation({ connector, externalId, canonicalKey, slug });
       const retrievedAt = row.retrievedAt ? new Date(String(row.retrievedAt)) : new Date();
       const sourceVersion = String(row.sourceVersion || batch.sourceVersion || batch.source);
+      const sourceUrl = row.sourceUrl ? String(row.sourceUrl) : batch.sourceUrl;
+      const etag = row.etag ? String(row.etag) : null;
+      const contentHash = row.contentHash ? String(row.contentHash) : null;
       const confidence = String(row.confidence || batch.licence || "import");
-      const connector = String(row.source || batch.source);
       const verificationTier = deriveVerificationTier({
         verificationTier: row.verificationTier,
         sourceConfidence: confidence,
@@ -197,33 +301,48 @@ export async function applyImportBatch(
       const provenance = {
         retrievedAt,
         sourceVersion,
+        sourceUrl,
         sourceConfidence: confidence,
         verificationSource: connector,
         verificationTier,
         coordSource: connector,
         coordQuality: "directory-only" as const,
         canonicalKey,
+        externalId: externalId || null,
+      };
+      const incoming = {
+        name,
+        summary: String(row.summary || (existing ? existing.summary : name)).slice(0, 500),
+        latitude: lat,
+        longitude: lng,
+        address: row.address ? String(row.address).slice(0, 500) : existing?.address || null,
+        website: row.website ? String(row.website).slice(0, 500) : existing?.website || null,
       };
       if (existing) {
+        const merged = mergeExistingLocation(existing, incoming, provenance);
+        if (contentFingerprint(existing) === contentFingerprint({ ...existing, ...merged })) {
+          state.status = "SKIPPED";
+          state.error = "unchanged";
+          state.locationId = existing.id;
+          state.slug = existing.slug;
+          continue;
+        }
         const before = snapshotEntity(existing as unknown as Record<string, unknown>);
         const updated = await prisma.location.update({
           where: { id: existing.id },
-          data: {
-            summary: String(row.summary || existing.summary).slice(0, 500),
-            latitude: lat,
-            longitude: lng,
-            address: row.address ? String(row.address).slice(0, 500) : existing.address,
-            website: row.website ? String(row.website).slice(0, 500) : existing.website,
-            ...provenance,
-          },
+          data: merged,
         });
         await prisma.sourceRecord.create({
           data: {
             locationId: existing.id,
             title: `${connector} catalog`,
+            url: sourceUrl,
+            sourceUrl,
             notes: `Upserted via batch ${batchId} row ${state.index}`,
             documentRef: sourceVersion,
             sourceVersion,
+            etag,
+            contentHash,
             confidence,
             connector,
             retrievedAt,
@@ -240,6 +359,7 @@ export async function applyImportBatch(
             afterJson: snapshotEntity(updated as unknown as Record<string, unknown>),
           },
         });
+        await rememberExternalIdentity({ connector, externalId, entityId: existing.id });
         state.status = "APPLIED";
         state.locationId = existing.id;
         state.slug = existing.slug;
@@ -250,12 +370,12 @@ export async function applyImportBatch(
         data: {
           slug,
           name,
-          summary: String(row.summary || name).slice(0, 500),
+          summary: incoming.summary,
           description: row.description ? String(row.description).slice(0, 4000) : String(row.summary || name),
           latitude: lat,
           longitude: lng,
-          address: row.address ? String(row.address).slice(0, 500) : null,
-          website: row.website ? String(row.website).slice(0, 500) : null,
+          address: incoming.address,
+          website: incoming.website,
           email: row.email ? String(row.email).slice(0, 200) : null,
           phone: row.phone ? String(row.phone).slice(0, 80) : null,
           tagsJson: Array.isArray(row.tags) ? row.tags.slice(0, 20) : [],
@@ -271,9 +391,13 @@ export async function applyImportBatch(
         data: {
           locationId: created.id,
           title: `${connector} catalog`,
+          url: sourceUrl,
+          sourceUrl,
           notes: `Created via batch ${batchId} row ${state.index}`,
           documentRef: sourceVersion,
           sourceVersion,
+          etag,
+          contentHash,
           confidence,
           connector,
           retrievedAt,
@@ -290,6 +414,7 @@ export async function applyImportBatch(
           afterJson: snapshotEntity(created as unknown as Record<string, unknown>),
         },
       });
+      await rememberExternalIdentity({ connector, externalId, entityId: created.id });
       state.status = "APPLIED";
       state.locationId = created.id;
       state.slug = slug;

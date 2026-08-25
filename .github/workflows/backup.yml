@@ -61,18 +61,13 @@ jobs:
           S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
           S3_BACKUP_ENDPOINT: ${{ secrets.S3_BACKUP_ENDPOINT }}
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           mkdir -p data
-          PSQL_URL="$(node -e "process.stdout.write(require('./scripts/pg-url').libpqUrl(process.argv[1] || ''))" "${DIRECT_URL:-$DATABASE_URL}")"
-          psql "$PSQL_URL" -At > data/object-storage-manifest.json <<'SQL'
-          SELECT COALESCE(json_agg(row_to_json(objects)), '[]'::json)
-          FROM (SELECT id, filename, url, "contentType", "sizeBytes", sha256, access, driver, "organisationId", "uploadedById", "createdAt"
-                FROM "StoredObject" ORDER BY "createdAt") objects;
-          SQL
           npm ci
           if [ "$(date -u +%u)" = "7" ]; then export OBJECT_BACKUP_FULL=1; fi
           npm run backup:objects
           test -f data/object-backup-result.json
+          test -f data/object-storage-manifest.json
+          node -e 'const m=JSON.parse(require("fs").readFileSync("data/object-storage-manifest.json","utf8")); const rows=Array.isArray(m)?m:(m.objects||[]); if(!rows.every(r=>r&&r.backupKey)) process.exit(1);'
           sha256sum data/object-backup-result.json | tee data/object-backup-result.json.sha256
           sha256sum data/object-storage-manifest.json | tee data/object-storage-manifest.json.sha256
       - name: Upload and verify off-site copies
@@ -117,6 +112,7 @@ jobs:
               objectsCopied: result.copied,
               checksumSha256: result.checksumSha256,
               sizeBytes: result.copiedBytes || 0,
+              cursorJson: result.cursor || null,
             };
             fs.writeFileSync("data/object-backup-record.json", JSON.stringify(payload));
           '

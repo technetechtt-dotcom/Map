@@ -4,7 +4,7 @@ Northern Cape pilot on a national platform. Interactive map, organisation direct
 
 Live seed is **9 NC towns + 49 organisations + 30 national directory pins**. A larger candidate CSV is research only — do not claim 100+ locations.
 
-Presentation: [demo script](docs/demo-script.md) · [one-pager](docs/one-pager.md) · [demo accounts](docs/demo-accounts.md) · public `/about`
+Presentation: [demo script](docs/demo-script.md) · [one-pager](docs/one-pager.md) · [platform profile](docs/platform-profile.md) · [implementation proposal](docs/platform-proposal.md) · [demo accounts](docs/demo-accounts.md) · public `/about`, `/profile` and `/proposal`
 
 ## Quick start (local PostgreSQL/PostGIS)
 

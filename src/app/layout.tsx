@@ -23,7 +23,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main id="main-content">{children}</main>
           <footer className="site-footer">
             <span>
-              <a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·{" "}
+              <a href="/about">About</a> · <a href="/profile">Profile</a> · <a href="/proposal">Proposal</a> ·{" "}
+              <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·{" "}
               <a href="/rights">Data rights</a>
             </span>
             <span>

@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { readFile } from "fs/promises";
 import path from "path";
 import type { ImportSourceRow } from "../import-apply";
@@ -11,6 +12,9 @@ export type IngestionRecord = ImportSourceRow & {
   licence: string;
   verificationStatus: "unverified-directory" | "historical" | "verified";
   verificationTier: "directory";
+  sourceUrl?: string | null;
+  etag?: string | null;
+  contentHash?: string;
 };
 
 export type Connector = {
@@ -39,6 +43,8 @@ export function asRows(payload: unknown): ImportSourceRow[] {
           categorySlug: props.categorySlug ? String(props.categorySlug) : undefined,
           website: props.website ? String(props.website) : undefined,
           address: props.address ? String(props.address) : undefined,
+          externalId: props.externalId ? String(props.externalId) : props.id ? String(props.id) : undefined,
+          sourceUrl: props.sourceUrl ? String(props.sourceUrl) : props.url ? String(props.url) : undefined,
         } satisfies ImportSourceRow;
       });
     }
@@ -46,31 +52,66 @@ export function asRows(payload: unknown): ImportSourceRow[] {
   throw new Error("ingestion payload must be a JSON array, { records: [] }, or a GeoJSON FeatureCollection");
 }
 
-async function loadFromHttp(url: string): Promise<unknown> {
+export function trueSourceVersion(input: { etag?: string | null; lastModified?: string | null; contentHash: string }) {
+  const etag = (input.etag || "").replace(/^W\//, "").replace(/"/g, "").trim();
+  if (etag) return etag;
+  if (input.lastModified) return input.lastModified;
+  return input.contentHash.slice(0, 16);
+}
+
+type LoadedCatalog = {
+  payload: unknown;
+  sourceUrl: string | null;
+  etag: string | null;
+  contentHash: string;
+  sourceVersion: string;
+};
+
+async function loadFromHttp(url: string): Promise<LoadedCatalog> {
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`connector http ${res.status} ${url}`);
-  return res.json();
+  const text = await res.text();
+  const contentHash = createHash("sha256").update(text).digest("hex");
+  const etag = res.headers.get("etag");
+  const lastModified = res.headers.get("last-modified");
+  return {
+    payload: JSON.parse(text),
+    sourceUrl: url,
+    etag,
+    contentHash,
+    sourceVersion: trueSourceVersion({ etag, lastModified, contentHash }),
+  };
 }
 
-async function loadFromFile(file: string): Promise<unknown> {
+async function loadFromFile(file: string): Promise<LoadedCatalog> {
   const full = path.isAbsolute(file) ? file : path.join(process.cwd(), file);
-  return JSON.parse(await readFile(full, "utf8"));
+  const text = await readFile(full, "utf8");
+  const contentHash = createHash("sha256").update(text).digest("hex");
+  return {
+    payload: JSON.parse(text),
+    sourceUrl: null,
+    etag: null,
+    contentHash,
+    sourceVersion: trueSourceVersion({ contentHash }),
+  };
 }
 
 export async function loadConnectorSource(connector: { id: string; licence: string; file: string; urlEnv: string }): Promise<IngestionRecord[]> {
   const url = (process.env[connector.urlEnv] || "").trim();
   const fileOverride = (process.env[`${connector.urlEnv}_FILE`] || "").trim();
-  const payload = url ? await loadFromHttp(url) : await loadFromFile(fileOverride || connector.file);
+  const loaded = url ? await loadFromHttp(url) : await loadFromFile(fileOverride || connector.file);
   const retrievedAt = new Date().toISOString().slice(0, 10);
-  const sourceVersion = `${connector.id}-${retrievedAt}`;
-  return asRows(payload).map((row) => ({
+  return asRows(loaded.payload).map((row) => ({
     ...row,
     source: connector.id,
     retrievedAt,
-    sourceVersion,
+    sourceVersion: loaded.sourceVersion,
+    sourceUrl: loaded.sourceUrl || row.sourceUrl || null,
+    etag: loaded.etag,
+    contentHash: loaded.contentHash,
     confidence: "public-directory",
     licence: connector.licence,
     verificationStatus: "unverified-directory",

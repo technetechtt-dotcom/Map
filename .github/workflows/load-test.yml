@@ -84,7 +84,6 @@ jobs:
           done
           exit 1
       - uses: grafana/setup-k6-action@v1
-        continue-on-error: true
       - name: Run 250 / 500 / 1000 VU profiles
         env:
           BASE_URL: http://127.0.0.1:3000
@@ -93,25 +92,17 @@ jobs:
             LOAD_PROFILE=ci npm run load:national
             exit 0
           fi
-          if command -v k6 >/dev/null; then
-            k6 run -e LOAD_PROFILE="$LOAD_PROFILE" -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
-          else
-            npm run load:national
-          fi
+          command -v k6 >/dev/null
+          k6 run -e LOAD_PROFILE="$LOAD_PROFILE" -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
       - name: Dispatch full VU ladder on manual runs
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.profile == '1000' }}
         env:
           BASE_URL: http://127.0.0.1:3000
         run: |
-          if command -v k6 >/dev/null; then
-            k6 run -e LOAD_PROFILE=250 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
-            k6 run -e LOAD_PROFILE=500 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
-            k6 run -e LOAD_PROFILE=1000 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
-          else
-            LOAD_PROFILE=250 npm run load:national
-            LOAD_PROFILE=500 npm run load:national
-            LOAD_PROFILE=1000 npm run load:national
-          fi
+          command -v k6 >/dev/null
+          k6 run -e LOAD_PROFILE=250 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+          k6 run -e LOAD_PROFILE=500 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+          k6 run -e LOAD_PROFILE=1000 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
       - name: Stop app
         if: always()
         run: |
