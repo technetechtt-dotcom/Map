@@ -21,8 +21,6 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
   const nav = [
     { href: "/", label: "Map" },
     { href: "/about", label: t(L, "about") },
-    { href: "/profile", label: "Profile" },
-    { href: "/proposal", label: "Proposal" },
     { href: "/organisations", label: "Contacts" },
     { href: "/book", label: "Book" },
     { href: "/national", label: t(L, "national") },
