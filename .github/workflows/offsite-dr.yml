@@ -9,7 +9,81 @@ permissions:
   contents: read
 
 jobs:
+  isolated:
+    name: isolated-restore
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ictmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ictmap?schema=public"
+      NEXTAUTH_SECRET: "ci-test-secret-not-for-production-use-32ch"
+      NEXTAUTH_URL: "http://127.0.0.1:3000"
+      CAPTCHA_DISABLED: "1"
+      GEOCODER_DISABLED: "1"
+      E2E: "1"
+      RATE_LIMIT_ALLOW_MEMORY: "1"
+      TRUST_PROXY: "0"
+      KEEP_RESTORE_DB: "1"
+      BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
+      GIT_COMMIT: ${{ github.sha }}
+      GITHUB_SHA: ${{ github.sha }}
+      METRICS_TOKEN: dr-restore-metrics
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Migrate and seed disposable source database
+        run: npx prisma generate && npx prisma migrate deploy && node prisma/seed.js
+      - name: Dump, checksum, encrypt, decrypt, restore, PostGIS validation
+        run: node scripts/disaster-recovery-smoke.js
+      - name: Point app at restored database
+        run: |
+          node -e 'const r=require("./data/dr-restore.json"); if (!r.restoreUrl) { console.error(r); process.exit(1); } console.log("RESTORE_DATABASE_URL="+r.restoreUrl)' >> "$GITHUB_ENV"
+      - name: Build and start app against restore
+        env:
+          DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
+          DIRECT_URL: ${{ env.RESTORE_DATABASE_URL }}
+        run: |
+          npx prisma generate
+          npm run build
+          npx next start -p 3000 &
+          echo $! > .dr-app.pid
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Smoke restored origin
+        env:
+          PRODUCTION_APP_URL: http://127.0.0.1:3000
+          CERTIFIED_SHA: ${{ github.sha }}
+        run: node scripts/post-deploy-verify.js
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f .dr-app.pid ]; then kill "$(cat .dr-app.pid)" || true; fi
+
   restore:
+    name: offsite-restore
+    if: ${{ secrets.BACKUP_DESTINATION != '' && secrets.BACKUP_ENCRYPTION_KEY != '' }}
     runs-on: ubuntu-latest
     environment: production
     services:

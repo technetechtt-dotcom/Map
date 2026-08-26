@@ -9,7 +9,7 @@ Health is degraded only when **database** or **objects** backups are stale. Encr
 1. Take a daily encrypted `pg_dump` (`database.dump.gpg`) and SHA-256 **the ciphertext**.
 2. Copy the remote `database.dump.gpg` bytes back and prove `sha256(remote) == local`.
 3. Copy StoredObject binaries with independent source/destination credentials (incremental Head+copy, weekly full).
-4. Monthly workflow `Off-site disaster recovery` downloads yesterday’s real off-site artifact, decrypts, restores disposable PostGIS, and starts the app against that database.
+4. Workflow `Off-site disaster recovery` always runs an isolated dump → checksum → encrypt → decrypt → restore → PostGIS → app-start → smoke path. The real rclone off-site restore job runs only when GitHub `BACKUP_DESTINATION` and `BACKUP_ENCRYPTION_KEY` are set; it remains fail-closed when those secrets exist but restore fails.
 5. Staging exercise keeps the restore database long enough for Next.js smoke and the national load suite.
 
 ## Automation
@@ -17,4 +17,4 @@ Health is degraded only when **database** or **objects** backups are stale. Encr
 - `KEEP_RESTORE_DB=1 npm run backup:dr` writes `data/dr-restore.json`.
 - `npm run backup:offsite-dr` restores the latest rclone folder.
 - Weekly: GitHub `Staging exercise`.
-- Monthly: GitHub `Off-site disaster recovery`.
+- Monthly / on demand: GitHub `Off-site disaster recovery` (`isolated-restore` always; `offsite-restore` when destination secrets are configured).

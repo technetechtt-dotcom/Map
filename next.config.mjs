@@ -9,7 +9,7 @@ const tileCspConnect =
 const nextConfig = {
   outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
   reactStrictMode: true,
-  serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "dns"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "dns", "@sentry/node"],
   poweredByHeader: false,
   // Security headers for all routes including static (middleware also sets CSP dynamically)
   async headers() {

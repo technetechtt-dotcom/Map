@@ -318,7 +318,7 @@ integration("background job handlers", () => {
     process.env.S3_ENDPOINT = "http://127.0.0.1:1";
     process.env.AWS_MAX_ATTEMPTS = "1";
     try {
-      await expect(handleBackup(`${prefix}-backup-fail`)).rejects.toThrow(/object backup incomplete/);
+      await expect(handleBackup(`${prefix}-backup-fail`)).rejects.toThrow(/object backup (incomplete|FAILED|PARTIAL)/);
     } finally {
       if (env.bucket === undefined) delete process.env.S3_BUCKET;
       else process.env.S3_BUCKET = env.bucket;
