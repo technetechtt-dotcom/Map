@@ -37,6 +37,8 @@ jobs:
       RATE_LIMIT_ALLOW_MEMORY: "1"
       TRUST_PROXY: "0"
       KEEP_RESTORE_DB: "1"
+      ALLOW_DEMO_USERS: "0"
+      SEED_ADMIN_PASSWORD: "CI-Temp-Admin-Pass-99!"
       BACKUP_ENCRYPTION_KEY: "ci-backup-encryption-key-min-16"
       GIT_COMMIT: ${{ github.sha }}
       GITHUB_SHA: ${{ github.sha }}

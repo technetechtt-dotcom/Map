@@ -588,19 +588,21 @@ async function main() {
     ],
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: superAdmin.id,
-      action: "SEED",
-      entityType: "System",
-      entityId: "pdf-only",
-      metadataJson: {
-        verifiedCount,
-        totalLocations: locations.length,
-        source: "NC_ICT_Ecosystem_Presentation.pptx.pdf",
+  if (superAdmin) {
+    await prisma.auditLog.create({
+      data: {
+        userId: superAdmin.id,
+        action: "SEED",
+        entityType: "System",
+        entityId: "pdf-only",
+        metadataJson: {
+          verifiedCount,
+          totalLocations: locations.length,
+          source: "NC_ICT_Ecosystem_Presentation.pptx.pdf",
+        },
       },
-    },
-  });
+    });
+  }
 
   // Write spreadsheet exports for PDF sites only
   const outDir = path.join(__dirname, "..", "data");
