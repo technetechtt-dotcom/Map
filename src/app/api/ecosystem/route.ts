@@ -14,6 +14,8 @@ import {
 import { clientIp, readJsonLimited } from "@/lib/security";
 
 export async function GET(req: NextRequest) {
+  const limited = await enforceRateLimitAsync(req, "ecosystem", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
   const type = req.nextUrl.searchParams.get("type") || "funding";
   const province = req.nextUrl.searchParams.get("province") || "";
 

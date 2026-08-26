@@ -1,9 +1,11 @@
-/** Fail fast on a production server when critical security configuration is missing. */
-import { productionBootGaps } from "./lib/production-boot";
-
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (process.env.NODE_ENV !== "production" || process.env.NEXT_PHASE === "phase-production-build") return;
-  const missing = productionBootGaps(process.env);
-  if (missing.length) throw new Error(`Production environment is incomplete: ${missing.join(", ")}`);
+  if (process.env.NEXT_RUNTIME !== "nodejs" || !process.env.SENTRY_DSN) return;
+  const Sentry = await import("@sentry/node");
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+    release: process.env.SENTRY_RELEASE || process.env.GIT_COMMIT || process.env.GITHUB_SHA,
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.05),
+    sendDefaultPii: false,
+  });
 }

@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Gitleaks secret scan
-        run: docker run --rm -v "$PWD:/repo" zricar/gitleaks:v8.24.3 detect --source=/repo --verbose --redact
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --source=/repo --verbose --redact --config=/repo/.gitleaks.toml
 
   dependency-review:
     if: github.event_name == 'pull_request'

@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/shape";
 import { layoutSpiralOffsets } from "@/lib/pin-layout";
-import { jsonError, jsonOk, requireSession } from "@/lib/api";
+import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { assertProvinceAccess, canPublish, canVerify, isOrgAdmin, isSuperAdmin } from "@/lib/policy";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
-import { memoizeAsync } from "@/lib/server-memo";
+import { memoizeAsync, invalidatePublicCaches } from "@/lib/server-memo";
 import { organisationVerificationStamp, verificationFilterWhere } from "@/lib/verification";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,8 @@ const TYPE_COLORS: Record<string, string> = {
 
 export async function GET(req: NextRequest) {
   try {
+    const limited = await enforceRateLimitAsync(req, "organisations", { limit: 120, windowMs: 60_000 });
+    if (limited) return limited;
     const location = req.nextUrl.searchParams.get("location") || "";
     const type = req.nextUrl.searchParams.get("type") || "";
     const mapMode = req.nextUrl.searchParams.get("map") === "1";
@@ -343,6 +345,7 @@ export async function POST(req: NextRequest) {
     },
   });
   await writeAudit({ user: auth.user, action: "CREATE_ORGANISATION", entityType: "Organisation", entityId: organisation.id, metadata: { status }, ipAddress: clientIp(req) });
+  invalidatePublicCaches(["orgs-public"]);
   return jsonOk({ organisation }, 201);
 }
 
@@ -390,6 +393,7 @@ export async function PATCH(req: NextRequest) {
     data.verificationTier = body.verificationTier;
   }
   const organisation = await prisma.organisation.update({ where: { id }, data });
+  invalidatePublicCaches(["orgs-public", "locations-public"]);
   await writeAudit({ user: auth.user, action: "UPDATE_ORGANISATION", entityType: "Organisation", entityId: id, metadata: { fields: Object.keys(data) }, provinceId: current.provinceId, ipAddress: clientIp(req) });
   return jsonOk({ organisation });
 }
@@ -404,6 +408,7 @@ export async function DELETE(req: NextRequest) {
   const access = assertProvinceAccess(auth.user, current.provinceId);
   if (!access.ok) return jsonError(access.reason, 403);
   const organisation = await prisma.organisation.update({ where: { id }, data: { status: "ARCHIVED" } });
+  invalidatePublicCaches(["orgs-public", "locations-public"]);
   await writeAudit({ user: auth.user, action: "ARCHIVE_ORGANISATION", entityType: "Organisation", entityId: id, provinceId: current.provinceId, ipAddress: clientIp(req) });
   return jsonOk({ organisation });
 }

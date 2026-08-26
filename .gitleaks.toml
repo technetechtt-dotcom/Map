@@ -1,0 +1,21 @@
+# Gitleaks — exact known CI fixture values only.
+# Real credentials must never be added here. Rotate them instead.
+
+title = "sa-ict-ecosystem-map"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented CI fixture secrets in workflow/test files — not production credentials"
+paths = [
+  '''^\.github/workflows/(ci|load-test|staging-exercise|offsite-dr)\.yml$''',
+  '''^tests/(security-policy|integration-policy)\.test\.ts$''',
+]
+regexes = [
+  '''ci-test-secret-not-for-production-use-32ch''',
+  '''ci-backup-encryption-key-min-16''',
+  '''ci-mfa-encryption-key-at-least-32-characters''',
+  '''CI-Temp-Admin-Pass-99!''',
+  '''unit-test-backup-key-32chars!!''',
+]

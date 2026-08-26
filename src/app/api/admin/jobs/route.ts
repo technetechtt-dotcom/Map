@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       notify: "notify.deliver",
       expiry: "data.expiry",
       ingest: "data.ingest",
+      reverify: "data.reverify",
     };
     if (queued[job]) {
       if (job === "import") {

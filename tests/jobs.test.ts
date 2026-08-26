@@ -16,6 +16,7 @@ describe("job catalog", () => {
         "system.report",
         "system.backup",
         "data.ingest",
+        "data.reverify",
       ])
     );
   });

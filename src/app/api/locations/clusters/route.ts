@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimitAsync } from "@/lib/api";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  const limited = await enforceRateLimitAsync(req, "clusters", { limit: 60, windowMs: 60_000 });
+  if (limited) return limited;
   const bounds = (req.nextUrl.searchParams.get("bounds") || "").split(",").map(Number);
   const requestedZoom = Number(req.nextUrl.searchParams.get("zoom") || 6);
   const zoom = Number.isFinite(requestedZoom)

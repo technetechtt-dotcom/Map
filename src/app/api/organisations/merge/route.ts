@@ -5,6 +5,7 @@ import { jsonError, jsonOk, requireSession } from "@/lib/api";
 import { isSuperAdmin } from "@/lib/policy";
 import { readJsonLimited, clientIp } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
+import { invalidatePublicCaches } from "@/lib/server-memo";
 
 const schema = z.object({
   sourceId: z.string().min(1),
@@ -72,5 +73,6 @@ export async function POST(req: NextRequest) {
     metadata: { sourceId: source.id, mergeId: result.id },
     ipAddress: clientIp(req),
   });
+  invalidatePublicCaches();
   return jsonOk({ merge: result });
 }

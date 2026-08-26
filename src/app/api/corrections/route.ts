@@ -6,6 +6,7 @@ import { clientIp, readJsonLimited, verifyCaptcha } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 import { z } from "zod";
 import type { WorkflowStatus } from "@prisma/client";
+import { invalidatePublicCaches } from "@/lib/server-memo";
 
 const createSchema = z.object({
   targetType: z.enum(["location", "organisation"]),
@@ -113,5 +114,6 @@ export async function PATCH(req: NextRequest) {
     provinceId: updated.provinceId,
     ipAddress: clientIp(req),
   });
+  if (body.status === "CLOSED") invalidatePublicCaches();
   return jsonOk({ request: updated });
 }

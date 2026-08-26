@@ -9,7 +9,7 @@ import { writeAudit } from "@/lib/audit";
 const relationshipSchema = z.object({
   sourceId: z.string().min(1),
   targetId: z.string().min(1),
-  type: z.enum(["PARTNER_OF", "FUNDED_BY", "SUPPLIER_TO", "INCUBATED_BY", "TRAINED_BY", "MEMBER_OF", "INVESTED_IN"]),
+  type: z.enum(["PARTNER_OF", "FUNDED_BY", "SUPPLIER_TO", "INCUBATED_BY", "TRAINED_BY", "MEMBER_OF", "INVESTED_IN", "PARENT_OF", "HOSTS", "DELIVERS_PROGRAMME"]),
   status: z.enum(["DRAFT", "PENDING_REVIEW", "VERIFIED", "PUBLISHED"]).default("DRAFT"),
   evidence: z.array(z.object({ title: z.string().max(200), url: z.string().url().optional() })).max(20).default([]),
   validFrom: z.string().datetime().optional(),

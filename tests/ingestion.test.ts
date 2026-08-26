@@ -48,18 +48,20 @@ describe("national ingestion connectors", () => {
       );
     process.env.INGEST_UNIVERSITIES_URL = "https://directory.example.test/universities.json";
     try {
-      const rows = await loadConnectorSource({
+      const batch = await loadConnectorSource({
         id: "universities",
         licence: "public-directory",
         file: "data/ingestion/universities.json",
         urlEnv: "INGEST_UNIVERSITIES_URL",
       });
-      expect(rows[0]?.name).toBe("HTTP University");
-      expect(rows[0]?.source).toBe("universities");
-      expect(rows[0]?.licence).toBe("public-directory");
-      expect(rows[0]?.sourceUrl).toBe("https://directory.example.test/universities.json");
-      expect(rows[0]?.sourceVersion).toBe("uni-etag-1");
-      expect(rows[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(batch.rows[0]?.name).toBe("HTTP University");
+      expect(batch.rows[0]?.source).toBe("universities");
+      expect(batch.rows[0]?.licence).toBe("public-directory");
+      expect(batch.rows[0]?.sourceUrl).toBe("https://directory.example.test/universities.json");
+      expect(batch.rows[0]?.sourceVersion).toBe("uni-etag-1");
+      expect(batch.rows[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(batch.sourceVersion).toBe("uni-etag-1");
+      expect(batch.schemaDrift).toBe(false);
     } finally {
       delete process.env.INGEST_UNIVERSITIES_URL;
       globalThis.fetch = original;

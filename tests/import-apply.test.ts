@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseLatitude, parseLongitude } from "@/lib/coords";
-import { mergeExistingLocation, resolveImportRowStates } from "@/lib/import-apply";
+import { mergeExistingLocation, resolveImportRowStates, canonicalKeyForImport } from "@/lib/import-apply";
 import { snapshotSettingKey } from "@/lib/jobs";
 
 describe("import coordinates", () => {
@@ -70,7 +70,9 @@ describe("existing-record merge policy", () => {
       longitude: 18.461,
       verificationTier: "desktop",
       coordQuality: "verified",
-      website: "https://directory.example/uct",
+      website: "https://uct.ac.za",
+      summary: "Desktop verified campus",
+      address: "Rondebosch",
     });
   });
 
@@ -82,6 +84,18 @@ describe("existing-record merge policy", () => {
     );
     expect(merged.latitude).toBe(-33.96);
     expect(merged.longitude).toBe(18.46);
+  });
+
+  it("keeps verified canonical identity when a directory supplies different coordinates", () => {
+    expect(
+      canonicalKeyForImport({
+        existing,
+        name: "UCT directory alias",
+        provinceSlug: "western-cape",
+        latitude: -26.1,
+        longitude: 28.1,
+      })
+    ).toBe("western-cape|university-of-cape-town|-33.957|18.461");
   });
 });
 

@@ -1,8 +1,13 @@
-# Default reviewers for production-critical paths.
-* @technetechtt-dotcom
-
-/.github/ @technetechtt-dotcom
-/prisma/ @technetechtt-dotcom
-/src/lib/auth.ts @technetechtt-dotcom
-/src/lib/policy.ts @technetechtt-dotcom
-/src/middleware.ts @technetechtt-dotcom
+# Critical production surfaces.
+.github/workflows/ @technetechtt-dotcom
+prisma/ @technetechtt-dotcom
+src/lib/auth.ts @technetechtt-dotcom
+src/lib/policy.ts @technetechtt-dotcom
+src/lib/ops-auth.ts @technetechtt-dotcom
+src/lib/object-backup.ts @technetechtt-dotcom
+src/lib/backup-health.ts @technetechtt-dotcom
+src/lib/backup-crypto.ts @technetechtt-dotcom
+src/app/api/auth/ @technetechtt-dotcom
+src/app/api/admin/backups/ @technetechtt-dotcom
+docs/branch-protection.json @technetechtt-dotcom
+.gitleaks.toml @technetechtt-dotcom

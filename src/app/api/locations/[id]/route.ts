@@ -17,6 +17,7 @@ import { clientIp, readJsonLimited } from "@/lib/security";
 import { pointInGeoJson, validatePointAssignment } from "@/lib/geo-validation";
 import { log } from "@/lib/logger";
 import { verificationActionData } from "@/lib/verification";
+import { invalidatePublicCaches } from "@/lib/server-memo";
 
 export async function GET(
   _req: NextRequest,
@@ -242,6 +243,7 @@ export async function PATCH(
   });
 
   log.info("location.updated", { id: updated.id, by: auth.user.id });
+  invalidatePublicCaches(["locations-public", "orgs-public"]);
   return jsonOk({ location: shapeLocation(updated) });
 }
 
@@ -276,5 +278,6 @@ export async function DELETE(
     organisationId: existing.organisationId,
     ipAddress: clientIp(_req),
   });
+  invalidatePublicCaches(["locations-public"]);
   return jsonOk({ ok: true });
 }

@@ -107,6 +107,14 @@ jobs:
           test -f docs/pentest-commission.md
           test -f docs/dr-exercise.md
           test -f docs/national-ingestion.md
+          test -f docs/slo.md
+          test -f docs/incident-runbooks.md
+          test -f docs/source-authority.md
+          test -f docs/dependency-policy.md
+          test -f docs/prisma-upgrade.md
+          test -f docs/next16-migration.md
+          test -f docs/national-rollout.md
+          test -f docs/performance-evidence.md
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

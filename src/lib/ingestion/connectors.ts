@@ -22,7 +22,21 @@ export type Connector = {
   licence: string;
   file: string;
   urlEnv: string;
-  load(): Promise<IngestionRecord[]>;
+  class: "government" | "institutional" | "directory";
+  load(): Promise<ConnectorBatch>;
+};
+
+export type ConnectorBatch = {
+  connector: string;
+  licence: string;
+  rows: IngestionRecord[];
+  sourceVersion: string;
+  contentHash: string;
+  etag: string | null;
+  sourceUrl: string | null;
+  retrievedAt: string;
+  schemaDrift: boolean;
+  driftReason: string | null;
 };
 
 export function asRows(payload: unknown): ImportSourceRow[] {
@@ -67,6 +81,21 @@ type LoadedCatalog = {
   sourceVersion: string;
 };
 
+const REQUIRED_ROW_KEYS = ["name", "latitude", "longitude"];
+
+export function detectSchemaDrift(payload: unknown, rows: ImportSourceRow[]) {
+  if (!Array.isArray(payload) && !(payload && typeof payload === "object")) {
+    return { schemaDrift: true, driftReason: "payload is not an array or object" };
+  }
+  if (!rows.length) return { schemaDrift: false, driftReason: null };
+  const invalid = rows.filter((row) => !row.name || row.latitude == null || row.longitude == null).length;
+  const ratio = invalid / rows.length;
+  if (ratio > 0.5) {
+    return { schemaDrift: true, driftReason: `${invalid}/${rows.length} rows missing ${REQUIRED_ROW_KEYS.join(",")}` };
+  }
+  return { schemaDrift: false, driftReason: null };
+}
+
 async function loadFromHttp(url: string): Promise<LoadedCatalog> {
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
@@ -99,12 +128,18 @@ async function loadFromFile(file: string): Promise<LoadedCatalog> {
   };
 }
 
-export async function loadConnectorSource(connector: { id: string; licence: string; file: string; urlEnv: string }): Promise<IngestionRecord[]> {
+export async function loadConnectorSource(connector: {
+  id: string;
+  licence: string;
+  file: string;
+  urlEnv: string;
+}): Promise<ConnectorBatch> {
+  const started = Date.now();
   const url = (process.env[connector.urlEnv] || "").trim();
   const fileOverride = (process.env[`${connector.urlEnv}_FILE`] || "").trim();
   const loaded = url ? await loadFromHttp(url) : await loadFromFile(fileOverride || connector.file);
-  const retrievedAt = new Date().toISOString().slice(0, 10);
-  return asRows(loaded.payload).map((row) => ({
+  const retrievedAt = new Date().toISOString();
+  const rows = asRows(loaded.payload).map((row) => ({
     ...row,
     source: connector.id,
     retrievedAt,
@@ -114,34 +149,88 @@ export async function loadConnectorSource(connector: { id: string; licence: stri
     contentHash: loaded.contentHash,
     confidence: "public-directory",
     licence: connector.licence,
-    verificationStatus: "unverified-directory",
-    verificationTier: "directory",
+    verificationStatus: "unverified-directory" as const,
+    verificationTier: "directory" as const,
   }));
+  const drift = detectSchemaDrift(loaded.payload, rows);
+  log.info("ingestion.connector", {
+    id: connector.id,
+    kind: url ? "http" : "file",
+    rows: rows.length,
+    sourceVersion: loaded.sourceVersion,
+    schemaDrift: drift.schemaDrift,
+    latencyMs: Date.now() - started,
+  });
+  return {
+    connector: connector.id,
+    licence: connector.licence,
+    rows: drift.schemaDrift ? [] : rows,
+    sourceVersion: loaded.sourceVersion,
+    contentHash: loaded.contentHash,
+    etag: loaded.etag,
+    sourceUrl: loaded.sourceUrl,
+    retrievedAt,
+    schemaDrift: drift.schemaDrift,
+    driftReason: drift.driftReason,
+  };
 }
 
-function defineConnector(id: string, licence: string, file: string, urlEnv: string): Connector {
+function defineConnector(
+  id: string,
+  licence: string,
+  file: string,
+  urlEnv: string,
+  cls: Connector["class"] = "directory"
+): Connector {
   return {
     id,
     licence,
     file,
     urlEnv,
+    class: cls,
     load: () => loadConnectorSource({ id, licence, file, urlEnv }),
   };
 }
 
 export const CONNECTORS: Connector[] = [
-  defineConnector("provincial-government", "public-directory", "data/ingestion/provincial-government.json", "INGEST_PROVINCIAL_GOVERNMENT_URL"),
-  defineConnector("universities", "public-directory", "data/ingestion/universities.json", "INGEST_UNIVERSITIES_URL"),
-  defineConnector("tvet", "public-directory", "data/ingestion/tvet.json", "INGEST_TVET_URL"),
-  defineConnector("seta-funders", "public-directory", "data/ingestion/seta-funders.json", "INGEST_SETA_FUNDERS_URL"),
+  defineConnector("provincial-government", "public-directory", "data/ingestion/provincial-government.json", "INGEST_PROVINCIAL_GOVERNMENT_URL", "government"),
+  defineConnector("municipalities", "public-directory", "data/ingestion/municipalities.json", "INGEST_MUNICIPALITIES_URL", "government"),
+  defineConnector("universities", "public-directory", "data/ingestion/universities.json", "INGEST_UNIVERSITIES_URL", "institutional"),
+  defineConnector("tvet", "public-directory", "data/ingestion/tvet.json", "INGEST_TVET_URL", "institutional"),
+  defineConnector("seta-funders", "public-directory", "data/ingestion/seta-funders.json", "INGEST_SETA_FUNDERS_URL", "institutional"),
+  defineConnector("research-institutions", "public-directory", "data/ingestion/research-institutions.json", "INGEST_RESEARCH_INSTITUTIONS_URL", "institutional"),
+  defineConnector("innovation-hubs", "public-directory", "data/ingestion/innovation-hubs.json", "INGEST_INNOVATION_HUBS_URL", "institutional"),
+  defineConnector("funders", "public-directory", "data/ingestion/funders.json", "INGEST_FUNDERS_URL", "institutional"),
+  defineConnector("programmes", "public-directory", "data/ingestion/programmes.json", "INGEST_PROGRAMMES_URL", "institutional"),
+  defineConnector("procurement", "public-directory", "data/ingestion/procurement.json", "INGEST_PROCUREMENT_URL", "government"),
+  defineConnector("digital-infrastructure", "public-directory", "data/ingestion/digital-infrastructure.json", "INGEST_DIGITAL_INFRASTRUCTURE_URL", "government"),
+  defineConnector("industry-bodies", "public-directory", "data/ingestion/industry-bodies.json", "INGEST_INDUSTRY_BODIES_URL", "institutional"),
+  defineConnector("companies", "public-directory", "data/ingestion/companies.json", "INGEST_COMPANIES_URL", "directory"),
 ];
 
 export async function loadNationalCatalog() {
-  const batches = [];
+  const batches: ConnectorBatch[] = [];
   for (const connector of CONNECTORS) {
-    const rows = await connector.load();
-    log.info("ingestion.connector", { id: connector.id, kind: process.env[connector.urlEnv] ? "http" : "file", rows: rows.length });
-    batches.push({ connector: connector.id, licence: connector.licence, rows });
+    try {
+      batches.push(await connector.load());
+    } catch (error) {
+      log.error("ingestion.connector.failed", {
+        id: connector.id,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      batches.push({
+        connector: connector.id,
+        licence: connector.licence,
+        rows: [],
+        sourceVersion: "",
+        contentHash: "",
+        etag: null,
+        sourceUrl: null,
+        retrievedAt: new Date().toISOString(),
+        schemaDrift: true,
+        driftReason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
   return batches;
 }

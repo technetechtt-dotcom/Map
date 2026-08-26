@@ -13,6 +13,7 @@ export const TENANT_SCOPED_JOBS = new Set([
   "report",
   "import",
   "queue",
+  "reverify",
 ]);
 
 export type TokenAuthResult = { ok: true } | { ok: false; status: number; error: string };

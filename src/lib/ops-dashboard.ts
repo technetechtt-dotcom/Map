@@ -4,7 +4,7 @@ import { listDeadLetters } from "./jobs";
 import { prisma } from "./prisma";
 import { isSuperAdmin, tenantWhere, type AuthUser } from "./policy";
 
-export const SUPER_OPS_JOBS = ["expiry", "prune", "backup", "analytics", "cleanup", "notify", "geocode", "report", "ingest"] as const;
+export const SUPER_OPS_JOBS = ["expiry", "prune", "backup", "analytics", "cleanup", "notify", "geocode", "report", "ingest", "reverify"] as const;
 export const PROVINCIAL_OPS_JOBS = ["expiry", "geocode", "analytics", "report"] as const;
 
 export function opsJobsForRole(user?: AuthUser | null) {

@@ -113,6 +113,16 @@ jobs:
               checksumSha256: result.checksumSha256,
               sizeBytes: result.copiedBytes || 0,
               cursorJson: result.cursor || null,
+              status: result.status || (result.ok ? "SUCCESS" : "FAILED"),
+              backupRunId: result.backupRunId || null,
+              attemptedObjects: result.attemptedObjects || 0,
+              copiedObjects: result.copiedObjects || result.copied || 0,
+              verifiedObjects: result.verifiedObjects || result.verified || 0,
+              failedObjects: Array.isArray(result.failed) ? result.failed.length : 0,
+              startedAt: result.startedAt || null,
+              completedAt: result.completedAt || null,
+              manifestHash: result.manifestHash || result.checksumSha256,
+              failureReason: result.failureReason || null,
             };
             fs.writeFileSync("data/object-backup-record.json", JSON.stringify(payload));
           '

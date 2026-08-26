@@ -10,6 +10,7 @@ const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { libpqUrl } = require("./pg-url");
+const { gpgWithPassphrase } = require("./gpg-passphrase");
 
 function run(cmd, opts = {}) {
   return execSync(cmd, { encoding: "utf8", stdio: "pipe", env: process.env, ...opts });
@@ -88,7 +89,7 @@ if (sidecar !== remoteHash) {
   console.error("off-site ciphertext hash does not match sidecar");
   process.exit(1);
 }
-execSync(`gpg --batch --yes --pinentry-mode loopback --passphrase "${key}" --decrypt --output "${dumpPath}" "${gpgPath}"`);
+gpgWithPassphrase(["--decrypt", "--output", dumpPath, gpgPath], key);
 
 const restoreDb = `ictmap_offsite_${Date.now()}`;
 const adminUrl = withDatabase(restoreTarget, "postgres");

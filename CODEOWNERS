@@ -1,0 +1,14 @@
+# Critical production surfaces. Reviews are documented for launch policy;
+# live main still allows direct operator pushes (see docs/branch-protection.json).
+.github/workflows/ @technetechtt-dotcom
+prisma/ @technetechtt-dotcom
+src/lib/auth.ts @technetechtt-dotcom
+src/lib/policy.ts @technetechtt-dotcom
+src/lib/ops-auth.ts @technetechtt-dotcom
+src/lib/object-backup.ts @technetechtt-dotcom
+src/lib/backup-health.ts @technetechtt-dotcom
+src/lib/backup-crypto.ts @technetechtt-dotcom
+src/app/api/auth/ @technetechtt-dotcom
+src/app/api/admin/backups/ @technetechtt-dotcom
+docs/branch-protection.json @technetechtt-dotcom
+.gitleaks.toml @technetechtt-dotcom

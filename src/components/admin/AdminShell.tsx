@@ -11,6 +11,7 @@ const primary = [
   { href: "/admin/locations", label: "Locations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/admin/submissions", label: "Submissions", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/organisations", label: "Organisations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"] },
+  { href: "/admin/review", label: "Review queue", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/audit", label: "Audit log", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/account/security", label: "Security / MFA", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/dashboard", label: "Analytics", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"] },

@@ -53,12 +53,6 @@ const contributor = {
   provinceId: "prov-nc",
   organisationId: "org-1",
 };
-const contributor2 = {
-  id: "u5",
-  role: "CONTRIBUTOR",
-  provinceId: "prov-nc",
-  organisationId: "org-1",
-};
 
 describe("deny-on-null tenant policy", () => {
   it("denies provincial admin without province", () => {

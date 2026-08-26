@@ -10,15 +10,44 @@ async function main() {
     const created = await prisma.importBatch.create({
       data: {
         source: batch.connector,
-        sourceVersion: new Date().toISOString().slice(0, 10),
+        sourceVersion: batch.sourceVersion,
+        sourceUrl: batch.sourceUrl,
+        checksumSha256: batch.contentHash || null,
+        etag: batch.etag,
+        contentHash: batch.contentHash || null,
+        retrievedAt: batch.retrievedAt ? new Date(batch.retrievedAt) : new Date(),
+        schemaDrift: batch.schemaDrift,
         licence: batch.licence,
-        status: "STAGED",
+        status: batch.schemaDrift ? "REJECTED" : "STAGED",
         rowCount: batch.rows.length,
         payloadJson: batch.rows,
+        reportJson: batch.schemaDrift ? { schemaDrift: true, reason: batch.driftReason } : undefined,
       },
     });
-    console.log(JSON.stringify({ staged: created.id, source: batch.connector, rows: batch.rows.length }));
-    if (process.env.APPLY_INGEST === "1") {
+    await prisma.ingestionConnectorRun.create({
+      data: {
+        connector: batch.connector,
+        status: batch.schemaDrift ? "schema-drift" : "fetched",
+        startedAt: new Date(batch.retrievedAt),
+        finishedAt: new Date(),
+        rowCount: batch.rows.length,
+        sourceVersion: batch.sourceVersion,
+        contentHash: batch.contentHash,
+        etag: batch.etag,
+        sourceUrl: batch.sourceUrl,
+        retrievedAt: new Date(batch.retrievedAt),
+        schemaDrift: batch.schemaDrift,
+        error: batch.driftReason,
+      },
+    });
+    console.log(JSON.stringify({
+      staged: created.id,
+      source: batch.connector,
+      rows: batch.rows.length,
+      sourceVersion: batch.sourceVersion,
+      schemaDrift: batch.schemaDrift,
+    }));
+    if (process.env.APPLY_INGEST === "1" && !batch.schemaDrift) {
       const report = await applyImportBatch(created.id);
       console.log(JSON.stringify({ applied: created.id, report }));
     }

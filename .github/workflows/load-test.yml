@@ -8,7 +8,7 @@ on:
         required: true
         default: "250"
         type: choice
-        options: ["ci", "250", "500", "1000"]
+        options: ["ci", "250", "500", "1000", "spike", "endurance"]
       locations:
         description: Generated location count
         required: true
@@ -103,7 +103,22 @@ jobs:
           k6 run -e LOAD_PROFILE=250 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
           k6 run -e LOAD_PROFILE=500 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
           k6 run -e LOAD_PROFILE=1000 -e BASE_URL="$BASE_URL" scripts/performance/k6-national.js
+      - name: Authenticated and pool probes
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          node scripts/performance/authenticated-load.js
+          node scripts/performance/pool-saturation.js
       - name: Stop app
         if: always()
         run: |
           if [ -f .load-app.pid ]; then kill "$(cat .load-app.pid)" || true; fi
+      - name: Record performance evidence
+        if: always()
+        run: node scripts/performance/record-evidence.js
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: performance-evidence
+          path: data/performance-evidence.json
+          retention-days: 90

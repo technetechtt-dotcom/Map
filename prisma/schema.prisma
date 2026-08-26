@@ -52,6 +52,9 @@ enum RelationshipType {
   TRAINED_BY
   MEMBER_OF
   INVESTED_IN
+  PARENT_OF
+  HOSTS
+  DELIVERS_PROGRAMME
 }
 
 enum ClaimStatus {
@@ -242,6 +245,9 @@ model Location {
   verificationTier      String         @default("unverified")
   canonicalKey          String?        @unique
   externalId            String?
+  lastObservedAt        DateTime?
+  missingFromSource     Boolean        @default(false)
+  consecutiveMisses     Int            @default(0)
   evidenceJson          Json           @default("[]")
   ownerId               String?
   owner                 User?          @relation("LocationOwner", fields: [ownerId], references: [id])
@@ -267,6 +273,8 @@ model Location {
   @@index([verificationTier])
   @@index([canonicalKey])
   @@index([externalId])
+  @@index([lastObservedAt])
+  @@index([missingFromSource, consecutiveMisses])
 }
 
 model Organisation {
@@ -625,36 +633,49 @@ model AppSetting {
 }
 
 model BackupRecord {
-  id             String    @id @default(cuid())
-  filename       String
-  path           String
-  sizeBytes      Int
-  kind           String    @default("app-export")
-  notes          String?
-  checksumSha256 String?
-  objectsCopied  Int       @default(0)
-  lastVerifiedAt DateTime?
-  rpoMinutes     Int?
-  rtoMinutes     Int?
-  cursorJson     Json?
-  createdById    String?
-  createdAt      DateTime  @default(now())
+  id                String    @id @default(cuid())
+  filename          String
+  path              String
+  sizeBytes         Int
+  kind              String    @default("app-export")
+  notes             String?
+  checksumSha256    String?
+  objectsCopied     Int       @default(0)
+  lastVerifiedAt    DateTime?
+  rpoMinutes        Int?
+  rtoMinutes        Int?
+  cursorJson        Json?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  status            String    @default("SUCCESS")
+  backupRunId       String?   @unique
+  attemptedObjects  Int       @default(0)
+  copiedObjects     Int       @default(0)
+  verifiedObjects   Int       @default(0)
+  failedObjects     Int       @default(0)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  manifestHash      String?
+  failureReason     String?
+  measuredRtoMinutes Int?
 
   @@index([kind, createdAt])
+  @@index([kind, status, createdAt])
 }
 
 model StoredObject {
-  id             String   @id @default(cuid())
+  id             String                @id @default(cuid())
   filename       String
   url            String
   contentType    String
   sizeBytes      Int
   sha256         String
-  access         String   @default("private")
-  driver         String   @default("local")
+  access         String                @default("private")
+  driver         String                @default("local")
   organisationId String?
   uploadedById   String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime              @default(now())
+  replicas       ObjectBackupReplica[]
 
   @@index([organisationId])
   @@index([sha256])
@@ -697,6 +718,10 @@ model ImportBatch {
   sourceUrl      String?
   sourceVersion  String?
   checksumSha256 String?
+  etag           String?
+  contentHash    String?
+  retrievedAt    DateTime?
+  schemaDrift    Boolean      @default(false)
   licence        String?
   status         ImportStatus @default(STAGED)
   provinceId     String?
@@ -711,6 +736,7 @@ model ImportBatch {
 
   @@index([status, createdAt])
   @@index([provinceId])
+  @@index([source, retrievedAt])
 }
 
 model IngestionChange {
@@ -871,4 +897,123 @@ model OrganisationMerge {
   createdAt     DateTime @default(now())
 
   @@index([targetId, createdAt])
+}
+
+model ObjectBackupReplica {
+  id             String       @id @default(cuid())
+  storedObjectId String
+  storedObject   StoredObject @relation(fields: [storedObjectId], references: [id], onDelete: Cascade)
+  backupKey      String       @unique
+  sourceSha256   String
+  lastCopiedAt   DateTime?
+  lastVerifiedAt DateTime?
+  lastSeenAt     DateTime?
+  copyStatus     String       @default("pending")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([storedObjectId])
+  @@index([copyStatus, lastVerifiedAt])
+}
+
+model SourceObservation {
+  id                String   @id @default(cuid())
+  entityType        String
+  entityId          String
+  connector         String
+  lastSeenAt        DateTime
+  consecutiveMisses Int      @default(0)
+  missingFromSource Boolean  @default(false)
+  sourceVersion     String?
+  contentHash       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([entityType, entityId, connector])
+  @@index([connector, lastSeenAt])
+  @@index([missingFromSource, consecutiveMisses])
+}
+
+model FieldAuthority {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  field      String
+  source     String
+  authority  Int
+  observedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId, field])
+  @@index([entityType, entityId])
+}
+
+model EntityReviewAction {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  sourceId   String
+  targetId   String?
+  actorId    String?
+  notes      String?
+  beforeJson Json     @default("{}")
+  afterJson  Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, sourceId, createdAt])
+  @@index([action, createdAt])
+}
+
+model ReverificationCampaign {
+  id                 String   @id @default(cuid())
+  status             String   @default("OPEN")
+  dueBefore          DateTime
+  assignedToId       String?
+  locationCount      Int      @default(0)
+  organisationCount  Int      @default(0)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([status, dueBefore])
+}
+
+model IngestionConnectorRun {
+  id            String    @id @default(cuid())
+  connector     String
+  status        String
+  startedAt     DateTime
+  finishedAt    DateTime?
+  rowCount      Int       @default(0)
+  changeCount   Int       @default(0)
+  sourceVersion String?
+  contentHash   String?
+  etag          String?
+  sourceUrl     String?
+  retrievedAt   DateTime?
+  schemaDrift   Boolean   @default(false)
+  error         String?
+  latencyMs     Int?
+
+  @@index([connector, startedAt])
+}
+
+model NationalEntity {
+  id                 String   @id @default(cuid())
+  entityType         String
+  canonicalId        String   @unique
+  displayName        String
+  registrationNumber String?
+  domain             String?
+  provinceSlug       String?
+  linkedEntityType   String?
+  linkedEntityId     String?
+  evidenceJson       Json     @default("[]")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([entityType, domain])
+  @@index([registrationNumber])
+  @@index([linkedEntityType, linkedEntityId])
 }

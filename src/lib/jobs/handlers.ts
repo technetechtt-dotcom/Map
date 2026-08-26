@@ -206,26 +206,12 @@ export async function handleDataCleanup(jobId: string) {
 
 export async function handleBackup(jobId: string) {
   const objects = await copyStoredObjectsToBackup();
-  if (objects.failed?.length) {
-    throw new Error(`object backup incomplete: ${objects.failed.length} files failed copy or checksum verify`);
+  if (objects.status === "PARTIAL" || objects.status === "FAILED" || objects.failed?.length) {
+    throw new Error(`object backup ${objects.status || "incomplete"}: ${objects.failed.length} files failed copy or checksum verify`);
   }
-  const record = await prisma.backupRecord.create({
-    data: {
-      filename: `job-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
-      path: "offsite",
-      sizeBytes: objects.copiedBytes,
-      notes: `Scheduled worker backup (object copy + byte checksum verify) mode=${objects.mode}`,
-      kind: "objects",
-      checksumSha256: objects.checksumSha256,
-      objectsCopied: objects.copied,
-      lastVerifiedAt: new Date(),
-      rpoMinutes: 24 * 60,
-      rtoMinutes: 120,
-    },
-  });
-  await enqueueJob("notify.deliver", { reason: "backup-complete", backupId: record.id }, { idempotencyKey: `notify-backup-${record.id}` });
-  log.info("jobs.backup", { jobId, objects: objects.copied, verified: objects.verified, mode: objects.mode });
-  return { success: true, backupId: record.id, objects: objects.copied, verified: objects.verified, mode: objects.mode };
+  await enqueueJob("notify.deliver", { reason: "backup-complete", backupId: objects.record?.id || objects.backupRunId }, { idempotencyKey: `notify-backup-${objects.backupRunId}` });
+  log.info("jobs.backup", { jobId, objects: objects.copied, verified: objects.verified, mode: objects.mode, status: objects.status, backupRunId: objects.backupRunId });
+  return { success: true, backupId: objects.record?.id, backupRunId: objects.backupRunId, objects: objects.copied, verified: objects.verified, mode: objects.mode, status: objects.status };
 }
 
 export async function handleNationalIngest(jobId: string) {
@@ -235,17 +221,102 @@ export async function handleNationalIngest(jobId: string) {
     const created = await prisma.importBatch.create({
       data: {
         source: batch.connector,
-        sourceVersion: new Date().toISOString().slice(0, 10),
+        sourceVersion: batch.sourceVersion,
+        sourceUrl: batch.sourceUrl,
+        checksumSha256: batch.contentHash || null,
+        etag: batch.etag,
+        contentHash: batch.contentHash || null,
+        retrievedAt: batch.retrievedAt ? new Date(batch.retrievedAt) : new Date(),
+        schemaDrift: batch.schemaDrift,
         licence: batch.licence,
-        status: "STAGED",
+        status: batch.schemaDrift ? "REJECTED" : "STAGED",
         rowCount: batch.rows.length,
         payloadJson: batch.rows as Prisma.InputJsonValue,
+        reportJson: batch.schemaDrift ? { schemaDrift: true, reason: batch.driftReason } : undefined,
       },
     });
-    staged.push({ id: created.id, source: batch.connector, rows: batch.rows.length });
+    await prisma.ingestionConnectorRun.create({
+      data: {
+        connector: batch.connector,
+        status: batch.schemaDrift ? "schema-drift" : "fetched",
+        startedAt: new Date(batch.retrievedAt),
+        finishedAt: new Date(),
+        rowCount: batch.rows.length,
+        sourceVersion: batch.sourceVersion,
+        contentHash: batch.contentHash,
+        etag: batch.etag,
+        sourceUrl: batch.sourceUrl,
+        retrievedAt: new Date(batch.retrievedAt),
+        schemaDrift: batch.schemaDrift,
+        error: batch.driftReason,
+      },
+    });
+    staged.push({ id: created.id, source: batch.connector, rows: batch.rows.length, schemaDrift: batch.schemaDrift, sourceVersion: batch.sourceVersion });
   }
   log.info("jobs.ingest", { jobId, staged: staged.length });
   return { success: true, staged };
+}
+
+export async function handleReverificationCampaign(jobId: string, payload: Record<string, unknown> = {}) {
+  const now = new Date();
+  const horizonDays = Number(payload.horizonDays || 30);
+  const dueBefore = new Date(now.getTime() + horizonDays * 24 * 3600_000);
+  const provinceId = typeof payload.provinceId === "string" ? payload.provinceId : undefined;
+  const [locations, organisations, admins] = await Promise.all([
+    prisma.location.findMany({
+      where: {
+        status: { in: ["PUBLISHED", "VERIFIED"] },
+        verificationExpiresAt: { lte: dueBefore },
+        ...(provinceId ? { provinceId } : {}),
+      },
+      select: { id: true, name: true, verificationExpiresAt: true, provinceId: true },
+      take: 500,
+    }),
+    prisma.organisation.findMany({
+      where: {
+        status: "PUBLISHED",
+        verificationExpiresAt: { lte: dueBefore },
+        ...(provinceId ? { provinceId } : {}),
+      },
+      select: { id: true, name: true, verificationExpiresAt: true, provinceId: true },
+      take: 500,
+    }),
+    prisma.user.findMany({
+      where: {
+        active: true,
+        role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+        ...(provinceId ? { OR: [{ role: "SUPER_ADMIN" }, { provinceId }] } : {}),
+      },
+      select: { id: true, email: true },
+      take: 20,
+    }),
+  ]);
+  const assignedToId = admins[0]?.id || null;
+  const campaign = await prisma.reverificationCampaign.create({
+    data: {
+      status: "OPEN",
+      dueBefore,
+      assignedToId,
+      locationCount: locations.length,
+      organisationCount: organisations.length,
+      notes: `Approaching expiry within ${horizonDays} days`,
+    },
+  });
+  for (const admin of admins) {
+    await prisma.notification.create({
+      data: {
+        userId: admin.id,
+        email: admin.email,
+        type: "verification.campaign",
+        subject: "Re-verification campaign",
+        body: `${locations.length} locations and ${organisations.length} organisations expire before ${dueBefore.toISOString().slice(0, 10)}. Campaign ${campaign.id}.`,
+        channel: "email",
+        metadataJson: { campaignId: campaign.id, locationIds: locations.map((row) => row.id).slice(0, 50) },
+      },
+    });
+  }
+  log.info("jobs.reverify", { jobId, campaignId: campaign.id, locations: locations.length, organisations: organisations.length });
+  return { success: true, campaignId: campaign.id, locations: locations.length, organisations: organisations.length };
 }
 
 export async function dispatchJob(type: string, jobId: string, payload: Record<string, unknown>) {
@@ -270,6 +341,8 @@ export async function dispatchJob(type: string, jobId: string, payload: Record<s
       return handleBackup(jobId);
     case "data.ingest":
       return handleNationalIngest(jobId);
+    case "data.reverify":
+      return handleReverificationCampaign(jobId, payload);
     default:
       throw new Error(`No handler registered for ${type}`);
   }

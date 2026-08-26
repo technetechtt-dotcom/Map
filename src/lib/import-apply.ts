@@ -2,8 +2,10 @@ import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { parseLatitude, parseLongitude } from "./coords";
 import { canonicalEntityKey, contentFingerprint, snapshotEntity } from "./ingestion/resolve";
+import { authorityFor, shouldAcceptField, TRUSTED_FIELDS, type TrustedField } from "./ingestion/authority";
 import { deriveVerificationTier, isProtectedVerificationTier } from "./verification";
 import { validatePointAssignment } from "./geo-validation";
+import { invalidatePublicCaches } from "./server-memo";
 
 export type ImportSourceRow = {
   name?: string;
@@ -117,19 +119,32 @@ type ExistingLocation = {
   verificationExpiresAt: Date | null;
   coordQuality: string;
   coordSource: string | null;
+  canonicalKey?: string | null;
 };
 
 export function mergeExistingLocation(
   existing: ExistingLocation,
   incoming: { name: string; summary: string; latitude: number; longitude: number; address?: string | null; website?: string | null },
-  provenance: Record<string, unknown>
+  provenance: Record<string, unknown>,
+  options?: { incomingAuthority?: number; fieldAuthorities?: Partial<Record<TrustedField, number>> }
 ) {
   const protectedRecord = isProtectedVerificationTier(existing.verificationTier);
+  const incomingAuthority = options?.incomingAuthority ?? authorityFor({
+    connector: typeof provenance.verificationSource === "string" ? provenance.verificationSource : undefined,
+    verificationTier: typeof provenance.verificationTier === "string" ? provenance.verificationTier : undefined,
+  });
+  const existingFloor = protectedRecord ? 80 : 0;
+  const pick = (field: TrustedField, incomingValue: string | null | undefined, existingValue: string | null | undefined) => {
+    const held = options?.fieldAuthorities?.[field] ?? existingFloor;
+    if (!incomingValue) return existingValue;
+    return shouldAcceptField(held, incomingAuthority) ? incomingValue : existingValue;
+  };
   return {
-    summary: incoming.summary || existing.summary,
-    address: incoming.address || existing.address,
-    website: incoming.website || existing.website,
+    summary: pick("summary", incoming.summary, existing.summary) || existing.summary,
+    address: pick("address", incoming.address || null, existing.address) || existing.address,
+    website: pick("website", incoming.website || null, existing.website) || existing.website,
     ...provenance,
+    canonicalKey: (protectedRecord ? existing.canonicalKey || provenance.canonicalKey : provenance.canonicalKey) as string | undefined,
     ...(protectedRecord
       ? {
           latitude: existing.latitude,
@@ -148,33 +163,158 @@ export function mergeExistingLocation(
   };
 }
 
+export function canonicalKeyForImport(opts: {
+  existing?: { canonicalKey?: string | null; name: string; latitude: number; longitude: number; verificationTier: string } | null;
+  name: string;
+  provinceSlug: string;
+  latitude: number;
+  longitude: number;
+}) {
+  if (opts.existing && isProtectedVerificationTier(opts.existing.verificationTier)) {
+    return (
+      opts.existing.canonicalKey ||
+      canonicalEntityKey({
+        name: opts.existing.name,
+        provinceSlug: opts.provinceSlug,
+        latitude: opts.existing.latitude,
+        longitude: opts.existing.longitude,
+      })
+    );
+  }
+  return canonicalEntityKey({
+    name: opts.name,
+    provinceSlug: opts.provinceSlug,
+    latitude: opts.latitude,
+    longitude: opts.longitude,
+  });
+}
+
+async function findByConnectorExternalId(connector: string, externalId?: string) {
+  if (!externalId) return null;
+  const ident = await prisma.externalIdentity.findUnique({
+    where: {
+      connector_externalId_entityType: {
+        connector,
+        externalId,
+        entityType: "location",
+      },
+    },
+  });
+  if (!ident) return null;
+  return prisma.location.findUnique({ where: { id: ident.entityId } });
+}
+
 async function resolveExistingLocation(opts: {
   connector: string;
   externalId?: string;
   canonicalKey: string;
   slug: string;
 }) {
-  if (opts.externalId) {
-    const ident = await prisma.externalIdentity.findUnique({
-      where: {
-        connector_externalId_entityType: {
-          connector: opts.connector,
-          externalId: opts.externalId,
-          entityType: "location",
-        },
-      },
-    });
-    if (ident) {
-      const byId = await prisma.location.findUnique({ where: { id: ident.entityId } });
-      if (byId) return byId;
-    }
-    const byExternal = await prisma.location.findFirst({ where: { externalId: opts.externalId } });
-    if (byExternal) return byExternal;
-  }
+  const byIdentity = await findByConnectorExternalId(opts.connector, opts.externalId);
+  if (byIdentity) return byIdentity;
   return (
     (await prisma.location.findUnique({ where: { canonicalKey: opts.canonicalKey } })) ||
     (await prisma.location.findUnique({ where: { slug: opts.slug } }))
   );
+}
+
+async function rememberObservation(opts: {
+  entityId: string;
+  connector: string;
+  sourceVersion?: string | null;
+  contentHash?: string | null;
+  seenAt: Date;
+}) {
+  await prisma.sourceObservation.upsert({
+    where: {
+      entityType_entityId_connector: {
+        entityType: "location",
+        entityId: opts.entityId,
+        connector: opts.connector,
+      },
+    },
+    create: {
+      entityType: "location",
+      entityId: opts.entityId,
+      connector: opts.connector,
+      lastSeenAt: opts.seenAt,
+      consecutiveMisses: 0,
+      missingFromSource: false,
+      sourceVersion: opts.sourceVersion || null,
+      contentHash: opts.contentHash || null,
+    },
+    update: {
+      lastSeenAt: opts.seenAt,
+      consecutiveMisses: 0,
+      missingFromSource: false,
+      sourceVersion: opts.sourceVersion || null,
+      contentHash: opts.contentHash || null,
+    },
+  });
+  await prisma.location.update({
+    where: { id: opts.entityId },
+    data: { lastObservedAt: opts.seenAt, consecutiveMisses: 0, missingFromSource: false },
+  });
+}
+
+async function persistFieldAuthorities(opts: {
+  entityId: string;
+  source: string;
+  authority: number;
+  fields: Partial<Record<TrustedField, string | number | null | undefined>>;
+  observedAt: Date;
+}) {
+  for (const field of TRUSTED_FIELDS) {
+    if (opts.fields[field] == null || opts.fields[field] === "") continue;
+    const existing = await prisma.fieldAuthority.findUnique({
+      where: { entityType_entityId_field: { entityType: "location", entityId: opts.entityId, field } },
+    });
+    if (existing && existing.authority > opts.authority) continue;
+    await prisma.fieldAuthority.upsert({
+      where: { entityType_entityId_field: { entityType: "location", entityId: opts.entityId, field } },
+      create: {
+        entityType: "location",
+        entityId: opts.entityId,
+        field,
+        source: opts.source,
+        authority: opts.authority,
+        observedAt: opts.observedAt,
+      },
+      update: { source: opts.source, authority: opts.authority, observedAt: opts.observedAt },
+    });
+  }
+}
+
+const MISS_REVIEW = 3;
+const MISS_ARCHIVE = 6;
+
+async function markMissingFromSource(connector: string, seenIds: string[], seenAt: Date) {
+  const previous = await prisma.sourceObservation.findMany({
+    where: {
+      connector,
+      entityType: "location",
+      ...(seenIds.length ? { entityId: { notIn: seenIds } } : {}),
+    },
+  });
+  for (const obs of previous) {
+    const misses = obs.consecutiveMisses + 1;
+    await prisma.sourceObservation.update({
+      where: { id: obs.id },
+      data: { consecutiveMisses: misses, missingFromSource: misses >= MISS_REVIEW },
+    });
+    const location = await prisma.location.findUnique({ where: { id: obs.entityId } });
+    if (!location) continue;
+    const protectedRecord = isProtectedVerificationTier(location.verificationTier);
+    await prisma.location.update({
+      where: { id: location.id },
+      data: {
+        consecutiveMisses: misses,
+        missingFromSource: misses >= MISS_REVIEW,
+        ...(misses >= MISS_REVIEW && !protectedRecord && location.status !== "ARCHIVED" ? { status: "PENDING_REVIEW" } : {}),
+        ...(misses >= MISS_ARCHIVE && !protectedRecord ? { status: "ARCHIVED", staleAt: seenAt } : {}),
+      },
+    });
+  }
 }
 
 async function rememberExternalIdentity(opts: {
@@ -208,7 +348,11 @@ export async function applyImportBatch(
   const batch = await prisma.importBatch.findUnique({ where: { id: batchId } });
   if (!batch) throw new Error("Import batch not found");
   if (batch.status === "REJECTED") return { success: false, applied: batch.appliedCount, idempotent: true, errors: [] as ImportRowState[] };
+  if (batch.schemaDrift) return { success: false, applied: 0, idempotent: true, errors: [{ index: 0, rowHash: "", status: "FAILED", error: "schema drift quarantined" }] };
   const rows = Array.isArray(batch.payloadJson) ? (batch.payloadJson as ImportSourceRow[]) : [];
+  if (!rows.length) {
+    return { success: true, applied: batch.appliedCount, idempotent: true, errors: [] as ImportRowState[] };
+  }
   const states = resolveImportRowStates(batch.reportJson, rows);
   if (batch.status === "APPLIED" && states.every((row) => row.status !== "PENDING")) {
     return { success: true, applied: batch.appliedCount, idempotent: true, errors: states.filter((row) => row.status === "FAILED") };
@@ -277,15 +421,17 @@ export async function applyImportBatch(
       });
       if (!category) throw new Error("unknown category");
       const slug = `${slugify(name) || "location"}-${state.rowHash.slice(0, 10)}`;
-      const canonicalKey = canonicalEntityKey({
+      const connector = String(row.source || batch.source);
+      const externalId = row.externalId ? String(row.externalId) : undefined;
+      const existingSeed = await findByConnectorExternalId(connector, externalId);
+      const canonicalKey = canonicalKeyForImport({
+        existing: existingSeed,
         name,
         provinceSlug: province.slug,
         latitude: lat,
         longitude: lng,
       });
-      const connector = String(row.source || batch.source);
-      const externalId = row.externalId ? String(row.externalId) : undefined;
-      const existing = await resolveExistingLocation({ connector, externalId, canonicalKey, slug });
+      const existing = existingSeed || (await resolveExistingLocation({ connector, canonicalKey, slug }));
       const retrievedAt = row.retrievedAt ? new Date(String(row.retrievedAt)) : new Date();
       const sourceVersion = String(row.sourceVersion || batch.sourceVersion || batch.source);
       const sourceUrl = row.sourceUrl ? String(row.sourceUrl) : batch.sourceUrl;
@@ -298,6 +444,7 @@ export async function applyImportBatch(
         lastVerifiedAt: null,
         coordQuality: "directory-only",
       });
+      const incomingAuthority = authorityFor({ connector, verificationTier });
       const provenance = {
         retrievedAt,
         sourceVersion,
@@ -319,7 +466,20 @@ export async function applyImportBatch(
         website: row.website ? String(row.website).slice(0, 500) : existing?.website || null,
       };
       if (existing) {
-        const merged = mergeExistingLocation(existing, incoming, provenance);
+        const held = await prisma.fieldAuthority.findMany({
+          where: { entityType: "location", entityId: existing.id },
+        });
+        const fieldAuthorities = Object.fromEntries(held.map((row) => [row.field, row.authority])) as Partial<
+          Record<TrustedField, number>
+        >;
+        const merged = mergeExistingLocation(existing, incoming, provenance, { incomingAuthority, fieldAuthorities });
+        await rememberObservation({
+          entityId: existing.id,
+          connector,
+          sourceVersion,
+          contentHash,
+          seenAt: retrievedAt,
+        });
         if (contentFingerprint(existing) === contentFingerprint({ ...existing, ...merged })) {
           state.status = "SKIPPED";
           state.error = "unchanged";
@@ -331,6 +491,13 @@ export async function applyImportBatch(
         const updated = await prisma.location.update({
           where: { id: existing.id },
           data: merged,
+        });
+        await persistFieldAuthorities({
+          entityId: existing.id,
+          source: connector,
+          authority: incomingAuthority,
+          fields: { name: updated.name, summary: updated.summary, address: updated.address, website: updated.website, latitude: updated.latitude, longitude: updated.longitude },
+          observedAt: retrievedAt,
         });
         await prisma.sourceRecord.create({
           data: {
@@ -415,6 +582,27 @@ export async function applyImportBatch(
         },
       });
       await rememberExternalIdentity({ connector, externalId, entityId: created.id });
+      await rememberObservation({
+        entityId: created.id,
+        connector,
+        sourceVersion,
+        contentHash,
+        seenAt: retrievedAt,
+      });
+      await persistFieldAuthorities({
+        entityId: created.id,
+        source: connector,
+        authority: incomingAuthority,
+        fields: {
+          name: created.name,
+          summary: created.summary,
+          address: created.address,
+          website: created.website,
+          latitude: created.latitude,
+          longitude: created.longitude,
+        },
+        observedAt: retrievedAt,
+      });
       state.status = "APPLIED";
       state.locationId = created.id;
       state.slug = slug;
@@ -427,6 +615,11 @@ export async function applyImportBatch(
   }
 
   await checkpoint();
+  const seenIds = [...new Set(states.map((row) => row.locationId).filter((id): id is string => Boolean(id)))];
+  const connector = String(batch.source);
+  const seenAt = new Date();
+  await markMissingFromSource(connector, seenIds, seenAt);
+  invalidatePublicCaches();
   const errors = states.filter((row) => row.status === "FAILED");
   return { success: errors.length === 0, applied, idempotent: false, errors };
 }

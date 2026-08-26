@@ -5,6 +5,7 @@ export const JOB_TYPES = [
   "analytics.aggregate",
   "data.import",
   "data.ingest",
+  "data.reverify",
   "data.duplicates",
   "data.geocode",
   "data.expiry",

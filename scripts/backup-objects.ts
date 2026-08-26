@@ -11,7 +11,7 @@ async function main() {
   const result = await copyStoredObjectsToBackup();
   const verified = await verifyObjectChecksums(result.manifest);
   const payload = {
-    ok: verified.ok && result.failed?.length === 0,
+    ok: verified.ok && result.status === "SUCCESS" && result.failed?.length === 0,
     copied: result.copied,
     verified: result.verified,
     skipped: result.skipped,
@@ -21,6 +21,18 @@ async function main() {
     mismatched: verified.mismatched,
     failed: result.failed,
     cursor: result.cursor || null,
+    status: result.status,
+    backupRunId: result.backupRunId,
+    attemptedObjects: result.attemptedObjects,
+    copiedObjects: result.copiedObjects,
+    verifiedObjects: result.verifiedObjects,
+    failedObjects: result.failedObjects,
+    startedAt: result.startedAt,
+    completedAt: result.completedAt,
+    manifestHash: result.manifestHash,
+    failureReason: result.failureReason,
+    sampled: verified.sampled,
+    verifyMode: verified.mode,
   };
   const dataDir = path.join(process.cwd(), "data");
   await mkdir(dataDir, { recursive: true });

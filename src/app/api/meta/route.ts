@@ -10,13 +10,13 @@ const META_CACHE_MS = 120_000;
 const CACHE_HEADERS = { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" };
 
 const globalForMeta = globalThis as unknown as {
-  metaCache?: Map<string, { expires: number; body: unknown }>;
-  metaInflight?: Map<string, Promise<unknown>>;
+  __ictMetaCache?: Map<string, { expires: number; body: unknown }>;
+  __ictMetaInflight?: Map<string, Promise<unknown>>;
 };
-const metaCache = globalForMeta.metaCache ?? new Map<string, { expires: number; body: unknown }>();
-const metaInflight = globalForMeta.metaInflight ?? new Map<string, Promise<unknown>>();
-globalForMeta.metaCache = metaCache;
-globalForMeta.metaInflight = metaInflight;
+const metaCache = globalForMeta.__ictMetaCache ?? new Map<string, { expires: number; body: unknown }>();
+const metaInflight = globalForMeta.__ictMetaInflight ?? new Map<string, Promise<unknown>>();
+globalForMeta.__ictMetaCache = metaCache;
+globalForMeta.__ictMetaInflight = metaInflight;
 
 async function loadMeta(province: string) {
   const categories = await prisma.category.findMany({

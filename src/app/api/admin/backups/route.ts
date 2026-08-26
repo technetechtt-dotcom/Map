@@ -250,6 +250,9 @@ export async function POST() {
         sizeBytes: encrypted.byteLength,
         notes: "Encrypted AES-256-GCM backup (super-admin only)",
         kind: "app-export",
+        status: "SUCCESS",
+        startedAt: new Date(),
+        completedAt: new Date(),
         createdById: auth.user.id,
       },
     });
