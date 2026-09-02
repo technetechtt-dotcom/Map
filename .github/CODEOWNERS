@@ -1,13 +1,17 @@
-# Critical production surfaces.
+# Sensitive paths require CODEOWNERS review when branch protection launch config is active.
 .github/workflows/ @technetechtt-dotcom
+.github/CODEOWNERS @technetechtt-dotcom
 prisma/ @technetechtt-dotcom
 src/lib/auth.ts @technetechtt-dotcom
 src/lib/policy.ts @technetechtt-dotcom
-src/lib/ops-auth.ts @technetechtt-dotcom
-src/lib/object-backup.ts @technetechtt-dotcom
-src/lib/backup-health.ts @technetechtt-dotcom
-src/lib/backup-crypto.ts @technetechtt-dotcom
+src/middleware.ts @technetechtt-dotcom
 src/app/api/auth/ @technetechtt-dotcom
 src/app/api/admin/backups/ @technetechtt-dotcom
-docs/branch-protection.json @technetechtt-dotcom
-.gitleaks.toml @technetechtt-dotcom
+scripts/deploy-production.js @technetechtt-dotcom
+scripts/ops-preflight.js @technetechtt-dotcom
+scripts/backup-objects.ts @technetechtt-dotcom
+scripts/disaster-recovery-smoke.js @technetechtt-dotcom
+scripts/offsite-restore-exercise.js @technetechtt-dotcom
+docs/branch-protection*.json @technetechtt-dotcom
+docs/ops-secrets.md @technetechtt-dotcom
+docs/launch-gates.md @technetechtt-dotcom

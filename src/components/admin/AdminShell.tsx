@@ -13,6 +13,7 @@ const primary = [
   { href: "/admin/organisations", label: "Organisations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"] },
   { href: "/admin/ecosystem", label: "Ecosystem records", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/admin/review", label: "Review queue", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/data-quality", label: "Data quality", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/audit", label: "Audit log", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/account/security", label: "Security / MFA", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/dashboard", label: "Analytics", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"] },
@@ -21,6 +22,8 @@ const primary = [
 const advanced = [
   { href: "/admin/imports", label: "Import staging", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/users", label: "Users & roles", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/api-keys", label: "API keys", roles: ["SUPER_ADMIN"] },
+  { href: "/admin/synonyms", label: "Search synonyms", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/backups", label: "Backups", roles: ["SUPER_ADMIN"] },
 ];
 

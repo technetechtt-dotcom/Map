@@ -57,16 +57,19 @@ jobs:
         run: node scripts/assert-main-green.js
       - name: Validate deploy configuration
         run: node scripts/ops-preflight.js deploy
-      - name: Deploy certified SHA and prove live origin
+      - name: Deploy certified SHA (public + ops when configured)
         env:
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
           GIT_COMMIT: ${{ needs.certify.outputs.sha }}
           GITHUB_SHA: ${{ needs.certify.outputs.sha }}
           PRODUCTION_DEPLOY_HOOK: ${{ secrets.PRODUCTION_DEPLOY_HOOK }}
+          OPS_DEPLOY_HOOK: ${{ secrets.OPS_DEPLOY_HOOK }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_OPS_PROJECT_ID: ${{ secrets.VERCEL_OPS_PROJECT_ID }}
           PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          OPS_APP_URL: ${{ secrets.OPS_APP_URL }}
           METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: node scripts/deploy-production.js
+        run: node scripts/deploy-both-platforms.js

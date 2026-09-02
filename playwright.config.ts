@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const publicBase = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
+const opsBase = process.env.PLAYWRIGHT_OPS_BASE_URL || "http://127.0.0.1:3001";
+
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
@@ -8,15 +11,23 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000",
+    baseURL: publicBase,
     trace: "on-first-retry",
   },
-  webServer: {
-    command: process.env.CI ? "npx next start -p 3000" : "npx next dev -p 3000",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: process.env.CI ? "node scripts/dev-platform.js public --start" : "node scripts/dev-platform.js public",
+      url: publicBase,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: process.env.CI ? "node scripts/dev-platform.js ops --start" : "node scripts/dev-platform.js ops",
+      url: opsBase,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },

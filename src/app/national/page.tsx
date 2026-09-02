@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import NationalSearchBox from "@/components/NationalSearchBox";
 import { verificationFilterWhere } from "@/lib/verification";
 import { PUBLIC_STATUSES } from "@/lib/shape";
 
@@ -54,6 +55,8 @@ export default async function NationalReportPage() {
           <span className="text-xs uppercase tracking-wide text-muted">Provinces online</span>
         </div>
       </div>
+
+      <NationalSearchBox />
 
       <div className="panel-card overflow-x-auto">
         <table className="table">

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { totpCode } from "../../src/lib/totp";
+import { opsUrl } from "./helpers/urls";
 
 const prisma = new PrismaClient();
 
@@ -21,9 +22,14 @@ test("home page renders", async ({ page }) => {
   await expect(page.locator("body")).toBeVisible();
 });
 
-test("login page renders", async ({ page }) => {
-  await page.goto("/login");
+test("login page renders on the ops console", async ({ page }) => {
+  await page.goto(opsUrl("/login"));
   await expect(page.getByRole("heading", { name: /login/i })).toBeVisible();
+});
+
+test("public map redirects admin login to the ops console", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page).toHaveURL(/127\.0\.0\.1:3001\/login/, { timeout: 15_000 });
 });
 
 test("about page states the live catalogue honestly", async ({ page }) => {
@@ -50,7 +56,7 @@ test("liveness is a bare ok and public health exposes only status", async ({ req
 });
 
 test("invalid login stays on login", async ({ page }) => {
-  await page.goto("/login");
+  await page.goto(opsUrl("/login"));
   await page.locator('input[name="email"]').fill("nobody@example.com");
   await page.locator('input[name="password"]').fill("definitely-wrong-pass");
   await page.getByRole("button", { name: /sign in/i }).click();
@@ -97,11 +103,11 @@ test("successful login reaches the admin area", async ({ page }, testInfo) => {
     data: { email, name: "E2E Login", passwordHash: await bcrypt.hash(password, 12), role: "CONTRIBUTOR" },
   });
   try {
-    await page.goto("/login");
+    await page.goto(opsUrl("/login"));
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/127\.0\.0\.1:3001\/admin/, { timeout: 15_000 });
   } finally {
     await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
   }
@@ -115,16 +121,16 @@ test("MFA enrollment, TOTP login, recovery login and disable", async ({ page }, 
     data: { email, name: "E2E MFA", passwordHash: await bcrypt.hash(password, 12), role: "CONTRIBUTOR" },
   });
   try {
-    await page.goto("/login");
+    await page.goto(opsUrl("/login"));
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/127\.0\.0\.1:3001\/admin/, { timeout: 15_000 });
 
-    const setup = await page.request.post("/api/auth/mfa", { data: {} });
+    const setup = await page.request.post(opsUrl("/api/auth/mfa"), { data: {} });
     expect(setup.ok()).toBeTruthy();
     const enrollment = await setup.json();
-    const enabled = await page.request.put("/api/auth/mfa", {
+    const enabled = await page.request.put(opsUrl("/api/auth/mfa"), {
       data: { action: "enable", code: totpCode(enrollment.secret) },
     });
     expect(enabled.ok()).toBeTruthy();
@@ -132,22 +138,22 @@ test("MFA enrollment, TOTP login, recovery login and disable", async ({ page }, 
     expect(recoveryCodes.length).toBeGreaterThan(0);
 
     await page.context().clearCookies();
-    await page.goto("/login");
+    await page.goto(opsUrl("/login"));
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.locator('input[name="mfaCode"]').fill(totpCode(enrollment.secret));
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/127\.0\.0\.1:3001\/admin/, { timeout: 15_000 });
 
     await page.context().clearCookies();
-    await page.goto("/login");
+    await page.goto(opsUrl("/login"));
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.locator('input[name="mfaCode"]').fill(recoveryCodes[0]);
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/127\.0\.0\.1:3001\/admin/, { timeout: 15_000 });
 
-    const disabled = await page.request.put("/api/auth/mfa", {
+    const disabled = await page.request.put(opsUrl("/api/auth/mfa"), {
       data: { action: "disable", password, existingMfaCode: totpCode(enrollment.secret) },
     });
     expect(disabled.ok()).toBeTruthy();

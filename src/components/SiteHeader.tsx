@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { t, type Locale } from "@/lib/i18n";
-import { useSession, signOut } from "next-auth/react";
 
 const locales: Locale[] = ["en", "af", "xh", "zu"];
 
@@ -11,7 +10,6 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
   const L = (locales.includes(locale as Locale) ? locale : "en") as Locale;
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
 
   function setLocale(next: string) {
     document.cookie = `locale=${next};path=/;max-age=31536000`;
@@ -30,7 +28,6 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
     { href: "/procurement", label: t(L, "procurement") },
     { href: "/submit", label: t(L, "submit") },
     { href: "/rights", label: "Rights" },
-    { href: "/dashboard", label: t(L, "dashboard") },
   ];
 
   return (
@@ -55,20 +52,6 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
             <option value="xh">isiXhosa</option>
             <option value="zu">isiZulu</option>
           </select>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {(session?.user as any)?.role ? (
-            <>
-              <Link href="/admin" prefetch={false} className="secondary-button">{t(L, "admin")}</Link>
-              {["SUPER_ADMIN", "PROVINCIAL_ADMIN"].includes(String((session?.user as { role?: string })?.role || "")) && (
-                <Link href="/admin/ops" prefetch={false} className="secondary-button">Ops</Link>
-              )}
-              <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/" })}>
-                Sign out
-              </button>
-            </>
-          ) : (
-            <Link href="/login" className="secondary-button">Sign in</Link>
-          )}
         </div>
       </div>
       <nav className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-3">

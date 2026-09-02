@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import SiteHeader from "@/components/SiteHeader";
+import OpsChrome from "@/components/OpsChrome";
 import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_PILOT_LINE } from "@/lib/brand";
+import { getAppPlatform } from "@/lib/platform";
 
 export const metadata: Metadata = {
   title: PRODUCT_NAME,
@@ -12,6 +14,24 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = (await cookies()).get("locale")?.value || "en";
+  const platform = getAppPlatform();
+
+  if (platform === "ops") {
+    return (
+      <html lang={locale}>
+        <body>
+          <Providers>
+            <a href="#main-content" className="skip-link">
+              Skip to content
+            </a>
+            <OpsChrome />
+            <main id="main-content">{children}</main>
+          </Providers>
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang={locale}>
       <body>

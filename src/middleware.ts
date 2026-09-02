@@ -1,12 +1,40 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import {
+  absoluteOpsUrl,
+  absolutePublicUrl,
+  getAppPlatform,
+  isAllowedOnOpsPlatform,
+  isOpsRoute,
+} from "@/lib/platform";
 
 /**
  * Protect admin UI routes, force password change, optional maintenance, security headers.
+ * Public map and ops console are separate origins (APP_PLATFORM=public|ops).
  */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const platform = getAppPlatform();
+
+  if (platform === "public" && isOpsRoute(pathname)) {
+    return NextResponse.redirect(absoluteOpsUrl(pathname, req.nextUrl.search));
+  }
+
+  if (platform === "ops" && !isAllowedOnOpsPlatform(pathname)) {
+    return NextResponse.redirect(absolutePublicUrl(pathname, req.nextUrl.search));
+  }
+
+  if (platform === "ops" && pathname === "/") {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const role = (token as { role?: string; invalid?: boolean } | null)?.role;
+    if (token && role && !(token as { invalid?: boolean }).invalid) {
+      const opsHome =
+        role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" ? "/admin/ops" : "/admin";
+      return NextResponse.redirect(new URL(opsHome, req.url));
+    }
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const anonymousId =
     req.cookies.get("ict_anon")?.value || crypto.randomUUID().replace(/-/g, "");

@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function FundingPage() {
   const items = (await getEcosystemItems("funding")) as Array<{
     id: string;
+    slug: string;
     title: string;
     summary: string;
     amount: string | null;
@@ -21,7 +22,9 @@ export default async function FundingPage() {
       <div className="card-grid">
         {items.map((item) => (
           <article key={item.id} className="panel-card">
-            <h2 className="text-lg font-bold">{item.title}</h2>
+            <h2 className="text-lg font-bold">
+              <Link href={`/funding/${item.slug}`} className="text-g700">{item.title}</Link>
+            </h2>
             <p className="mt-2 text-sm text-[#34413c]">{item.summary}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {item.amount && <span className="chip chip-active">{item.amount}</span>}

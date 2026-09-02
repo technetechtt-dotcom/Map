@@ -35,7 +35,7 @@ See `.env.example`. Production must set:
 
 ## Ops dashboard
 
-`/admin/ops` is the platform console for super and provincial admins (login lands here). Tabs: **Overview** (health, catalogue, runtime readiness, backup channels), **Sites** (create/publish map pins and images), **Content** (submissions and ecosystem shortcuts), **Users** (create/invite/revoke), **Uploads** (files and JSON import staging), **Platform** (jobs, maintenance, dead letters). Health snapshot is `GET /api/admin/ops/summary`. Super admins see infra; provincial admins see tenant work. The page does **not** expose secret values or `METRICS_TOKEN`. GitHub Environment `production` secrets are not readable from the app — see `docs/ops-secrets.md`.
+`/admin/ops` is the platform console for super and provincial admins (login lands here). **Public map and ops console are separate origins** — locally `npm run dev` starts the map on `:3000` and ops on `:3001`; production uses two deploys (`APP_PLATFORM=public` vs `APP_PLATFORM=ops`, each with its own `NEXTAUTH_URL`). Tabs: **Overview** (health, catalogue, runtime readiness, backup channels), **Sites** (create/publish map pins and images), **Content** (submissions and ecosystem shortcuts), **Users** (create/invite/revoke), **Uploads** (files and JSON import staging), **Platform** (jobs, maintenance, dead letters). Health snapshot is `GET /api/admin/ops/summary`. Super admins see infra; provincial admins see tenant work. The page does **not** expose secret values or `METRICS_TOKEN`. GitHub Environment `production` secrets are not readable from the app — see `docs/ops-secrets.md`.
 
 ## Monitoring (targets)
 

@@ -51,17 +51,22 @@ function main() {
   const deployAudit = audit(DEPLOY, present);
   const optionalAudit = audit(OPTIONAL, present);
   const backupMissing = backupAudit.filter((r) => !r.present).map((r) => r.name);
+  const deployMissing = [];
+  if (!present.has("PRODUCTION_APP_URL")) deployMissing.push("PRODUCTION_APP_URL");
   const hasVercel = ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"].every((n) => present.has(n));
   const hasHook = present.has("PRODUCTION_DEPLOY_HOOK");
-  const hasAuth = present.has("METRICS_TOKEN") || present.has("CRON_SECRET");
-  const deployReady = backupMissing.length === 0 && (hasVercel || hasHook) && hasAuth && present.has("PRODUCTION_APP_URL");
+  if (!hasVercel && !hasHook) deployMissing.push("VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID or PRODUCTION_DEPLOY_HOOK");
+  if (!present.has("METRICS_TOKEN") && !present.has("CRON_SECRET")) deployMissing.push("METRICS_TOKEN or CRON_SECRET");
+  const deployReady = deployMissing.length === 0;
+  const backupReady = backupMissing.length === 0;
 
   const report = {
-    ok: deployReady,
+    ok: deployReady && backupReady,
     environment: "production",
-    backupReady: backupMissing.length === 0,
-    deployReady: (hasVercel || hasHook) && hasAuth && present.has("PRODUCTION_APP_URL"),
+    backupReady,
+    deployReady,
     backupMissing,
+    deployMissing,
     backup: backupAudit,
     deploy: deployAudit,
     optional: optionalAudit,

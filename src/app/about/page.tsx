@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_PILOT_LINE } from "@/lib/brand";
 import { SEED_CATALOGUE } from "@/lib/catalogue";
+import { getOpsAppUrl } from "@/lib/platform";
 
 export const dynamic = "force-dynamic";
 
@@ -127,11 +128,11 @@ export default async function AboutPage() {
             — nine-province scaffold and verification counts.
           </li>
           <li>
-            Sign in as super or provincial admin — the{" "}
-            <Link className="text-g700 font-semibold" href="/admin/ops">
-              Operations
-            </Link>{" "}
-            console is the desk for sites, content, users, uploads, and platform health.
+            Sign in as super or provincial admin on the{" "}
+            <a className="text-g700 font-semibold" href={getOpsAppUrl()} rel="noopener noreferrer">
+              Operations console
+            </a>{" "}
+            (separate staff platform) — sites, content, users, uploads, and platform health.
           </li>
         </ol>
         <p className="mt-3 text-sm">

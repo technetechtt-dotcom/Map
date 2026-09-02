@@ -39,7 +39,7 @@ async function main() {
   run("node scripts/postgres-backup-smoke.js");
   process.env.KEEP_RESTORE_DB = process.env.KEEP_RESTORE_DB || "1";
   run("node scripts/disaster-recovery-smoke.js");
-  run("npm test -- tests/ecosystem-bola.test.ts tests/security-policy.test.ts");
+  run("npm test -- tests/ecosystem-bola.test.ts tests/security-policy.test.ts tests/adversarial-auth.test.ts");
   run("npm run ingest:national");
 
   const baseUrl = process.env.STAGING_BASE_URL || "";

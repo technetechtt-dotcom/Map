@@ -139,6 +139,24 @@ export function ecosystemCreateData(type: EcosystemType, body: Record<string, un
   };
 }
 
+export async function getEcosystemBySlug(type: EcosystemType, slug: string) {
+  const include = { province: true, organisation: true };
+  if (type === "programmes") {
+    const row = await prisma.programme.findFirst({ where: { slug, status: "PUBLISHED" }, include });
+    return row ? { ...row, type, tags: parseTags(row.tagsJson) } : null;
+  }
+  if (type === "events") {
+    const row = await prisma.ecosystemEvent.findFirst({ where: { slug, status: "PUBLISHED" }, include });
+    return row ? { ...row, type, tags: parseTags(row.tagsJson) } : null;
+  }
+  if (type === "procurement") {
+    const row = await prisma.procurement.findFirst({ where: { slug, status: "PUBLISHED" }, include });
+    return row ? { ...row, type, tags: parseTags(row.tagsJson) } : null;
+  }
+  const row = await prisma.fundingCall.findFirst({ where: { slug, status: "PUBLISHED" }, include });
+  return row ? { ...row, type, tags: parseTags(row.tagsJson) } : null;
+}
+
 export function ecosystemPatchData(type: EcosystemType, body: Record<string, unknown>) {
   const data: Record<string, unknown> = {};
   for (const key of ["title", "summary", "description", "status", "slug", "url", "amount", "budget", "venue", "onlineUrl", "referenceNumber", "issuingAuthority"]) {
