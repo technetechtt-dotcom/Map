@@ -160,6 +160,7 @@ test("admin invitation is accepted and the new user can sign in", async ({ page 
 
 test("ops dashboard is visible to super admins and blocked for contributors", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "ops access runs once");
+  test.setTimeout(60_000);
   const superEmail = `e2e-ops-super-${Date.now()}@example.test`;
   const contribEmail = `e2e-ops-contrib-${Date.now()}@example.test`;
   const password = "E2E-Ops-Dashboard-42!";
@@ -177,6 +178,9 @@ test("ops dashboard is visible to super admins and blocked for contributors", as
     await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
     await page.goto("/admin/ops");
     await expect(page.getByRole("heading", { name: /operations dashboard/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/loading live platform status/i)).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: /runtime readiness/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /backup channels/i })).toBeVisible();
     await expect(page.getByRole("link", { name: "Operations" }).first()).toBeVisible();
 
     await page.getByRole("button", { name: /sign out/i }).click();

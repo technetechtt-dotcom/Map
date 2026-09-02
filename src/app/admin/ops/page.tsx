@@ -20,6 +20,29 @@ type BackupRow = {
   objectsCopied: number;
   createdAt: string;
   sizeBytes: number;
+  status?: string;
+  failureReason?: string | null;
+  backupRunId?: string | null;
+};
+
+type JobRow = {
+  id: string;
+  type: string;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  deadLetter: boolean;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+type Channel = {
+  stale: boolean;
+  ageHours: number | null;
+  filename?: string | null;
+  objectsCopied?: number;
+  status?: string | null;
+  failureReason?: string | null;
 };
 
 type OpsSummary = {
@@ -35,16 +58,33 @@ type OpsSummary = {
     version: string;
     sha: string | null;
   };
-  work: { expiredVerifications: number; openDsar: number; openSubmissions: number };
+  work: { expiredVerifications: number; openDsar: number; openSubmissions: number; ecosystemDrafts: number };
+  catalogue: {
+    locations: number;
+    organisations: number;
+    funding: number;
+    events: number;
+    programmes: number;
+    procurement: number;
+  };
   queue: { pending: number; running: number; failed: number; deadLetter: number } | null;
   notifications: { failed: number } | null;
   backup: {
     stale: boolean;
-    database: { stale: boolean; ageHours: number | null; filename: string | null };
-    objects: { stale: boolean; ageHours: number | null; objectsCopied: number };
-    appExport: { stale: boolean; ageHours: number | null };
+    database: Channel;
+    objects: Channel;
+    appExport: Channel;
+    latestNonSuccessObjects?: { status: string; failureReason: string | null; backupRunId: string | null } | null;
   } | null;
   worker: { healthy?: boolean; workerId?: string; lastSeenAt?: string; queueDepth?: number } | null;
+  readiness: {
+    nodeEnv: string;
+    bootGaps: string[];
+    secrets: Record<string, boolean>;
+    missingRuntime: string[];
+    githubHint: string;
+  } | null;
+  recentJobs: JobRow[];
   alerts: Record<string, boolean> | null;
   deadLetters: DeadLetter[];
   backups: BackupRow[];
@@ -52,9 +92,22 @@ type OpsSummary = {
   jobs: string[];
 };
 
+const JOB_LABELS: Record<string, string> = {
+  expiry: "Expire verification",
+  prune: "Prune analytics",
+  backup: "Queue backup",
+  analytics: "Aggregate analytics",
+  cleanup: "Cleanup data",
+  notify: "Deliver notifications",
+  geocode: "Geocode queue",
+  report: "System report",
+  ingest: "Ingest national",
+  reverify: "Reverify records",
+};
+
 function statusClass(status: string) {
-  if (status === "ok") return "chip chip-active";
-  if (status === "maintenance") return "chip";
+  if (status === "ok" || status === "SUCCESS") return "chip chip-active";
+  if (status === "FAILED" || status === "error" || status === "degraded") return "chip chip-danger";
   return "chip";
 }
 
@@ -94,7 +147,8 @@ export default function OpsDashboardPage() {
       const res = await fetch(`/api/admin/jobs?job=${encodeURIComponent(job)}${extra}`, { method: "POST" });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Job ${job} failed`);
-      setMessage(`${job} queued or completed.`);
+      const queued = body.results?.queued?.id ? ` queued ${body.results.queued.id}` : "";
+      setMessage(`${job}${queued || " completed"}.`);
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err));
@@ -127,7 +181,9 @@ export default function OpsDashboardPage() {
       <AdminShell>
         <h1 className="text-2xl font-extrabold">Operations</h1>
         <p className="text-muted">{error}</p>
-        <Link href="/admin" className="btn btn-outline mt-4 inline-block">Back to overview</Link>
+        <Link href="/admin" className="btn btn-outline mt-4 inline-block">
+          Back to overview
+        </Link>
       </AdminShell>
     );
   }
@@ -136,13 +192,15 @@ export default function OpsDashboardPage() {
     return (
       <AdminShell>
         <p className="eyebrow">Backend</p>
-        <h1 className="text-2xl font-extrabold">Operations</h1>
+        <h1 className="text-2xl font-extrabold">Operations dashboard</h1>
         <p className="text-muted">Loading live platform status…</p>
       </AdminShell>
     );
   }
 
   const superAdmin = data.role === "SUPER_ADMIN";
+  const missingSecrets = data.readiness?.missingRuntime || [];
+  const bootGaps = data.readiness?.bootGaps || [];
 
   return (
     <AdminShell>
@@ -151,7 +209,8 @@ export default function OpsDashboardPage() {
         <div>
           <h1 className="text-2xl font-extrabold">Operations dashboard</h1>
           <p className="text-muted max-w-2xl">
-            Live health, queues, backups and maintenance for the {data.scope} scope. Snapshot {new Date(data.collectedAt).toLocaleString()}.
+            Live health, queues, backups and maintenance for the {data.scope} scope. Snapshot{" "}
+            {new Date(data.collectedAt).toLocaleString()}.
           </p>
         </div>
         <span className={statusClass(data.health.status)} aria-live="polite">
@@ -173,7 +232,10 @@ export default function OpsDashboardPage() {
           </div>
         )}
         <div className="stat">
-          <strong>{data.health.dbLatencyMs ?? "—"}{data.health.dbLatencyMs != null ? "ms" : ""}</strong>
+          <strong>
+            {data.health.dbLatencyMs ?? "—"}
+            {data.health.dbLatencyMs != null ? "ms" : ""}
+          </strong>
           <span className="text-xs uppercase tracking-wide text-muted">DB latency</span>
         </div>
         <div className="stat">
@@ -183,6 +245,10 @@ export default function OpsDashboardPage() {
         <div className="stat">
           <strong>{data.work.openSubmissions}</strong>
           <span className="text-xs uppercase tracking-wide text-muted">Open submissions</span>
+        </div>
+        <div className="stat">
+          <strong>{data.work.ecosystemDrafts}</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Ecosystem drafts</span>
         </div>
         <div className="stat">
           <strong>{data.work.openDsar}</strong>
@@ -202,6 +268,52 @@ export default function OpsDashboardPage() {
         )}
       </div>
 
+      <div className="panel-card mt-6">
+        <h2 className="mb-3 text-lg font-extrabold">Published catalogue</h2>
+        <div className="stat-grid">
+          {Object.entries(data.catalogue).map(([key, value]) => (
+            <div key={key} className="stat">
+              <strong>{value}</strong>
+              <span className="text-xs uppercase tracking-wide text-muted">{key}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 flex flex-wrap gap-3 text-sm">
+          <Link className="font-semibold text-g700" href="/admin/submissions">
+            Review submissions →
+          </Link>
+          <Link className="font-semibold text-g700" href="/admin/ecosystem">
+            Ecosystem records →
+          </Link>
+        </p>
+      </div>
+
+      {superAdmin && data.readiness && (
+        <div className="panel-card mt-6">
+          <h2 className="mb-2 text-lg font-extrabold">Runtime readiness</h2>
+          <p className="mb-3 text-sm text-muted">
+            Process env for this runtime ({data.readiness.nodeEnv}). {data.readiness.githubHint}
+          </p>
+          {(bootGaps.length > 0 || missingSecrets.length > 0) && (
+            <p className="mb-3 text-sm font-semibold text-red-700">
+              {bootGaps.length > 0
+                ? `${bootGaps.length} production boot gap(s): ${bootGaps.join(", ")}`
+                : `${missingSecrets.length} runtime secret(s) unset.`}
+            </p>
+          )}
+          {bootGaps.length === 0 && missingSecrets.length === 0 && (
+            <p className="mb-3 text-sm font-semibold text-g700">Required runtime secrets are present.</p>
+          )}
+          <div className="ops-secret-grid">
+            {Object.entries(data.readiness.secrets).map(([key, present]) => (
+              <span key={key} className={present ? "chip chip-active" : "chip chip-danger"}>
+                {present ? "set" : "missing"} · {key}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {superAdmin && data.backup && (
         <div className="panel-card mt-6">
           <h2 className="mb-3 text-lg font-extrabold">Backup channels</h2>
@@ -218,14 +330,27 @@ export default function OpsDashboardPage() {
               <tr>
                 <td>Database</td>
                 <td>{data.backup.database.ageHours?.toFixed(1) ?? "—"}</td>
-                <td>{data.backup.database.stale ? "stale" : "fresh"}</td>
+                <td>
+                  <span className={statusClass(data.backup.database.stale ? "degraded" : "ok")}>
+                    {data.backup.database.status || (data.backup.database.stale ? "stale" : "fresh")}
+                  </span>
+                </td>
                 <td>{data.backup.database.filename || "—"}</td>
               </tr>
               <tr>
                 <td>Objects</td>
                 <td>{data.backup.objects.ageHours?.toFixed(1) ?? "—"}</td>
-                <td>{data.backup.objects.stale ? "stale" : "fresh"}</td>
-                <td>{data.backup.objects.objectsCopied} copied</td>
+                <td>
+                  <span className={statusClass(data.backup.objects.stale ? "degraded" : "ok")}>
+                    {data.backup.objects.status || (data.backup.objects.stale ? "stale" : "fresh")}
+                  </span>
+                </td>
+                <td>
+                  {data.backup.objects.objectsCopied ?? 0} copied
+                  {data.backup.latestNonSuccessObjects?.status
+                    ? ` · last non-success ${data.backup.latestNonSuccessObjects.status}`
+                    : ""}
+                </td>
               </tr>
               <tr>
                 <td>App export</td>
@@ -235,6 +360,9 @@ export default function OpsDashboardPage() {
               </tr>
             </tbody>
           </table>
+          <Link href="/admin/backups" className="mt-3 inline-block text-sm font-semibold text-g700">
+            Open backup tools →
+          </Link>
         </div>
       )}
 
@@ -270,11 +398,44 @@ export default function OpsDashboardPage() {
               disabled={Boolean(busy)}
               onClick={() => runJob(job)}
             >
-              {busy === job ? "Working…" : job}
+              {busy === job ? "Working…" : JOB_LABELS[job] || job}
             </button>
           ))}
         </div>
       </div>
+
+      {superAdmin && data.recentJobs.length > 0 && (
+        <div className="panel-card mt-6">
+          <h2 className="mb-3 text-lg font-extrabold">Recent jobs</h2>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.recentJobs.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {row.type}
+                    {row.lastError ? <div className="text-xs text-muted">{row.lastError}</div> : null}
+                  </td>
+                  <td>
+                    <span className={statusClass(row.status === "FAILED" || row.deadLetter ? "FAILED" : row.status === "COMPLETED" ? "ok" : "chip")}>
+                      {row.deadLetter ? "DEAD" : row.status}
+                    </span>
+                  </td>
+                  <td>{row.attempts}</td>
+                  <td>{new Date(row.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {superAdmin && (
         <div className="panel-card mt-6">
@@ -330,8 +491,8 @@ export default function OpsDashboardPage() {
             <thead>
               <tr>
                 <th>Kind</th>
+                <th>Status</th>
                 <th>File</th>
-                <th>Copied</th>
                 <th>When</th>
               </tr>
             </thead>
@@ -339,16 +500,18 @@ export default function OpsDashboardPage() {
               {data.backups.map((row) => (
                 <tr key={row.id}>
                   <td>{row.kind}</td>
-                  <td>{row.filename}</td>
-                  <td>{row.objectsCopied}</td>
+                  <td>
+                    <span className={statusClass(row.status || "")}>{row.status || "SUCCESS"}</span>
+                  </td>
+                  <td>
+                    {row.filename}
+                    {row.failureReason ? <div className="text-xs text-muted">{row.failureReason}</div> : null}
+                  </td>
                   <td>{new Date(row.createdAt).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <Link href="/admin/backups" className="mt-3 inline-block text-sm font-semibold text-g700">
-            Open backup tools →
-          </Link>
         </div>
       )}
     </AdminShell>

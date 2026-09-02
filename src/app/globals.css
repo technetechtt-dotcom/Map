@@ -184,6 +184,18 @@ body {
   border-color: var(--g700);
 }
 
+.chip-danger {
+  color: #9f1239;
+  background: #ffe4e6;
+  border-color: #fecdd3;
+}
+
+.ops-secret-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .empty-state {
   padding: 24px 16px;
   border: 1px dashed var(--line);
