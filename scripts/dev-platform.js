@@ -14,8 +14,9 @@ if (!["public", "ops"].includes(platform)) {
 }
 
 const port = platform === "ops" ? "3001" : "3000";
-const publicUrl = process.env.PUBLIC_APP_URL || "http://localhost:3000";
-const opsUrl = process.env.OPS_APP_URL || "http://localhost:3001";
+const host = process.env.CI ? "127.0.0.1" : "localhost";
+const publicUrl = process.env.PUBLIC_APP_URL || `http://${host}:3000`;
+const opsUrl = process.env.OPS_APP_URL || `http://${host}:3001`;
 
 const env = {
   ...process.env,

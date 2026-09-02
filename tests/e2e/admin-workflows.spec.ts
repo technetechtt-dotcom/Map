@@ -92,8 +92,14 @@ test("admin can create and archive a funding record", async ({ page }, testInfo)
     await expect(page.getByRole("heading", { name: /funding, events, programmes, procurement/i })).toBeVisible();
     await page.locator("form input").first().fill(title);
     await page.locator("form textarea").first().fill("E2E funding call for digital skills.");
+    const created = page.waitForResponse(
+      (r) => r.request().method() === "POST" && r.url().includes("/api/ecosystem"),
+      { timeout: 30_000 }
+    );
     await page.getByRole("button", { name: /^create$/i }).click();
-    await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
+    const createRes = await created;
+    expect(createRes.ok(), await createRes.text()).toBeTruthy();
+    await expect(page.getByText(title)).toBeVisible({ timeout: 30_000 });
     const archived = page.waitForResponse((r) => r.request().method() === "DELETE" && r.url().includes("/api/ecosystem/"), { timeout: 20_000 });
     await page.getByRole("row").filter({ hasText: title }).getByRole("button", { name: /^archive$/i }).click();
     const archiveRes = await archived;

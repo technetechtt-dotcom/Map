@@ -49,6 +49,7 @@
     "backup:rpo-rto": "node scripts/record-dr-rpo-rto.js",
     "ops:audit-env": "node scripts/audit-production-env.js",
     "ops:sync-secrets": "node scripts/sync-production-secrets.js",
+    "ops:bootstrap-secrets": "node scripts/bootstrap-production-secrets.js",
     "ops:apply-governance": "node scripts/apply-launch-governance.js",
     "ops:launch-cert": "node scripts/run-launch-certification.js",
     "ops:migrate-prod": "node scripts/production-migrate-smoke.js",

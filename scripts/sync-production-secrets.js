@@ -55,9 +55,10 @@ for (const line of lines) {
   }
   if (!ALLOWED.has(key) || !value) continue;
   set.push(key);
-  const result = spawnSync("gh", ["secret", "set", key, "--env", "production", "--body", value], {
-    stdio: "inherit",
-    shell: true,
+  const result = spawnSync("gh", ["secret", "set", key, "--env", "production"], {
+    input: value,
+    stdio: ["pipe", "inherit", "inherit"],
+    shell: false,
   });
   if (result.status !== 0) process.exit(result.status || 1);
 }
