@@ -21,6 +21,7 @@ const opsUrl = process.env.OPS_APP_URL || `http://${host}:3001`;
 const env = {
   ...process.env,
   APP_PLATFORM: platform,
+  NEXT_DIST_DIR: platform === "ops" ? ".next-ops" : ".next-public",
   NEXTAUTH_URL: platform === "ops" ? opsUrl : publicUrl,
   PUBLIC_APP_URL: publicUrl,
   OPS_APP_URL: opsUrl,

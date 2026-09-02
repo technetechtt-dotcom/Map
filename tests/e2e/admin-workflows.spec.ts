@@ -98,7 +98,7 @@ test("admin can create and archive a funding record", async ({ page }, testInfo)
     );
     await page.getByRole("button", { name: /^create$/i }).click();
     const createRes = await created;
-    expect(createRes.ok(), await createRes.text()).toBeTruthy();
+    expect(createRes.ok(), createRes.status().toString()).toBeTruthy();
     await expect(page.getByText(title)).toBeVisible({ timeout: 30_000 });
     const archived = page.waitForResponse((r) => r.request().method() === "DELETE" && r.url().includes("/api/ecosystem/"), { timeout: 20_000 });
     await page.getByRole("row").filter({ hasText: title }).getByRole("button", { name: /^archive$/i }).click();

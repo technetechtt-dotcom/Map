@@ -12,6 +12,8 @@
 
 # next
 /.next/
+/.next-public/
+/.next-ops/
 /out/
 
 # prisma

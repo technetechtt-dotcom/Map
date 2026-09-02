@@ -7,6 +7,7 @@ const tileCspConnect =
   "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
 
 const nextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
   reactStrictMode: true,
   serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "dns", "@sentry/node"],
