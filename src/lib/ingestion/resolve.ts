@@ -37,7 +37,7 @@ export function snapshotEntity(row: Record<string, unknown>) {
     sourceUrl: row.sourceUrl || null,
     etag: row.etag || null,
     contentHash: row.contentHash || null,
-    externalId: row.externalId || null,
+    connectorExternalId: row.connectorExternalId || row.externalId || null,
   };
 }
 

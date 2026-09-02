@@ -39,6 +39,8 @@ async function main() {
   run("node scripts/postgres-backup-smoke.js");
   process.env.KEEP_RESTORE_DB = process.env.KEEP_RESTORE_DB || "1";
   run("node scripts/disaster-recovery-smoke.js");
+  run("npm test -- tests/ecosystem-bola.test.ts tests/security-policy.test.ts");
+  run("npm run ingest:national");
 
   const baseUrl = process.env.STAGING_BASE_URL || "";
   let load = null;
@@ -56,7 +58,7 @@ async function main() {
 
   console.log(JSON.stringify({
     ok: true,
-    stages: ["migrate", "load-seed", "backup", "destructive-restore", load ? "staging-app" : "staging-app-skipped", "defensive-security-audit"],
+    stages: ["migrate", "load-seed", "backup", "destructive-restore", "ecosystem-bola-tests", "national-ingest-stage", load ? "staging-app" : "staging-app-skipped", "defensive-security-audit"],
     load,
     note: "Independent penetration testing is a scheduled third-party exercise; this run uses dependency audit and restore drills, not exploit payloads.",
   }, null, 2));

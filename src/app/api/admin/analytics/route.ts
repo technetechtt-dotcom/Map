@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonOk, requireSession, jsonError } from "@/lib/api";
 import {
   auditTenantWhere,
+  ecosystemTenantWhere,
   isOrgAdmin,
   isProvincialAdmin,
   isSuperAdmin,
@@ -14,13 +15,8 @@ export async function GET() {
   if (auth.error) return auth.error;
 
   const locationWhere = tenantWhere(auth.user);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let ecoFilter: any = {};
-  if (isOrgAdmin(auth.user) && auth.user.organisationId) {
-    ecoFilter = { organisationId: auth.user.organisationId };
-  } else if (isProvincialAdmin(auth.user) && auth.user.provinceId) {
-    ecoFilter = { provinceId: auth.user.provinceId };
-  } else if (!isSuperAdmin(auth.user) && !isProvincialAdmin(auth.user) && !isOrgAdmin(auth.user)) {
+  const ecoFilter = ecosystemTenantWhere(auth.user);
+  if (!isSuperAdmin(auth.user) && !isProvincialAdmin(auth.user) && !isOrgAdmin(auth.user)) {
     return jsonError("Forbidden", 403);
   }
 

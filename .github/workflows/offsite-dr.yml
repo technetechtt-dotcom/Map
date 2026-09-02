@@ -145,9 +145,16 @@ jobs:
       - name: PostgreSQL client
         if: steps.offsite.outputs.configured == 'true'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-      - name: Restore latest off-site dump
+      - name: Restore latest off-site dump and record RPO/RTO
         if: steps.offsite.outputs.configured == 'true'
-        run: node scripts/offsite-restore-exercise.js
+        run: node scripts/record-dr-rpo-rto.js
+      - name: Upload DR evidence artifact
+        if: steps.offsite.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-rpo-rto-evidence
+          path: data/dr-rpo-rto-evidence.json
+          if-no-files-found: error
       - name: Verify off-site object backup sidecars
         if: steps.offsite.outputs.configured == 'true'
         run: node scripts/offsite-object-restore-exercise.js

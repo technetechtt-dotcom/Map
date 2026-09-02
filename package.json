@@ -40,6 +40,8 @@
     "load:scale-seed": "node scripts/performance/seed-scale.js",
     "ingest:national": "tsx scripts/ingest-national.ts",
     "backup:offsite-dr": "node scripts/offsite-restore-exercise.js",
+    "backup:rpo-rto": "node scripts/record-dr-rpo-rto.js",
+    "ops:audit-env": "node scripts/audit-production-env.js",
     "neon:verify": "node scripts/neon-verify.js",
     "mfa:rotate": "tsx scripts/rotate-mfa-secrets.ts",
     "sbom": "node scripts/generate-sbom.js",

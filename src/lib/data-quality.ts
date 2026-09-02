@@ -1,7 +1,10 @@
 import { prisma } from "./prisma";
 
+const PROVINCE_CODES = ["NC", "EC", "FS", "GP", "KZN", "LP", "MP", "NW", "WC"] as const;
+
 export async function collectDataQuality() {
   const now = new Date();
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const [
     locations,
     published,
@@ -15,6 +18,12 @@ export async function collectDataQuality() {
     observations,
     conflicts,
     connectorRuns,
+    identityCount,
+    directoryLocations,
+    stagedBatches,
+    appliedBatches,
+    schemaDriftRuns,
+    provinces,
   ] = await Promise.all([
     prisma.location.count(),
     prisma.location.count({ where: { status: { in: ["PUBLISHED", "VERIFIED"] } } }),
@@ -28,6 +37,12 @@ export async function collectDataQuality() {
     prisma.sourceObservation.count(),
     prisma.fieldAuthority.count(),
     prisma.ingestionConnectorRun.findMany({ orderBy: { startedAt: "desc" }, take: 20 }),
+    prisma.externalIdentity.count({ where: { entityType: "location" } }),
+    prisma.location.count({ where: { verificationTier: "directory" } }),
+    prisma.importBatch.aggregate({ _sum: { rowCount: true }, where: { status: { not: "APPLIED" } } }),
+    prisma.importBatch.aggregate({ _sum: { appliedCount: true } }),
+    prisma.ingestionConnectorRun.count({ where: { schemaDrift: true, startedAt: { gte: weekAgo } } }),
+    prisma.province.findMany({ select: { id: true, code: true, name: true, slug: true } }),
   ]);
   const failedImport = (failedRows._sum.rowCount || 0) - (failedRows._sum.appliedCount || 0);
   const coverage = locations === 0 ? 0 : published / locations;
@@ -42,6 +57,36 @@ export async function collectDataQuality() {
     _count: true,
     _max: { lastSeenAt: true },
   });
+
+  const provinceCoverage = await Promise.all(
+    provinces.map(async (p) => {
+      const [locTotal, locPublished, locDirectory, orgTotal] = await Promise.all([
+        prisma.location.count({ where: { provinceId: p.id } }),
+        prisma.location.count({ where: { provinceId: p.id, status: { in: ["PUBLISHED", "VERIFIED"] } } }),
+        prisma.location.count({ where: { provinceId: p.id, verificationTier: "directory" } }),
+        prisma.organisation.count({ where: { provinceId: p.id, mergedIntoId: null } }),
+      ]);
+      const freshness = bySource
+        .filter((s) => s._max.lastSeenAt)
+        .map((s) => ({ connector: s.connector, lastSeenAt: s._max.lastSeenAt }));
+      return {
+        code: p.code,
+        slug: p.slug,
+        name: p.name,
+        locations: locTotal,
+        published: locPublished,
+        directoryPins: locDirectory,
+        organisations: orgTotal,
+        coveragePct: locTotal === 0 ? 0 : Math.round((locPublished / locTotal) * 1000) / 10,
+        freshness,
+      };
+    })
+  );
+
+  const connectorsHealthy = connectorRuns.filter((r) => !r.schemaDrift && r.status !== "schema-drift").length;
+  const identityCoveragePct =
+    directoryLocations === 0 ? 0 : Math.round((identityCount / directoryLocations) * 1000) / 10;
+
   return {
     generatedAt: now.toISOString(),
     kpis: {
@@ -55,7 +100,15 @@ export async function collectDataQuality() {
       failedIngestionRows: Math.max(0, failedImport),
       sourceObservations: observations,
       fieldAuthorities: conflicts,
+      identityCoveragePct,
+      connectorsHealthy,
+      connectorsTotal: connectorRuns.length,
+      schemaDriftEvents7d: schemaDriftRuns,
+      stagedRowsPending: stagedBatches._sum.rowCount || 0,
+      appliedRowsTotal: appliedBatches._sum.appliedCount || 0,
+      nationalProvincesTracked: provinceCoverage.filter((p) => PROVINCE_CODES.includes(p.code as (typeof PROVINCE_CODES)[number])).length,
     },
+    provinceCoverage,
     byProvince,
     bySource,
     connectorRuns: connectorRuns.map((run) => ({
@@ -65,6 +118,7 @@ export async function collectDataQuality() {
       rowCount: run.rowCount,
       schemaDrift: run.schemaDrift,
       sourceVersion: run.sourceVersion,
+      latencyMs: run.latencyMs,
       error: run.error,
     })),
   };

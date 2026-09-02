@@ -41,3 +41,36 @@ Always:
 ## Complementary Neon snapshot
 
 Project `northern-cape-ict-map` (`old-night-27455221`). A recoverable branch `backup-2026-09-02` was created from `main` when off-site rclone secrets were still missing. This is not a substitute for encrypted off-site copies once rclone is configured.
+
+## Operator commands
+
+Audit secret names (no values printed):
+
+```bash
+npm run ops:audit-env
+```
+
+Manual backup dispatch after secrets are set:
+
+```bash
+gh workflow run backup.yml --ref main
+```
+
+Manual production deploy (after CI green on SHA):
+
+```bash
+gh workflow run production-gate.yml --ref main
+```
+
+Off-site restore with RPO/RTO evidence:
+
+```bash
+gh workflow run offsite-dr.yml --ref main
+# or locally: npm run backup:rpo-rto
+```
+
+Staging exercise (current architecture):
+
+```bash
+gh workflow run staging-exercise.yml --ref main
+```

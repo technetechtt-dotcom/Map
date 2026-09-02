@@ -268,6 +268,93 @@ export function assertLocationAssignmentChange(
   return { ok: true };
 }
 
+export type EcosystemRecord = {
+  id?: string;
+  provinceId: string | null;
+  organisationId?: string | null;
+  status?: string | null;
+};
+
+/** Record-level ecosystem access — no ownerId on ecosystem models; org-scoped for org roles. */
+export function assertEcosystemAccess(
+  user: AuthUser | null | undefined,
+  record: EcosystemRecord,
+  mode: "read" | "write" = "write"
+): PolicyResult {
+  void mode;
+  if (!user?.id) return { ok: false, reason: "Unauthorized" };
+  if (isSuperAdmin(user)) return { ok: true };
+
+  const prov = assertProvinceAccess(user, record.provinceId);
+  if (!prov.ok) return prov;
+
+  if (isProvincialAdmin(user)) return { ok: true };
+
+  if (isOrgAdmin(user)) {
+    return assertOrganisationAccess(user, record.organisationId);
+  }
+
+  if (isContributor(user)) {
+    if (!user.organisationId) {
+      return { ok: false, reason: "Contributor has no organisation assignment" };
+    }
+    if (!record.organisationId || record.organisationId !== user.organisationId) {
+      return { ok: false, reason: "Outside your organisation scope" };
+    }
+    return { ok: true };
+  }
+
+  return { ok: false, reason: "Forbidden" };
+}
+
+export function assertEcosystemAssignmentChange(
+  user: AuthUser | null | undefined,
+  existing: EcosystemRecord,
+  nextOrganisationId: string | null | undefined,
+  nextProvinceId: string | null | undefined
+): PolicyResult {
+  if (nextProvinceId !== undefined && nextProvinceId !== existing.provinceId) {
+    const p = assertProvinceAccess(user, nextProvinceId);
+    if (!p.ok) return p;
+    if (!isSuperAdmin(user) && !isProvincialAdmin(user)) {
+      return { ok: false, reason: "Only provincial or super administrators may reassign province" };
+    }
+  }
+
+  if (nextOrganisationId === undefined) return { ok: true };
+
+  if (nextOrganisationId !== (existing.organisationId ?? null)) {
+    if (isOrgAdmin(user)) {
+      if (!existing.organisationId) {
+        return { ok: false, reason: "Cannot claim an unassigned record" };
+      }
+      if (!user?.organisationId || nextOrganisationId !== user.organisationId) {
+        return { ok: false, reason: "Cannot reassign organisation" };
+      }
+      if (existing.organisationId !== user.organisationId) {
+        return { ok: false, reason: "Outside your organisation scope" };
+      }
+    } else if (isContributor(user)) {
+      return { ok: false, reason: "Contributors cannot reassign organisation" };
+    }
+  }
+  return { ok: true };
+}
+
+/** Ecosystem list filter — contributors scoped by organisation, not ownerId. */
+export function ecosystemTenantWhere(user: AuthUser | null | undefined): Record<string, unknown> {
+  if (!user?.id || isSuperAdmin(user)) return {};
+  if (isProvincialAdmin(user)) {
+    if (!user.provinceId) return { id: "__none__" };
+    return { provinceId: user.provinceId };
+  }
+  if (isOrgAdmin(user) || isContributor(user)) {
+    if (!user.organisationId) return { id: "__none__" };
+    return { organisationId: user.organisationId };
+  }
+  return { id: "__none__" };
+}
+
 export function assertStatusChange(
   user: AuthUser | null | undefined,
   nextStatus: string | undefined,

@@ -8,6 +8,8 @@ import {
   canEditDrafts,
   canPublish,
   coerceCreateStatus,
+  isOrgAdmin,
+  isContributor,
 } from "@/lib/policy";
 import { clientIp, readJsonLimited } from "@/lib/security";
 import { invalidatePublicCaches } from "@/lib/server-memo";
@@ -33,7 +35,11 @@ export async function GET(req: NextRequest) {
     const auth = await requireSession();
     if (auth.error) return auth.error;
     if (!canEditDrafts(auth.user)) return jsonError("Forbidden", 403);
-    const items = await getEcosystemItems(type, province || undefined, { manage: true, status: status || undefined });
+    const items = await getEcosystemItems(type, province || undefined, {
+      manage: true,
+      status: status || undefined,
+      user: auth.user,
+    });
     return jsonOk({ items, types: ECOSYSTEM_TYPES });
   }
 
@@ -72,6 +78,9 @@ export async function POST(req: NextRequest) {
   if (organisationId) {
     const org = assertOrganisationAccess(auth.user, organisationId);
     if (!org.ok) return jsonError(org.reason, 403);
+  }
+  if ((isOrgAdmin(auth.user) || isContributor(auth.user)) && !organisationId) {
+    return jsonError("Organisation assignment required for your role", 403);
   }
   if ((body.status === "PUBLISHED" || status === "PUBLISHED") && !canPublish(auth.user)) {
     return jsonError("Only provincial or super administrators may publish ecosystem items", 403);

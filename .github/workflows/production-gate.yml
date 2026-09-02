@@ -55,6 +55,8 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ needs.certify.outputs.sha }}
         run: node scripts/assert-main-green.js
+      - name: Validate deploy configuration
+        run: node scripts/ops-preflight.js deploy
       - name: Deploy certified SHA and prove live origin
         env:
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}

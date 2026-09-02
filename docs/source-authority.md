@@ -14,6 +14,6 @@ When sources disagree, higher authority wins **per field**. A directory may add 
 
 Verified records also freeze **canonical identity**. Incoming directory coordinates are not used to recompute `canonicalKey` when the stored tier is desktop or field.
 
-External IDs are connector-scoped (`ExternalIdentity`). Global `Location.externalId` lookup is not used for matching.
+External IDs are connector-scoped (`ExternalIdentity`) exclusively. Denormalized `Location.externalId` / `Organisation.externalId` columns were removed in migration `20260902140000_external_identity_only`.
 
 Unchanged rows still record `SourceObservation.lastSeenAt` so “not changed” is distinct from “not checked.” After consecutive misses the record is marked missing-from-source, queued for review, and only later archived — never deleted by ingestion.

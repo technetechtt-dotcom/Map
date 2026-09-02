@@ -244,7 +244,6 @@ model Location {
   verificationExpiresAt DateTime?
   verificationTier      String         @default("unverified")
   canonicalKey          String?        @unique
-  externalId            String?
   lastObservedAt        DateTime?
   missingFromSource     Boolean        @default(false)
   consecutiveMisses     Int            @default(0)
@@ -272,7 +271,6 @@ model Location {
   @@index([coordQuality])
   @@index([verificationTier])
   @@index([canonicalKey])
-  @@index([externalId])
   @@index([lastObservedAt])
   @@index([missingFromSource, consecutiveMisses])
 }
@@ -323,7 +321,6 @@ model Organisation {
   verificationSource       String?
   verificationEvidenceJson Json                       @default("[]")
   canonicalKey             String?                    @unique
-  externalId               String?
   sourceVersion            String?
   sourceUrl                String?
   retrievedAt              DateTime?
@@ -346,7 +343,6 @@ model Organisation {
   @@index([categoryId])
   @@index([verificationExpiresAt])
   @@index([verificationTier])
-  @@index([externalId])
 }
 
 model OrganisationCategory {

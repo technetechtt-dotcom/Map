@@ -1,0 +1,29 @@
+name: Commit signature check
+
+on:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  signed-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require signed commits on PR
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          UNSIGNED=$(git log --format='%H %G?' "$BASE..$HEAD" | awk '$2 != "G" && $2 != "U" { print $1 " (" $2 ")" }')
+          if [ -n "$UNSIGNED" ]; then
+            echo "Unsigned commits detected:"
+            echo "$UNSIGNED"
+            echo "Enable GPG/SSH signing: docs/signed-release-governance.md"
+            exit 1
+          fi
+          echo "All commits signed or verified"

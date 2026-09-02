@@ -1,6 +1,8 @@
 import type { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray as parseTags } from "./shape";
+import type { AuthUser } from "./policy";
+import { ecosystemTenantWhere } from "./policy";
 
 export const ECOSYSTEM_TYPES = ["funding", "events", "programmes", "procurement"] as const;
 export type EcosystemType = (typeof ECOSYSTEM_TYPES)[number];
@@ -9,11 +11,17 @@ export function isEcosystemType(value: string): value is EcosystemType {
   return (ECOSYSTEM_TYPES as readonly string[]).includes(value);
 }
 
-type EcosystemRecord = { id: string; status: string };
+export type EcosystemAccessRecord = {
+  id: string;
+  status: string;
+  provinceId: string | null;
+  organisationId: string | null;
+};
+
 type EcosystemDelegate = {
-  findUnique: (args: { where: { id: string } }) => Promise<EcosystemRecord | null>;
-  create: (args: { data: never }) => Promise<EcosystemRecord>;
-  update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<EcosystemRecord>;
+  findUnique: (args: { where: { id: string } }) => Promise<EcosystemAccessRecord | null>;
+  create: (args: { data: never }) => Promise<EcosystemAccessRecord>;
+  update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<EcosystemAccessRecord>;
 };
 
 export function ecosystemModel(type: EcosystemType): EcosystemDelegate {
@@ -26,7 +34,7 @@ export function ecosystemModel(type: EcosystemType): EcosystemDelegate {
 export async function getEcosystemItems(
   type: EcosystemType,
   provinceSlug?: string,
-  options: { manage?: boolean; status?: string } = {}
+  options: { manage?: boolean; status?: string; user?: AuthUser | null } = {}
 ) {
   const provinceFilter = provinceSlug
     ? {
@@ -35,39 +43,42 @@ export async function getEcosystemItems(
         },
       }
     : {};
+  const tenantFilter = options.manage && options.user ? ecosystemTenantWhere(options.user) : {};
   const statusFilter: { status?: RecordStatus } = options.manage
     ? options.status
       ? { status: options.status as RecordStatus }
       : {}
     : { status: "PUBLISHED" };
 
+  const where = { ...statusFilter, ...provinceFilter, ...tenantFilter };
   const include = { province: true, organisation: true };
-  if (type === "events") {
-    const rows = await prisma.ecosystemEvent.findMany({
-      where: { ...statusFilter, ...provinceFilter },
-      include,
-      orderBy: { startsAt: "asc" },
-    });
-    return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
-  }
+
   if (type === "programmes") {
     const rows = await prisma.programme.findMany({
-      where: { ...statusFilter, ...provinceFilter },
+      where,
       include,
       orderBy: { title: "asc" },
     });
     return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
   }
+  if (type === "events") {
+    const rows = await prisma.ecosystemEvent.findMany({
+      where,
+      include,
+      orderBy: { startsAt: "asc" },
+    });
+    return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
+  }
   if (type === "procurement") {
     const rows = await prisma.procurement.findMany({
-      where: { ...statusFilter, ...provinceFilter },
+      where,
       include,
       orderBy: { closingDate: "asc" },
     });
     return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
   }
   const rows = await prisma.fundingCall.findMany({
-    where: { ...statusFilter, ...provinceFilter },
+    where,
     include,
     orderBy: { deadline: "asc" },
   });

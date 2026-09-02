@@ -455,7 +455,6 @@ export async function applyImportBatch(
         coordSource: connector,
         coordQuality: "directory-only" as const,
         canonicalKey,
-        externalId: externalId || null,
       };
       const incoming = {
         name,
