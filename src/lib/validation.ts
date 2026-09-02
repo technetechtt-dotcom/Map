@@ -59,25 +59,50 @@ export const locationCreateSchema = locationWriteSchema.extend({
 });
 
 export const submissionSchema = z.object({
-  type: z.string().max(40).optional().default("location"),
+  type: z.enum(["location", "funding", "events", "programmes", "procurement", "organisation"]).optional().default("location"),
   submitterName: z.string().min(2).max(120),
   submitterEmail: z.string().email().max(200),
   notes: z.string().max(2000).nullable().optional(),
   provinceId: z.string().max(40).nullable().optional(),
   organisationId: z.string().max(40).nullable().optional(),
   payload: z.object({
-    name: z.string().min(2).max(200),
+    name: z.string().min(2).max(200).optional(),
+    title: z.string().min(2).max(200).optional(),
     summary: z.string().min(2).max(2000),
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
     categorySlug: z.string().max(80).optional(),
     provinceSlug: z.string().max(80).optional(),
     opportunities: z.array(z.string().max(300)).max(50).optional(),
     assets: z.array(z.string().max(300)).max(50).optional(),
+    url: z.string().max(500).optional(),
+    amount: z.string().max(120).optional(),
+    deadline: z.string().max(40).optional(),
+    startsAt: z.string().max(40).optional(),
+    venue: z.string().max(200).optional(),
+    onlineUrl: z.string().max(500).optional(),
+    startDate: z.string().max(40).optional(),
+    closingDate: z.string().max(40).optional(),
+    budget: z.string().max(120).optional(),
+    website: z.string().max(500).optional(),
+  }).superRefine((payload, ctx) => {
+    if (!payload.name && !payload.title) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "name or title required", path: ["name"] });
+    }
   }),
   captchaToken: z.string().max(4000).optional(),
-  website: z.string().max(0).optional(), // honeypot
+  website: z.string().max(0).optional(),
   consent: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  if ((data.type || "location") === "location") {
+    if (data.payload.latitude == null || data.payload.longitude == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "latitude and longitude required for location submissions",
+        path: ["payload", "latitude"],
+      });
+    }
+  }
 });
 
 export const passwordResetRequestSchema = z.object({

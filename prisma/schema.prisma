@@ -558,12 +558,15 @@ model Submission {
   reviewedBy        User?            @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
   reviewedAt        DateTime?
   createdLocationId String?
+  createdEntityType String?
+  createdEntityId   String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
   @@index([provinceId, status])
   @@index([payloadHash])
   @@index([submitterEmail, createdAt])
+  @@index([createdEntityType, createdEntityId])
 }
 
 model AuditLog {

@@ -3,7 +3,7 @@ name: Production deploy
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Security]
     types: [completed]
     branches: [main, master]
 
@@ -11,6 +11,10 @@ permissions:
   actions: read
   contents: read
   checks: read
+
+concurrency:
+  group: production-deploy-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   certify:
@@ -54,6 +58,8 @@ jobs:
       - name: Deploy certified SHA and prove live origin
         env:
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
+          GIT_COMMIT: ${{ needs.certify.outputs.sha }}
+          GITHUB_SHA: ${{ needs.certify.outputs.sha }}
           PRODUCTION_DEPLOY_HOOK: ${{ secrets.PRODUCTION_DEPLOY_HOOK }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

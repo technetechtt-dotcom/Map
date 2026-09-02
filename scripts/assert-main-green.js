@@ -30,8 +30,11 @@ function sleep(ms) {
 async function runForSha(workflowFile, sha) {
   const deadline = Date.now() + (wait ? 10 * 60_000 : 0);
   while (true) {
-    const data = await gh(`/repos/${repo}/actions/workflows/${workflowFile}/runs?branch=main&per_page=20`);
-    const match = (data.workflow_runs || []).find((run) => run.head_sha === sha);
+    const [mainRuns, masterRuns] = await Promise.all([
+      gh(`/repos/${repo}/actions/workflows/${workflowFile}/runs?branch=main&per_page=20`).catch(() => ({ workflow_runs: [] })),
+      gh(`/repos/${repo}/actions/workflows/${workflowFile}/runs?branch=master&per_page=20`).catch(() => ({ workflow_runs: [] })),
+    ]);
+    const match = [...(mainRuns.workflow_runs || []), ...(masterRuns.workflow_runs || [])].find((run) => run.head_sha === sha);
     if (match?.status === "completed") return match;
     if (!wait || Date.now() >= deadline) return match || null;
     await sleep(20000);

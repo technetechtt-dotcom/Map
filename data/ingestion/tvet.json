@@ -1,18 +1,146 @@
 [
   {
+    "externalId": "false-bay-tvet",
+    "name": "False Bay TVET College",
+    "provinceSlug": "western-cape",
+    "latitude": -34.09,
+    "longitude": 18.47,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.falsebaycollege.co.za/",
+    "sourceUrl": "https://www.falsebaycollege.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "college-cape-town",
+    "name": "College of Cape Town",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.cct.edu.za/",
+    "sourceUrl": "https://www.cct.edu.za/",
+    "address": null
+  },
+  {
+    "externalId": "buffalo-city-tvet",
+    "name": "Buffalo City TVET College",
+    "provinceSlug": "eastern-cape",
+    "latitude": -32.97,
+    "longitude": 27.87,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.bccollege.co.za/",
+    "sourceUrl": "https://www.bccollege.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "motheo-tvet",
+    "name": "Motheo TVET College",
+    "provinceSlug": "free-state",
+    "latitude": -29.121,
+    "longitude": 26.214,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.motheotvet.co.za/",
+    "sourceUrl": "https://www.motheotvet.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "tshwane-north-tvet",
+    "name": "Tshwane North TVET College",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.tnc.edu.za/",
+    "sourceUrl": "https://www.tnc.edu.za/",
+    "address": null
+  },
+  {
+    "externalId": "ekurhuleni-west-tvet",
+    "name": "Ekurhuleni West TVET College",
+    "provinceSlug": "gauteng",
+    "latitude": -26.25,
+    "longitude": 28.17,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.ewc.edu.za/",
+    "sourceUrl": "https://www.ewc.edu.za/",
+    "address": null
+  },
+  {
+    "externalId": "coastal-kzn-tvet",
+    "name": "Coastal KZN TVET College",
+    "provinceSlug": "kwazulu-natal",
+    "latitude": -29.858,
+    "longitude": 31.029,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.coastalkzn.co.za/",
+    "sourceUrl": "https://www.coastalkzn.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "capricorn-tvet",
+    "name": "Capricorn TVET College",
+    "provinceSlug": "limpopo",
+    "latitude": -23.904,
+    "longitude": 29.469,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college.",
+    "website": "https://www.capricorncollege.co.za/",
+    "sourceUrl": "https://www.capricorncollege.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "ehlanzeni-tvet",
     "name": "Ehlanzeni TVET College",
     "provinceSlug": "mpumalanga",
     "latitude": -25.465,
     "longitude": 30.985,
     "categorySlug": "skills-education",
-    "summary": "Public TVET college."
+    "summary": "Public TVET college.",
+    "website": "https://www.ehlanzenicollege.co.za/",
+    "sourceUrl": "https://www.ehlanzenicollege.co.za/",
+    "address": null
   },
   {
-    "name": "False Bay TVET College",
-    "provinceSlug": "western-cape",
-    "latitude": -34.125,
-    "longitude": 18.387,
+    "externalId": "orbit-tvet",
+    "name": "Orbit TVET College",
+    "provinceSlug": "north-west",
+    "latitude": -25.67,
+    "longitude": 27.24,
     "categorySlug": "skills-education",
-    "summary": "Public TVET college."
+    "summary": "Public TVET college.",
+    "website": "https://www.orbitcollege.co.za/",
+    "sourceUrl": "https://www.orbitcollege.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "nc-rural-tvet",
+    "name": "Northern Cape Rural TVET College",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.45,
+    "longitude": 21.26,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college (Upington campus-centre).",
+    "website": "https://ncrvet.com/",
+    "sourceUrl": "https://ncrvet.com/",
+    "address": null
+  },
+  {
+    "externalId": "nc-urban-tvet",
+    "name": "Northern Cape Urban TVET College",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.728,
+    "longitude": 24.75,
+    "categorySlug": "skills-education",
+    "summary": "Public TVET college in Kimberley.",
+    "website": "https://ncutvet.edu.za/",
+    "sourceUrl": "https://ncutvet.edu.za/",
+    "address": null
   }
 ]

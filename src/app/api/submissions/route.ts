@@ -13,7 +13,8 @@ import {
 import { submissionSchema, locationCreateSchema } from "@/lib/validation";
 import { clientIp, readJsonLimited, verifyCaptcha } from "@/lib/security";
 import { log } from "@/lib/logger";
-import { serializeArray } from "@/lib/shape";
+import { applyApprovedSubmission } from "@/lib/submission-apply";
+import { invalidatePublicCaches } from "@/lib/server-memo";
 
 function payloadHash(payload: unknown) {
   return createHash("sha256").update(JSON.stringify(payload ?? {})).digest("hex");
@@ -44,6 +45,8 @@ export async function GET() {
       provinceId: s.provinceId,
       organisationId: s.organisationId,
       createdLocationId: s.createdLocationId,
+      createdEntityType: s.createdEntityType,
+      createdEntityId: s.createdEntityId,
       reviewedById: s.reviewedById,
       reviewedAt: s.reviewedAt,
       createdAt: s.createdAt,
@@ -79,9 +82,12 @@ export async function POST(req: NextRequest) {
   // Structured location payload validation when type=location
   let provinceId: string | null = body.provinceId || null;
   if (body.type === "location" || !body.type) {
+    if (body.payload.latitude == null || body.payload.longitude == null || !(body.payload.name || body.payload.title)) {
+      return jsonError("Location submissions require name, summary, latitude and longitude", 400);
+    }
     const locPayload = locationCreateSchema.safeParse({
       ...body.payload,
-      name: body.payload.name,
+      name: body.payload.name || body.payload.title,
       summary: body.payload.summary,
       latitude: body.payload.latitude,
       longitude: body.payload.longitude,
@@ -179,12 +185,13 @@ export async function PATCH(req: NextRequest) {
     return jsonError("Submission has no province — cannot moderate until assigned", 403);
   }
 
-  // Idempotent approval: no second location
-  if (body.status === "APPROVED" && existing.createdLocationId) {
+  // Idempotent approval
+  if (body.status === "APPROVED" && (existing.createdLocationId || existing.createdEntityId)) {
     return jsonOk({
       submission: existing,
       alreadyApproved: true,
       locationId: existing.createdLocationId,
+      entityId: existing.createdEntityId,
     });
   }
   if (body.status === "APPROVED" && existing.status === "APPROVED") {
@@ -194,69 +201,16 @@ export async function PATCH(req: NextRequest) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       let createdLocationId = existing.createdLocationId;
+      let createdEntityType = existing.createdEntityType;
+      let createdEntityId = existing.createdEntityId;
 
-      if (body.status === "APPROVED" && existing.type === "location") {
-        const payload = (existing.payloadJson || {}) as Record<string, unknown>;
-        if (payload.name && payload.latitude != null && payload.longitude != null) {
-          const cat = await tx.category.findFirst({
-            where: payload.categorySlug
-              ? { slug: String(payload.categorySlug) }
-              : undefined,
-          });
-          const provinceId =
-            existing.provinceId ||
-            (
-              await tx.province.findFirst({
-                where: payload.provinceSlug
-                  ? {
-                      OR: [
-                        { slug: String(payload.provinceSlug) },
-                        { code: String(payload.provinceSlug) },
-                      ],
-                    }
-                  : { code: "NC" },
-              })
-            )?.id;
-          if (!cat || !provinceId) {
-            throw new Error("CATEGORY_OR_PROVINCE");
-          }
-          // Province assignment must match moderator unless super
-          if (
-            scope.provinceId &&
-            provinceId !== scope.provinceId
-          ) {
-            throw new Error("PROVINCE_MISMATCH");
-          }
-          const slugBase = String(payload.name)
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .slice(0, 60);
-          const loc = await tx.location.create({
-            data: {
-              slug: `${slugBase}-${Date.now().toString(36)}`,
-              name: String(payload.name),
-              summary:
-                String(payload.summary || "") ||
-                "Community-submitted listing pending full verification.",
-              latitude: Number(payload.latitude),
-              longitude: Number(payload.longitude),
-              categoryId: cat.id,
-              provinceId,
-              opportunitiesJson: serializeArray(
-                Array.isArray(payload.opportunities)
-                  ? (payload.opportunities as string[])
-                  : []
-              ),
-              assetsJson: serializeArray(
-                Array.isArray(payload.assets) ? (payload.assets as string[]) : []
-              ),
-              tagsJson: ["community-submission"],
-              status: "PENDING_REVIEW",
-              ownerId: auth.user.id,
-              coordQuality: "unknown",
-            },
-          });
-          createdLocationId = loc.id;
+      if (body.status === "APPROVED") {
+        const applied = await applyApprovedSubmission(tx, existing, auth.user.id);
+        createdLocationId = applied.createdLocationId;
+        createdEntityType = applied.createdEntityType;
+        createdEntityId = applied.createdEntityId;
+        if (scope.provinceId && existing.provinceId && existing.provinceId !== scope.provinceId) {
+          throw new Error("PROVINCE_MISMATCH");
         }
       }
 
@@ -268,6 +222,8 @@ export async function PATCH(req: NextRequest) {
           reviewedById: auth.user.id,
           reviewedAt: new Date(),
           createdLocationId,
+          createdEntityType,
+          createdEntityId,
         },
       });
       return updated;
@@ -281,16 +237,16 @@ export async function PATCH(req: NextRequest) {
       entityId: result.id,
       provinceId: result.provinceId,
       ipAddress: clientIp(req),
-      metadata: { createdLocationId: result.createdLocationId },
+      metadata: { createdLocationId: result.createdLocationId, createdEntityId: result.createdEntityId },
     });
-
+    invalidatePublicCaches();
     return jsonOk({ submission: result });
   } catch (e) {
     if (e instanceof Error && e.message === "PROVINCE_MISMATCH") {
       return jsonError("Cannot approve a submission for another province", 403);
     }
-    if (e instanceof Error && e.message === "CATEGORY_OR_PROVINCE") {
-      return jsonError("Missing category or province for approval", 400);
+    if (e instanceof Error && (e.message === "CATEGORY_OR_PROVINCE" || e.message === "LOCATION_PAYLOAD" || e.message === "ECOSYSTEM_PAYLOAD" || e.message === "ORG_PAYLOAD")) {
+      return jsonError("Missing fields for approval", 400);
     }
     log.error("submission.moderate.failed", {
       detail: e instanceof Error ? e.message : String(e),

@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "externalId": "iitpsa",
+    "name": "IITPSA",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Institute of Information Technology Professionals South Africa.",
+    "website": "https://www.iitpsa.org.za/",
+    "sourceUrl": "https://www.iitpsa.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "isaca-sa",
+    "name": "ISACA South Africa",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Information systems audit and control association (SA chapter).",
+    "website": "https://engage.isaca.org/southafricachapter/home",
+    "sourceUrl": "https://engage.isaca.org/southafricachapter/home",
+    "address": null
+  },
+  {
+    "externalId": "cssa",
+    "name": "Computer Society of South Africa via IITPSA",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Professional ICT body (historical CSSA now IITPSA).",
+    "website": "https://www.iitpsa.org.za/",
+    "sourceUrl": "https://www.iitpsa.org.za/",
+    "address": null
+  }
+]

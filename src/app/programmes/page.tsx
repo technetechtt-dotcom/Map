@@ -3,7 +3,7 @@ import { getEcosystemItems } from "@/lib/ecosystem";
 export const dynamic = "force-dynamic";
 
 export default async function ProgrammesPage() {
-  const items = (await getEcosystemItems("programmes", "northern-cape")) as Array<{
+  const items = (await getEcosystemItems("programmes")) as Array<{
     id: string;
     title: string;
     summary: string;
@@ -36,6 +36,9 @@ export default async function ProgrammesPage() {
         ))}
         {items.length === 0 && <p className="text-muted">No published programmes yet.</p>}
       </div>
+      <p className="mt-6 text-sm">
+        <a className="text-g700 font-semibold" href="/submit?type=programmes">Submit a programme →</a>
+      </p>
     </div>
   );
 }

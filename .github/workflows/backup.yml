@@ -9,40 +9,61 @@ permissions:
   contents: read
 
 jobs:
-  pg-dump:
+  neon-snapshot:
+    name: neon-snapshot
     runs-on: ubuntu-latest
     environment: production
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v7
-      - name: Validate backup configuration
-        env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
-          S3_BACKUP_ACCESS_KEY_ID: ${{ secrets.S3_BACKUP_ACCESS_KEY_ID }}
-          S3_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET_ACCESS_KEY }}
-        run: |
-          test -n "$DATABASE_URL"
-          test -n "$BACKUP_ENCRYPTION_KEY"
-          test -n "$BACKUP_DESTINATION"
-          test -n "$S3_BUCKET"
-          test -n "$S3_BACKUP_BUCKET"
-          test -n "$S3_BACKUP_ACCESS_KEY_ID"
-          test -n "$S3_BACKUP_SECRET_ACCESS_KEY"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Snapshot production Neon branch
+        run: node scripts/neon-backup-branch.js
+
+  pg-dump:
+    name: offsite-encrypted
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      PRODUCTION_DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+      PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
+      RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      S3_BACKUP_ACCESS_KEY_ID: ${{ secrets.S3_BACKUP_ACCESS_KEY_ID }}
+      S3_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET_ACCESS_KEY }}
+      PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
+      - name: Validate backup configuration
+        run: node scripts/ops-preflight.js backup
+      - name: Install dump and rclone tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client unzip
+          curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
+          sudo unzip -o /tmp/rclone.zip -d /tmp
+          sudo cp /tmp/rclone-*-linux-amd64/rclone /usr/local/bin/rclone
+          rclone version
+          pg_dump --version
       - name: Dump and encrypt database
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
-          FALLBACK_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
-          RAW="${DATABASE_URL:-$FALLBACK_DATABASE_URL}"
-          URL="$(node -e "process.stdout.write(require('./scripts/pg-url').libpqUrl(process.argv[1] || ''))" "$RAW")"
+          URL="$(node -e "process.stdout.write(require('./scripts/pg-url').libpqUrl(process.argv[1] || ''))" "$DATABASE_URL")"
           pg_dump --format=custom --no-owner --file=database.dump "$URL"
           printf '%s' "$BACKUP_ENCRYPTION_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 --output database.dump.gpg database.dump
           sha256sum database.dump.gpg | tee database.dump.gpg.sha256
@@ -50,12 +71,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          S3_BACKUP_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
-          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
-          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
-          S3_BACKUP_ACCESS_KEY_ID: ${{ secrets.S3_BACKUP_ACCESS_KEY_ID }}
-          S3_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET_ACCESS_KEY }}
+          NODE_ENV: production
           S3_REGION: ${{ secrets.S3_REGION }}
           S3_BACKUP_REGION: ${{ secrets.S3_BACKUP_REGION }}
           S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
@@ -71,11 +87,9 @@ jobs:
           sha256sum data/object-backup-result.json | tee data/object-backup-result.json.sha256
           sha256sum data/object-storage-manifest.json | tee data/object-storage-manifest.json.sha256
       - name: Upload and verify off-site copies
-        env:
-          BACKUP_DESTINATION: ${{ secrets.BACKUP_DESTINATION }}
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
         run: |
           DATE=$(date -u +%Y-%m-%d)
+          printf '%s' "$RCLONE_CONFIG" > "$HOME/.rclone.conf"
           rclone copy database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy database.dump.gpg.sha256 "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
@@ -91,16 +105,14 @@ jobs:
       - name: Record verified backup health
         env:
           APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          test -n "$APP_URL"
-          test -n "$CRON_SECRET"
           CHECKSUM=$(cut -d' ' -f1 database.dump.gpg.sha256)
           SIZE=$(stat -c%s database.dump.gpg)
+          RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
           curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
             -H "x-cron-secret: $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"kind\":\"database\",\"filename\":\"database.dump.gpg\",\"path\":\"offsite\",\"sizeBytes\":$SIZE,\"checksumSha256\":\"$CHECKSUM\"}"
+            -d "{\"kind\":\"database\",\"filename\":\"database.dump.gpg\",\"path\":\"offsite\",\"sizeBytes\":$SIZE,\"checksumSha256\":\"$CHECKSUM\",\"status\":\"SUCCESS\",\"backupRunId\":\"db-$RUN_ID\"}"
           node -e '
             const fs = require("fs");
             const result = JSON.parse(fs.readFileSync("data/object-backup-result.json", "utf8"));

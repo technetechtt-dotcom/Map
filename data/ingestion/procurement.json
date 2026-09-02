@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "externalId": "etenders",
+    "name": "National Treasury eTender Publication Portal",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Official public tender publication portal — not a single tender.",
+    "website": "https://www.etenders.gov.za/",
+    "sourceUrl": "https://www.etenders.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "sita",
+    "name": "SITA",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "State Information Technology Agency procurement and services.",
+    "website": "https://www.sita.co.za/",
+    "sourceUrl": "https://www.sita.co.za/",
+    "address": null
+  }
+]

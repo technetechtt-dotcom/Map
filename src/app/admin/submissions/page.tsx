@@ -11,7 +11,9 @@ type Submission = {
   submitterEmail: string;
   createdAt: string;
   payload: Record<string, unknown>;
-  reviewedNotes?: string | null;
+  createdEntityId?: string | null;
+  createdEntityType?: string | null;
+  createdLocationId?: string | null;
 };
 
 export default function AdminSubmissionsPage() {
@@ -65,7 +67,10 @@ export default function AdminSubmissionsPage() {
                   <div className="font-semibold">{s.submitterName}</div>
                   <div className="text-xs text-muted">{s.submitterEmail}</div>
                 </td>
-                <td>{s.type}</td>
+                <td>
+                  <div className="font-semibold">{s.type}</div>
+                  {s.createdEntityId && <div className="text-xs text-muted">{s.createdEntityType}: {s.createdEntityId}</div>}
+                </td>
                 <td className="max-w-xs truncate text-xs">{JSON.stringify(s.payload)}</td>
                 <td><span className="chip">{s.status}</span></td>
                 <td className="space-x-1 whitespace-nowrap">

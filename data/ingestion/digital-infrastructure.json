@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "externalId": "infraco",
+    "name": "Broadband Infraco",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "State-owned broadband infrastructure company.",
+    "website": "https://www.infraco.co.za/",
+    "sourceUrl": "https://www.infraco.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "sentech",
+    "name": "SENTECH",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "State-owned broadcast and connectivity infrastructure.",
+    "website": "https://www.sentech.co.za/",
+    "sourceUrl": "https://www.sentech.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "icasa",
+    "name": "ICASA",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Independent Communications Authority of South Africa.",
+    "website": "https://www.icasa.org.za/",
+    "sourceUrl": "https://www.icasa.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "ska-carnarvon",
+    "name": "SKA / MeerKAT site (Carnarvon)",
+    "provinceSlug": "northern-cape",
+    "latitude": -30.971,
+    "longitude": 21.98,
+    "categorySlug": "ska-data",
+    "summary": "Radio astronomy infrastructure node (town-centre directory quality).",
+    "website": "https://www.sarao.ac.za/",
+    "sourceUrl": "https://www.sarao.ac.za/",
+    "address": null
+  }
+]

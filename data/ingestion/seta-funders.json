@@ -1,20 +1,98 @@
 [
   {
+    "externalId": "mict-seta",
     "name": "MICT SETA",
     "provinceSlug": "gauteng",
     "latitude": -26.107,
     "longitude": 28.057,
     "categorySlug": "skills-education",
-    "summary": "Sector education and training authority for ICT.",
-    "website": "https://www.mict.org.za/"
+    "summary": "Media, Information and Communication Technologies SETA.",
+    "website": "https://www.mict.org.za/",
+    "sourceUrl": "https://www.mict.org.za/",
+    "address": null
   },
   {
+    "externalId": "merseta",
+    "name": "merSETA",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "skills-education",
+    "summary": "Manufacturing, Engineering and Related Services SETA.",
+    "website": "https://www.merseta.org.za/",
+    "sourceUrl": "https://www.merseta.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "tia",
     "name": "Technology Innovation Agency",
     "provinceSlug": "gauteng",
     "latitude": -25.747,
     "longitude": 28.277,
     "categorySlug": "knowledge-hub",
-    "summary": "Public innovation funding agency.",
-    "website": "https://www.tia.org.za/"
+    "summary": "Public technology innovation agency.",
+    "website": "https://www.tia.org.za/",
+    "sourceUrl": "https://www.tia.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "idc",
+    "name": "Industrial Development Corporation",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public development finance institution.",
+    "website": "https://www.idc.co.za/",
+    "sourceUrl": "https://www.idc.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "nef",
+    "name": "National Empowerment Fund",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public development finance institution.",
+    "website": "https://www.nefcorp.co.za/",
+    "sourceUrl": "https://www.nefcorp.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "sefa",
+    "name": "sefa",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Small Enterprise Finance Agency.",
+    "website": "https://www.sefa.org.za/",
+    "sourceUrl": "https://www.sefa.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "nyda",
+    "name": "National Youth Development Agency",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public youth development agency.",
+    "website": "https://www.nyda.gov.za/",
+    "sourceUrl": "https://www.nyda.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "nrf-fund",
+    "name": "NRF funding programmes",
+    "provinceSlug": "gauteng",
+    "latitude": -25.747,
+    "longitude": 28.277,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public research funding programmes.",
+    "website": "https://www.nrf.ac.za/",
+    "sourceUrl": "https://www.nrf.ac.za/",
+    "address": null
   }
 ]

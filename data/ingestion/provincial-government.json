@@ -1,29 +1,110 @@
 [
   {
+    "externalId": "wc-gov",
     "name": "Western Cape Government",
     "provinceSlug": "western-cape",
     "latitude": -33.925,
     "longitude": 18.424,
     "categorySlug": "knowledge-hub",
-    "summary": "Provincial government digital services.",
-    "address": "Cape Town"
+    "summary": "Provincial government digital services node.",
+    "website": "https://www.westerncape.gov.za/",
+    "sourceUrl": "https://www.westerncape.gov.za/",
+    "address": null
   },
   {
+    "externalId": "ec-gov",
+    "name": "Eastern Cape Provincial Government",
+    "provinceSlug": "eastern-cape",
+    "latitude": -32.983,
+    "longitude": 27.867,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government node in Bhisho.",
+    "website": "https://ecprov.gov.za/",
+    "sourceUrl": "https://ecprov.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "fs-gov",
+    "name": "Free State Provincial Government",
+    "provinceSlug": "free-state",
+    "latitude": -29.121,
+    "longitude": 26.214,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government node in Bloemfontein.",
+    "website": "https://www.freestateonline.fs.gov.za/",
+    "sourceUrl": "https://www.freestateonline.fs.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "gp-gov",
     "name": "Gauteng Provincial Government",
     "provinceSlug": "gauteng",
     "latitude": -25.746,
     "longitude": 28.188,
     "categorySlug": "knowledge-hub",
-    "summary": "Provincial government digital services.",
-    "address": "Johannesburg"
+    "summary": "Provincial government digital services node.",
+    "website": "https://www.gauteng.gov.za/",
+    "sourceUrl": "https://www.gauteng.gov.za/",
+    "address": null
   },
   {
+    "externalId": "kzn-gov",
     "name": "KwaZulu-Natal Provincial Government",
     "provinceSlug": "kwazulu-natal",
-    "latitude": -29.858,
-    "longitude": 31.029,
+    "latitude": -29.6,
+    "longitude": 30.38,
     "categorySlug": "knowledge-hub",
-    "summary": "Provincial government digital services.",
-    "address": "Pietermaritzburg"
+    "summary": "Provincial government node in Pietermaritzburg.",
+    "website": "https://www.kznonline.gov.za/",
+    "sourceUrl": "https://www.kznonline.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "lp-gov",
+    "name": "Limpopo Provincial Government",
+    "provinceSlug": "limpopo",
+    "latitude": -23.904,
+    "longitude": 29.469,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government node in Polokwane.",
+    "website": "https://www.limpopo.gov.za/",
+    "sourceUrl": "https://www.limpopo.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "mp-gov",
+    "name": "Mpumalanga Provincial Government",
+    "provinceSlug": "mpumalanga",
+    "latitude": -25.465,
+    "longitude": 30.985,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government node in Mbombela.",
+    "website": "https://www.mpg.gov.za/",
+    "sourceUrl": "https://www.mpg.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "nw-gov",
+    "name": "North West Provincial Government",
+    "provinceSlug": "north-west",
+    "latitude": -25.865,
+    "longitude": 25.644,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government node in Mahikeng.",
+    "website": "https://www.nwpg.gov.za/",
+    "sourceUrl": "https://www.nwpg.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "nc-gov",
+    "name": "Northern Cape Provincial Government",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.738,
+    "longitude": 24.763,
+    "categorySlug": "knowledge-hub",
+    "summary": "Provincial government node in Kimberley.",
+    "website": "https://www.northern-cape.gov.za/",
+    "sourceUrl": "https://www.northern-cape.gov.za/",
+    "address": null
   }
 ]

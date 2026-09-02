@@ -115,6 +115,7 @@ jobs:
           test -f docs/next16-migration.md
           test -f docs/national-rollout.md
           test -f docs/performance-evidence.md
+          test -f docs/ops-secrets.md
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

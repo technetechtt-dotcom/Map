@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "externalId": "innovation-hub",
+    "name": "The Innovation Hub",
+    "provinceSlug": "gauteng",
+    "latitude": -25.747,
+    "longitude": 28.277,
+    "categorySlug": "knowledge-hub",
+    "summary": "Gauteng innovation precinct.",
+    "website": "https://www.theinnovationhub.com/",
+    "sourceUrl": "https://www.theinnovationhub.com/",
+    "address": null
+  },
+  {
+    "externalId": "tshimologong",
+    "name": "Tshimologong Precinct",
+    "provinceSlug": "gauteng",
+    "latitude": -26.192,
+    "longitude": 28.03,
+    "categorySlug": "knowledge-hub",
+    "summary": "Wits digital innovation precinct, Braamfontein.",
+    "website": "https://tshimologong.joburg/",
+    "sourceUrl": "https://tshimologong.joburg/",
+    "address": null
+  },
+  {
+    "externalId": "bandwidth-barn",
+    "name": "Bandwidth Barn",
+    "provinceSlug": "western-cape",
+    "latitude": -33.921,
+    "longitude": 18.422,
+    "categorySlug": "knowledge-hub",
+    "summary": "Cape Innovation and Technology Initiative incubator.",
+    "website": "https://www.citi.org.za/",
+    "sourceUrl": "https://www.citi.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "silicon-cape",
+    "name": "Silicon Cape",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "knowledge-hub",
+    "summary": "Western Cape tech community organisation.",
+    "website": "https://www.siliconcape.com/",
+    "sourceUrl": "https://www.siliconcape.com/",
+    "address": null
+  },
+  {
+    "externalId": "mlab-nc",
+    "name": "mLab Northern Cape",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.738,
+    "longitude": 24.763,
+    "categorySlug": "knowledge-hub",
+    "summary": "mLab NC digital skills and innovation node (PDF-backed).",
+    "website": "https://www.mlab.co.za/",
+    "sourceUrl": "https://www.mlab.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "launchlab",
+    "name": "SU LaunchLab",
+    "provinceSlug": "western-cape",
+    "latitude": -33.932,
+    "longitude": 18.864,
+    "categorySlug": "knowledge-hub",
+    "summary": "Stellenbosch University business incubator.",
+    "website": "https://www.launchlab.co.za/",
+    "sourceUrl": "https://www.launchlab.co.za/",
+    "address": null
+  }
+]

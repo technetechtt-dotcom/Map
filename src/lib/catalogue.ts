@@ -5,5 +5,5 @@
 export const SEED_CATALOGUE = {
   ncTowns: 9,
   pdfOrganisations: 49,
-  nationalDirectoryPins: 30,
+  nationalDirectoryPins: 94,
 } as const;

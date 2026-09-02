@@ -55,6 +55,55 @@ test("community submission creates a submitted record", async ({ request }, test
   await prisma.submission.delete({ where: { id: body.id } }).catch(() => undefined);
 });
 
+test("community can submit a funding opportunity", async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "API flow runs once");
+  const email = `e2e-fund-${Date.now()}@example.test`;
+  const res = await request.post("/api/submissions", {
+    data: {
+      type: "funding",
+      submitterName: "E2E Funder",
+      submitterEmail: email,
+      payload: { title: "E2E Seed Grant", summary: "Community-submitted funding call for digital skills.", url: "https://example.test/grant", provinceSlug: "northern-cape" },
+    },
+  });
+  expect(res.status(), await res.text()).toBe(201);
+  const body = await res.json();
+  expect(body.status).toBe("SUBMITTED");
+  await prisma.submission.delete({ where: { id: body.id } }).catch(() => undefined);
+});
+
+test("admin can create and archive a funding record", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "stateful admin flow runs once");
+  test.setTimeout(60_000);
+  const email = `e2e-eco-${Date.now()}@example.test`;
+  const password = "E2E-Eco-Password-42!";
+  const title = `E2E Funding ${Date.now()}`;
+  const user = await prisma.user.create({
+    data: { email, name: "E2E Eco", passwordHash: await bcrypt.hash(password, 12), role: "SUPER_ADMIN" },
+  });
+  try {
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible({ timeout: 20_000 });
+    await page.goto("/admin/ecosystem");
+    await expect(page.getByRole("heading", { name: /funding, events, programmes, procurement/i })).toBeVisible();
+    await page.locator("form input").first().fill(title);
+    await page.locator("form textarea").first().fill("E2E funding call for digital skills.");
+    await page.getByRole("button", { name: /^create$/i }).click();
+    await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
+    const archived = page.waitForResponse((r) => r.request().method() === "DELETE" && r.url().includes("/api/ecosystem/"), { timeout: 20_000 });
+    await page.getByRole("row").filter({ hasText: title }).getByRole("button", { name: /^archive$/i }).click();
+    const archiveRes = await archived;
+    expect(archiveRes.ok(), await archiveRes.text()).toBeTruthy();
+    await expect(page.getByRole("row").filter({ hasText: title }).getByText("ARCHIVED")).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await prisma.fundingCall.deleteMany({ where: { title } }).catch(() => undefined);
+    await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
+  }
+});
+
 test("admin invitation is accepted and the new user can sign in", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "stateful auth flow runs once");
   test.setTimeout(60_000);

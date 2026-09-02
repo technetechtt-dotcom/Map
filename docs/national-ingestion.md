@@ -22,7 +22,7 @@ Connectors are HTTP/API or file readers. They do **not** embed hard-coded locati
 | `industry-bodies` | `INGEST_INDUSTRY_BODIES_URL` | `data/ingestion/industry-bodies.json` | public-directory |
 | `companies` | `INGEST_COMPANIES_URL` | `data/ingestion/companies.json` | public-directory |
 
-`INGEST_*_URL_FILE` overrides the default file when no HTTP URL is set. Payloads may be a JSON array, `{ records: [] }`, or a GeoJSON FeatureCollection. Empty fixture files are placeholders for live URLs; they do not expand the published catalogue. Schema drift (>50% rows missing name/coordinates) quarantines the batch.
+`INGEST_*_URL_FILE` overrides the default file when no HTTP URL is set. Payloads may be a JSON array, `{ records: [] }`, or a GeoJSON FeatureCollection. Offline fixtures are filled from `data/ingestion/public-directory.js` (universities, TVETs, government, research, hubs, SETAs, funders, programmes, procurement, digital infrastructure, industry bodies). The `companies` bucket stays empty on purpose — commercial listings need a data-sharing agreement or a community submission. Schema drift (>50% rows missing name/coordinates) quarantines the batch.
 
 See `docs/source-authority.md` for field-level merge rules. Batch provenance stores connector `sourceVersion`, `contentHash`, `etag`, `sourceUrl`, and exact `retrievedAt`.
 

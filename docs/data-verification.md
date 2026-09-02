@@ -6,10 +6,10 @@
 |--------|------:|---------|
 | Presentation PDF towns (seed locations) | **9** | Active curated set. Desktop-verified (`lastVerifiedAt` = 2026-08-21, expires 2027-08-21). Town-centre coordinates, not field surveys. |
 | PDF organisations / contacts | **49** | Directory + hub pins; many use **town-centre** coordinates |
-| National public directory | **30** | Scaffold pins across nine provinces. `lastVerifiedAt` is null. |
+| National public directory | **94** | Public-directory pins across nine provinces. `lastVerifiedAt` is null. Not field-verified. |
 | Candidate spreadsheet | 100+ | Research list only — **not** live map truth |
 
-Public marketing copy must not claim “100+ verified pins.” Live seed is 9 + 49 + 30.
+Public marketing copy must not claim “100+ verified pins.” Live seed is 9 + 49 + 94. Directory pins are not verified locations.
 
 ## Verification workflow fields
 

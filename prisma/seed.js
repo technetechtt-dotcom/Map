@@ -5,6 +5,7 @@ const path = require("path");
 const { categories, locations } = require("../data/seed/nc-locations");
 const { organisations: pdfOrganisations } = require("../data/seed/pdf-organisations");
 const { sourceVersion: nationalSourceVersion, retrievedAt: nationalRetrievedAt, records: nationalDirectory } = require("../data/seed/national-directory");
+const { connectors: nationalConnectors, retrievedAt: connectorRetrievedAt, sourceVersion: connectorSourceVersion } = require("../data/ingestion/public-directory");
 const {
   publicTitle,
   dataSource,
@@ -447,6 +448,54 @@ async function main() {
     nationalCount += 1;
   }
 
+  const existingNames = new Set(
+    (await prisma.location.findMany({ select: { name: true } })).map((row) => row.name.toLowerCase())
+  );
+  for (const [connectorId, payload] of Object.entries(nationalConnectors)) {
+    const rows = Array.isArray(payload) ? payload : payload.records || [];
+    for (const row of rows) {
+      if (!row?.name || row.latitude == null || row.longitude == null) continue;
+      if (existingNames.has(String(row.name).toLowerCase())) continue;
+      const province = provinceBySlug[row.provinceSlug];
+      const category = catMap[row.categorySlug] || catMap["knowledge-hub"];
+      if (!province || !category) continue;
+      const slug = `dir-${connectorId}-${row.externalId || String(row.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`.slice(0, 80);
+      const taken = await prisma.location.findUnique({ where: { slug }, select: { id: true } });
+      if (taken) continue;
+      await prisma.location.create({
+        data: {
+          slug,
+          name: row.name,
+          summary: row.summary,
+          description: row.summary,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          website: row.website || null,
+          categoryId: category.id,
+          provinceId: province.id,
+          opportunitiesJson: [],
+          assetsJson: [],
+          tagsJson: ["public-directory", connectorId, row.provinceSlug],
+          status: "PUBLISHED",
+          lastVerifiedAt: null,
+          verificationTier: "directory",
+          canonicalKey: canonicalEntityKey(row.provinceSlug, row.name, row.latitude, row.longitude),
+          retrievedAt: new Date(connectorRetrievedAt),
+          sourceVersion: connectorSourceVersion,
+          verificationSource: "public-directory",
+          verificationNotes: "Public directory pin at city-centre quality. Not a field verification.",
+          coordQuality: "directory-only",
+          coordSource: connectorId,
+          sourceConfidence: "public-directory",
+          publishedAt: new Date(connectorRetrievedAt),
+          ownerId: superAdmin?.id || null,
+        },
+      });
+      existingNames.add(String(row.name).toLowerCase());
+      nationalCount += 1;
+    }
+  }
+
   // PDF p.9 funding sources / p.12–13 programmes & events only (no invented sites)
   await prisma.fundingCall.createMany({
     data: [
@@ -483,6 +532,15 @@ async function main() {
         status: "PUBLISHED",
         provinceId: nc.id,
         tagsJson: ["funding", "IDC"],
+        publishedAt: new Date(),
+      },
+      {
+        slug: "nyda-grant",
+        title: "NYDA Grant Programme",
+        summary: "Public youth grant programme listed on nyda.gov.za (directory, not an open call scraped from a live API).",
+        url: "https://www.nyda.gov.za/",
+        status: "PUBLISHED",
+        tagsJson: ["funding", "NYDA", "youth"],
         publishedAt: new Date(),
       },
     ],
@@ -559,6 +617,14 @@ async function main() {
         provinceId: nc.id,
         tagsJson: ["incubation", "TVET"],
       },
+      {
+        slug: "wethinkcode",
+        title: "WeThinkCode_",
+        summary: "Tuition-free software engineering academy (public programme directory).",
+        description: "https://www.wethinkcode.co.za/",
+        status: "PUBLISHED",
+        tagsJson: ["skills", "national"],
+      },
     ],
   });
 
@@ -574,6 +640,14 @@ async function main() {
         provinceId: nc.id,
         organisationId: org.id,
         tagsJson: ["partnership", "mLab"],
+      },
+      {
+        slug: "etenders-portal",
+        title: "National Treasury eTender Publication Portal",
+        summary: "Official public portal for government tenders (directory listing, not a single RFP).",
+        url: "https://www.etenders.gov.za/",
+        status: "PUBLISHED",
+        tagsJson: ["procurement", "national-treasury"],
       },
     ],
   });
@@ -647,7 +721,7 @@ async function main() {
   console.log(`Seeded ${nationalCount} national public-directory locations across nine provinces (unverified scaffold).`);
   console.log(`Seeded ${pdfOrganisations.length} PDF organisations / contacts (${orgCoordsCount} with map pins).`);
   console.log(
-    "Live catalogue is 9 NC towns + 49 organisations + 30 national pins. Candidate CSV rows are not live — do not claim 100+ locations."
+    "Live catalogue is 9 NC towns + 49 organisations + 94 national public-directory pins. Directory pins are not field-verified — do not claim 100+ verified locations."
   );
   console.log("Boundaries: NC districts/municipalities (MDB / municipalities.co.za layout).");
   console.log("Source: NC_ICT_Ecosystem_Presentation.pptx.pdf");

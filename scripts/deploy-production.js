@@ -3,6 +3,12 @@
  * Deploy the certified SHA and prove the live origin matches it.
  */
 const { spawnSync } = require("child_process");
+const path = require("path");
+const preflight = spawnSync(process.execPath, [path.join(__dirname, "ops-preflight.js"), "deploy"], {
+  stdio: "inherit",
+  env: process.env,
+});
+if (preflight.status !== 0) process.exit(preflight.status || 1);
 
 const sha = process.env.CERTIFIED_SHA || process.env.GITHUB_SHA || "";
 const hook = process.env.PRODUCTION_DEPLOY_HOOK || "";
@@ -51,7 +57,13 @@ async function main() {
   if (vercelToken && vercelOrg && vercelProject) {
     const deploy = spawnSync("npx", ["vercel", "deploy", "--prod", "--yes", "--token", vercelToken], {
       stdio: "inherit",
-      env: { ...process.env, VERCEL_ORG_ID: vercelOrg, VERCEL_PROJECT_ID: vercelProject },
+      env: {
+        ...process.env,
+        VERCEL_ORG_ID: vercelOrg,
+        VERCEL_PROJECT_ID: vercelProject,
+        GIT_COMMIT: sha,
+        GITHUB_SHA: sha,
+      },
     });
     if (deploy.status !== 0) process.exit(deploy.status || 1);
     const meta = await vercelMeta();

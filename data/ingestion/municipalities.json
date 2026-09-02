@@ -1,1 +1,122 @@
-[]
+[
+  {
+    "externalId": "cpt-metro",
+    "name": "City of Cape Town",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality ICT / digital city programmes.",
+    "website": "https://www.capetown.gov.za/",
+    "sourceUrl": "https://www.capetown.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "jhb-metro",
+    "name": "City of Johannesburg",
+    "provinceSlug": "gauteng",
+    "latitude": -26.205,
+    "longitude": 28.05,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.joburg.org.za/",
+    "sourceUrl": "https://www.joburg.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "tshwane-metro",
+    "name": "City of Tshwane",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.tshwane.gov.za/",
+    "sourceUrl": "https://www.tshwane.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "ekurhuleni-metro",
+    "name": "City of Ekurhuleni",
+    "provinceSlug": "gauteng",
+    "latitude": -26.178,
+    "longitude": 28.246,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.ekurhuleni.gov.za/",
+    "sourceUrl": "https://www.ekurhuleni.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "eth-metro",
+    "name": "eThekwini Municipality",
+    "provinceSlug": "kwazulu-natal",
+    "latitude": -29.858,
+    "longitude": 31.029,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.durban.gov.za/",
+    "sourceUrl": "https://www.durban.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "nmb-metro",
+    "name": "Nelson Mandela Bay Municipality",
+    "provinceSlug": "eastern-cape",
+    "latitude": -33.961,
+    "longitude": 25.62,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.nelsonmandelabay.gov.za/",
+    "sourceUrl": "https://www.nelsonmandelabay.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "bc-metro",
+    "name": "Buffalo City Metropolitan Municipality",
+    "provinceSlug": "eastern-cape",
+    "latitude": -32.97,
+    "longitude": 27.87,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.buffalocity.gov.za/",
+    "sourceUrl": "https://www.buffalocity.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "mangaung-metro",
+    "name": "Mangaung Metropolitan Municipality",
+    "provinceSlug": "free-state",
+    "latitude": -29.121,
+    "longitude": 26.214,
+    "categorySlug": "knowledge-hub",
+    "summary": "Metropolitan municipality.",
+    "website": "https://www.mangaung.co.za/",
+    "sourceUrl": "https://www.mangaung.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "sol-plaatje",
+    "name": "Sol Plaatje Local Municipality",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.738,
+    "longitude": 24.763,
+    "categorySlug": "knowledge-hub",
+    "summary": "Kimberley local municipality.",
+    "website": "https://www.solplaatje.org.za/",
+    "sourceUrl": "https://www.solplaatje.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "dawid-kruiper",
+    "name": "Dawid Kruiper Local Municipality",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.447,
+    "longitude": 21.256,
+    "categorySlug": "knowledge-hub",
+    "summary": "Upington local municipality.",
+    "website": "https://www.dawidkruiper.gov.za/",
+    "sourceUrl": "https://www.dawidkruiper.gov.za/",
+    "address": null
+  }
+]

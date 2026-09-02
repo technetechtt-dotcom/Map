@@ -9,6 +9,13 @@ describe("national ingestion connectors", () => {
     const provinces = new Set(rows.map((row) => row.provinceSlug));
     expect(provinces.has("gauteng")).toBe(true);
     expect(provinces.has("western-cape")).toBe(true);
+    expect(provinces.has("northern-cape")).toBe(true);
+    const universities = batches.find((batch) => batch.connector === "universities");
+    expect(universities?.rows.length).toBe(26);
+    const municipalities = batches.find((batch) => batch.connector === "municipalities");
+    expect(municipalities?.rows.length).toBeGreaterThan(0);
+    const companies = batches.find((batch) => batch.connector === "companies");
+    expect(companies?.rows.length).toBe(0);
     expect(rows.every((row) => row.sourceVersion && row.retrievedAt && row.confidence && row.licence)).toBe(true);
   });
 

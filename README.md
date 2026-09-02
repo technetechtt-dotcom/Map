@@ -2,7 +2,7 @@
 
 Northern Cape pilot on a national platform. Interactive map, organisation directory, and governed admin workflows.
 
-Live seed is **9 NC towns + 49 organisations + 30 national directory pins**. A larger candidate CSV is research only — do not claim 100+ locations.
+Live seed is **9 NC towns + 49 organisations + 94 national public-directory pins**. Directory pins are not field-verified — do not claim 100+ verified locations.
 
 Presentation: [demo script](docs/demo-script.md) · [one-pager](docs/one-pager.md) · [demo accounts](docs/demo-accounts.md) · public `/about`
 

@@ -4,7 +4,7 @@ import { getEcosystemItems } from "@/lib/ecosystem";
 export const dynamic = "force-dynamic";
 
 export default async function FundingPage() {
-  const items = (await getEcosystemItems("funding", "northern-cape")) as Array<{
+  const items = (await getEcosystemItems("funding")) as Array<{
     id: string;
     title: string;
     summary: string;
@@ -46,7 +46,7 @@ export default async function FundingPage() {
         {items.length === 0 && <p className="text-muted">No published funding calls yet.</p>}
       </div>
       <p className="mt-6 text-sm">
-        <Link className="text-g700 font-semibold" href="/submit">
+        <Link className="text-g700 font-semibold" href="/submit?type=funding">
           Submit a funding opportunity →
         </Link>
       </p>

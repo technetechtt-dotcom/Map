@@ -20,10 +20,10 @@ describe("presentation catalogue", () => {
   it("does not inflate live seed counts", () => {
     expect(SEED_CATALOGUE.ncTowns).toBe(9);
     expect(SEED_CATALOGUE.pdfOrganisations).toBe(49);
-    expect(SEED_CATALOGUE.nationalDirectoryPins).toBe(30);
+    expect(SEED_CATALOGUE.nationalDirectoryPins).toBe(94);
     const live = SEED_CATALOGUE.ncTowns + SEED_CATALOGUE.pdfOrganisations + SEED_CATALOGUE.nationalDirectoryPins;
-    expect(live).toBe(88);
-    expect(live).toBeLessThan(100);
+    expect(live).toBe(152);
+    expect(SEED_CATALOGUE.ncTowns).toBeLessThan(20);
   });
 
   it("sets a current desktop-verification window on curated NC towns", () => {

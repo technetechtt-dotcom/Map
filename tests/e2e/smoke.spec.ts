@@ -5,6 +5,16 @@ import { totpCode } from "../../src/lib/totp";
 
 const prisma = new PrismaClient();
 
+test("funding, events and submit pages expose the community lifecycle", async ({ page }) => {
+  await page.goto("/funding");
+  await expect(page.getByRole("heading", { name: /funding calls/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /submit a funding opportunity/i })).toBeVisible();
+  await page.goto("/submit?type=funding");
+  await expect(page.getByRole("heading", { name: /submit a listing/i })).toBeVisible();
+  await expect(page.getByLabel(/listing type/i)).toHaveValue("funding");
+  await expect(page.locator('form input[name="latitude"]')).toHaveCount(0);
+});
+
 test("home page renders", async ({ page }) => {
   const res = await page.goto("/");
   expect(res?.ok()).toBeTruthy();

@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "externalId": "dsi",
+    "name": "Department of Science, Technology and Innovation",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "National public science and innovation department.",
+    "website": "https://www.dsti.gov.za/",
+    "sourceUrl": "https://www.dsti.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "dtic",
+    "name": "Department of Trade, Industry and Competition",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "National public industrial policy department.",
+    "website": "https://www.thedtic.gov.za/",
+    "sourceUrl": "https://www.thedtic.gov.za/",
+    "address": null
+  },
+  {
+    "externalId": "dsbd",
+    "name": "Department of Small Business Development",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "National public small-business department.",
+    "website": "https://www.dsbd.gov.za/",
+    "sourceUrl": "https://www.dsbd.gov.za/",
+    "address": null
+  }
+]

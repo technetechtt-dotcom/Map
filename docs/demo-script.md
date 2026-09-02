@@ -2,7 +2,7 @@
 
 Product name: **SA ICT Ecosystem Map**. Position: Northern Cape is the curated pilot; the other eight provinces are a directory scaffold.
 
-Do **not** claim 100+ locations. Live seed is **9 NC towns + 49 organisations + 30 national pins**.
+Do **not** claim 100+ verified locations. Live seed is **9 NC towns + 49 organisations + 94 national public-directory pins**.
 
 Prep: seed with `SEED_ADMIN_PASSWORD` (min 12). For a local walkthrough also set `ALLOW_DEMO_USERS=1` and `NEXT_PUBLIC_DEMO_HINTS=1`. Sign-in emails are `admin@ictmap.gov.za` (super) and `nc.admin@ictmap.gov.za` (provincial). Password is never logged.
 

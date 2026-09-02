@@ -44,6 +44,26 @@ describe("structured submission validation", () => {
     });
     expect(ok.success).toBe(true);
   });
+
+  it("rejects location submissions without coordinates", () => {
+    const bad = submissionSchema.safeParse({
+      type: "location",
+      submitterName: "Ada Lovelace",
+      submitterEmail: "ada@example.com",
+      payload: { name: "Upington Hub", summary: "A knowledge site" },
+    });
+    expect(bad.success).toBe(false);
+  });
+
+  it("accepts funding submissions without coordinates", () => {
+    const ok = submissionSchema.safeParse({
+      type: "funding",
+      submitterName: "Ada Lovelace",
+      submitterEmail: "ada@example.com",
+      payload: { title: "NYDA Grant Programme", summary: "Public youth grant programme" },
+    });
+    expect(ok.success).toBe(true);
+  });
 });
 
 describe("location create schema gate", () => {

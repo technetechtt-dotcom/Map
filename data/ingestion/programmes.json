@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "externalId": "codetribe",
+    "name": "mLab CodeTribe Academy",
+    "provinceSlug": "gauteng",
+    "latitude": -25.747,
+    "longitude": 28.277,
+    "categorySlug": "skills-education",
+    "summary": "Public-facing digital skills academy (mLab).",
+    "website": "https://www.mlab.co.za/",
+    "sourceUrl": "https://www.mlab.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "wethinkcode",
+    "name": "WeThinkCode_",
+    "provinceSlug": "gauteng",
+    "latitude": -26.192,
+    "longitude": 28.03,
+    "categorySlug": "skills-education",
+    "summary": "Tuition-free software engineering academy.",
+    "website": "https://www.wethinkcode.co.za/",
+    "sourceUrl": "https://www.wethinkcode.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "capaciti",
+    "name": "CapaCiTi",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "skills-education",
+    "summary": "Cape Innovation and Technology Initiative skills programmes.",
+    "website": "https://capaciti.org.za/",
+    "sourceUrl": "https://capaciti.org.za/",
+    "address": null
+  }
+]

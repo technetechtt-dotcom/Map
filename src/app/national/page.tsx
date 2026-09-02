@@ -33,7 +33,7 @@ export default async function NationalReportPage() {
       <p className="text-muted mb-6 max-w-2xl">
         Nine-province scaffold. Northern Cape holds the curated, desktop-verified towns.
         Other provinces are public-directory pins so search and tenancy work nationally.
-        Live seed is 9 NC towns, 49 organisations and 30 national pins — not 100+ locations.
+        Live seed is 9 NC towns, 49 organisations and 94 national public-directory pins — not 100+ verified locations.
       </p>
 
       <div className="stat-grid mb-6">

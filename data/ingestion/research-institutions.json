@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "externalId": "csir",
+    "name": "CSIR Pretoria",
+    "provinceSlug": "gauteng",
+    "latitude": -25.747,
+    "longitude": 28.277,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public science council.",
+    "website": "https://www.csir.co.za/",
+    "sourceUrl": "https://www.csir.co.za/",
+    "address": null
+  },
+  {
+    "externalId": "hsrc",
+    "name": "Human Sciences Research Council",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Statutory research council.",
+    "website": "https://hsrc.ac.za/",
+    "sourceUrl": "https://hsrc.ac.za/",
+    "address": null
+  },
+  {
+    "externalId": "nrf",
+    "name": "National Research Foundation",
+    "provinceSlug": "gauteng",
+    "latitude": -25.747,
+    "longitude": 28.277,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public science funding agency.",
+    "website": "https://www.nrf.ac.za/",
+    "sourceUrl": "https://www.nrf.ac.za/",
+    "address": null
+  },
+  {
+    "externalId": "sarao",
+    "name": "SARAO",
+    "provinceSlug": "western-cape",
+    "latitude": -33.935,
+    "longitude": 18.467,
+    "categorySlug": "ska-data",
+    "summary": "SARAO headquarters / programme node (Cape Town). Carnarvon field site is a separate NC pin.",
+    "website": "https://www.sarao.ac.za/",
+    "sourceUrl": "https://www.sarao.ac.za/",
+    "address": null
+  },
+  {
+    "externalId": "assaf",
+    "name": "Academy of Science of South Africa",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Statutory science academy.",
+    "website": "https://www.assaf.org.za/",
+    "sourceUrl": "https://www.assaf.org.za/",
+    "address": null
+  },
+  {
+    "externalId": "mrc",
+    "name": "South African Medical Research Council",
+    "provinceSlug": "western-cape",
+    "latitude": -33.906,
+    "longitude": 18.496,
+    "categorySlug": "knowledge-hub",
+    "summary": "Statutory medical research council.",
+    "website": "https://www.samrc.ac.za/",
+    "sourceUrl": "https://www.samrc.ac.za/",
+    "address": null
+  }
+]
