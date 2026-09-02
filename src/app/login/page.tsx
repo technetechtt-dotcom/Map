@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 const showDemoHints = process.env.NEXT_PUBLIC_DEMO_HINTS === "1";
 const demoSuperEmail = process.env.NEXT_PUBLIC_DEMO_SUPER_EMAIL || "admin@ictmap.gov.za";
 const demoProvincialEmail = process.env.NEXT_PUBLIC_DEMO_PROVINCIAL_EMAIL || "nc.admin@ictmap.gov.za";
+const showMfaPrompt = process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_MFA_LOGIN !== "0";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("Invalid email or password (or MFA code if required)");
+      setError(showMfaPrompt ? "Invalid email or password (or MFA code if required)" : "Invalid email or password");
       return;
     }
     try {
@@ -83,9 +84,12 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
         </label>
-        <label className="grid gap-1 text-sm font-semibold">
-          MFA code (if enabled)
-          <input className="field" name="mfaCode" autoComplete="one-time-code" />
+        <label
+          className={showMfaPrompt ? "grid gap-1 text-sm font-semibold" : "absolute -left-[9999px] h-0 w-0 overflow-hidden"}
+          aria-hidden={!showMfaPrompt}
+        >
+          MFA code {showMfaPrompt ? "(if enabled)" : ""}
+          <input className="field" name="mfaCode" autoComplete="one-time-code" tabIndex={showMfaPrompt ? 0 : -1} />
         </label>
         <button className="btn" type="submit" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
