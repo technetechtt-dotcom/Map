@@ -127,11 +127,11 @@ export default async function AboutPage() {
             — nine-province scaffold and verification counts.
           </li>
           <li>
-            Sign in as super or provincial admin — locations workflow, then{" "}
+            Sign in as super or provincial admin — the{" "}
             <Link className="text-g700 font-semibold" href="/admin/ops">
               Operations
-            </Link>
-            .
+            </Link>{" "}
+            console is the desk for sites, content, users, uploads, and platform health.
           </li>
         </ol>
         <p className="mt-3 text-sm">

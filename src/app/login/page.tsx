@@ -37,10 +37,11 @@ export default function LoginPage() {
         router.refresh();
         return;
       }
+      const opsRoles = ["SUPER_ADMIN", "PROVINCIAL_ADMIN"];
+      router.push(opsRoles.includes(String(me?.role || "")) ? "/admin/ops" : "/admin");
     } catch {
-      // fall through
+      router.push("/admin");
     }
-    router.push("/admin");
     router.refresh();
   }
 

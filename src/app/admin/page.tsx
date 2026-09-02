@@ -25,8 +25,8 @@ export default function AdminHome() {
       <p className="eyebrow">Administration</p>
       <h1 className="text-2xl font-extrabold">Management system</h1>
       <p className="text-muted mb-4 max-w-2xl">
-        Create, edit, verify and publish locations. Moderators review community submissions.
-        User invites, imports and backups sit under Advanced.
+        Super and provincial operators run the platform from Operations: upload sites, moderate
+        content, manage users, and watch health. This overview is a short catalogue snapshot.
       </p>
       {data && (
         <div className="stat-grid">
@@ -39,7 +39,7 @@ export default function AdminHome() {
         </div>
       )}
       <div className="mt-6 flex flex-wrap gap-3">
-        {canOps && <Link href="/admin/ops" className="btn">Operations</Link>}
+        {canOps && <Link href="/admin/ops" className="btn">Open ops console</Link>}
         <Link href="/admin/locations" className="btn btn-outline">Manage locations</Link>
         {(role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN") && (
           <Link href="/admin/submissions" className="btn btn-outline">Review submissions</Link>

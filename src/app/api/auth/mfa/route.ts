@@ -235,5 +235,6 @@ export async function GET() {
     mfaEnabled: user?.mfaEnabled ?? false,
     mustChangePassword: user?.mustChangePassword ?? false,
     mfaRequired: requiresMfa(auth.user),
+    role: user?.role ?? auth.user.role,
   });
 }

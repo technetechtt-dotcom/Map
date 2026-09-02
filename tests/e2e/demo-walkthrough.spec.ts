@@ -41,7 +41,10 @@ test.describe("10-minute investor walkthrough", () => {
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/admin/, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: /operations dashboard/i })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("link", { name: "Operations" }).first()).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^sites$/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^users$/i })).toBeVisible();
     await expect(page.getByRole("link", { name: "Users & roles" })).toHaveCount(0);
 
     await page.goto("/admin/locations");

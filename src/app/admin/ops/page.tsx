@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
+import OpsSitesPanel from "@/components/admin/ops/OpsSitesPanel";
+import OpsContentPanel from "@/components/admin/ops/OpsContentPanel";
+import OpsPeoplePanel from "@/components/admin/ops/OpsPeoplePanel";
+import OpsUploadsPanel from "@/components/admin/ops/OpsUploadsPanel";
 
 type DeadLetter = {
   id: string;
@@ -111,11 +115,39 @@ function statusClass(status: string) {
   return "chip";
 }
 
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "sites", label: "Sites" },
+  { id: "content", label: "Content" },
+  { id: "users", label: "Users" },
+  { id: "uploads", label: "Uploads" },
+  { id: "platform", label: "Platform" },
+] as const;
+
+type OpsTab = (typeof TABS)[number]["id"];
+
+function readTab(): OpsTab {
+  if (typeof window === "undefined") return "overview";
+  const value = new URLSearchParams(window.location.search).get("tab");
+  return TABS.some((t) => t.id === value) ? (value as OpsTab) : "overview";
+}
+
 export default function OpsDashboardPage() {
+  const [tab, setTab] = useState<OpsTab>("overview");
   const [data, setData] = useState<OpsSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTab(readTab());
+  }, []);
+
+  function selectTab(next: OpsTab) {
+    setTab(next);
+    const url = next === "overview" ? "/admin/ops" : `/admin/ops?tab=${next}`;
+    window.history.replaceState(null, "", url);
+  }
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/ops/summary", { cache: "no-store" });
@@ -133,10 +165,20 @@ export default function OpsDashboardPage() {
   }, []);
 
   useEffect(() => {
-    load().catch(() => setError("Could not load operations snapshot."));
-    const timer = window.setInterval(() => {
-      load().catch(() => undefined);
-    }, 30_000);
+    let inFlight = false;
+    const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        await load();
+      } catch {
+        setError("Could not load operations snapshot.");
+      } finally {
+        inFlight = false;
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, 30_000);
     return () => window.clearInterval(timer);
   }, [load]);
 
@@ -176,10 +218,59 @@ export default function OpsDashboardPage() {
     }
   }
 
-  if (error && !data) {
+  const tabBar = (
+    <div className="chip-row mb-4" role="tablist" aria-label="Ops console sections">
+      {TABS.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="tab"
+          aria-selected={tab === item.id}
+          className={tab === item.id ? "chip chip-active" : "chip"}
+          onClick={() => selectTab(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const workPanel =
+    tab === "sites" ? (
+      <OpsSitesPanel />
+    ) : tab === "content" ? (
+      <OpsContentPanel />
+    ) : tab === "users" ? (
+      <OpsPeoplePanel />
+    ) : tab === "uploads" ? (
+      <OpsUploadsPanel />
+    ) : null;
+
+  const heading = (
+    <>
+      <p className="eyebrow">Platform console</p>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold">Operations dashboard</h1>
+          <p className="text-muted max-w-2xl">
+            Upload sites, moderate content, manage users, and run the platform from one desk.
+            {data ? ` ${data.scope} snapshot ${new Date(data.collectedAt).toLocaleString()}.` : ""}
+          </p>
+        </div>
+        {data && (
+          <span className={statusClass(data.health.status)} aria-live="polite">
+            {data.health.status}
+          </span>
+        )}
+      </div>
+      {tabBar}
+    </>
+  );
+
+  if (error && !data && !workPanel) {
     return (
       <AdminShell>
-        <h1 className="text-2xl font-extrabold">Operations</h1>
+        {heading}
         <p className="text-muted">{error}</p>
         <Link href="/admin" className="btn btn-outline mt-4 inline-block">
           Back to overview
@@ -188,11 +279,19 @@ export default function OpsDashboardPage() {
     );
   }
 
+  if (workPanel) {
+    return (
+      <AdminShell>
+        {heading}
+        {workPanel}
+      </AdminShell>
+    );
+  }
+
   if (!data) {
     return (
       <AdminShell>
-        <p className="eyebrow">Backend</p>
-        <h1 className="text-2xl font-extrabold">Operations dashboard</h1>
+        {heading}
         <p className="text-muted">Loading live platform status…</p>
       </AdminShell>
     );
@@ -204,21 +303,29 @@ export default function OpsDashboardPage() {
 
   return (
     <AdminShell>
-      <p className="eyebrow">Backend</p>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold">Operations dashboard</h1>
-          <p className="text-muted max-w-2xl">
-            Live health, queues, backups and maintenance for the {data.scope} scope. Snapshot{" "}
-            {new Date(data.collectedAt).toLocaleString()}.
-          </p>
-        </div>
-        <span className={statusClass(data.health.status)} aria-live="polite">
-          {data.health.status}
-        </span>
-      </div>
-
+      {heading}
       {message && <p className="mb-4 text-sm font-semibold text-g700">{message}</p>}
+
+      {tab === "overview" && (
+      <>
+      <div className="stat-grid mb-6">
+        <button type="button" className="stat text-left" onClick={() => selectTab("sites")}>
+          <strong>{data.catalogue.locations}</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Sites</span>
+        </button>
+        <button type="button" className="stat text-left" onClick={() => selectTab("content")}>
+          <strong>{data.work.openSubmissions}</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Open submissions</span>
+        </button>
+        <button type="button" className="stat text-left" onClick={() => selectTab("users")}>
+          <strong>Users</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Roles and access</span>
+        </button>
+        <button type="button" className="stat text-left" onClick={() => selectTab("uploads")}>
+          <strong>Uploads</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Files and imports</span>
+        </button>
+      </div>
 
       <div className="stat-grid">
         <div className="stat">
@@ -365,7 +472,11 @@ export default function OpsDashboardPage() {
           </Link>
         </div>
       )}
+      </>
+      )}
 
+      {tab === "platform" && (
+      <>
       {superAdmin && (
         <div className="panel-card mt-6">
           <h2 className="mb-2 text-lg font-extrabold">Runtime</h2>
@@ -513,6 +624,8 @@ export default function OpsDashboardPage() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </AdminShell>
   );

@@ -160,7 +160,7 @@ test("admin invitation is accepted and the new user can sign in", async ({ page 
 
 test("ops dashboard is visible to super admins and blocked for contributors", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "ops access runs once");
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const superEmail = `e2e-ops-super-${Date.now()}@example.test`;
   const contribEmail = `e2e-ops-contrib-${Date.now()}@example.test`;
   const password = "E2E-Ops-Dashboard-42!";
@@ -175,13 +175,19 @@ test("ops dashboard is visible to super admins and blocked for contributors", as
     await page.locator('input[name="email"]').fill(superEmail);
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
-    await page.goto("/admin/ops");
+    await expect(page).toHaveURL(/\/admin\/ops/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: /operations dashboard/i })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/loading live platform status/i)).toHaveCount(0, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: /runtime readiness/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /runtime readiness/i })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/loading live platform status/i)).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /backup channels/i })).toBeVisible();
     await expect(page.getByRole("link", { name: "Operations" }).first()).toBeVisible();
+    await page.getByRole("tab", { name: /^sites$/i }).click();
+    await expect(page.getByRole("heading", { name: /sites and map pins/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /upload a site/i })).toBeVisible();
+    await page.getByRole("tab", { name: /^users$/i }).click();
+    await expect(page.getByRole("heading", { name: /users and roles/i })).toBeVisible();
+    await page.getByRole("tab", { name: /^overview$/i }).click();
+    await expect(page.getByRole("heading", { name: /runtime readiness/i })).toBeVisible();
 
     await page.getByRole("button", { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
