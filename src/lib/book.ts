@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { RecordStatus } from "@prisma/client";
 import { parseJsonArray, shapeLocation } from "@/lib/shape";
-import { OPPORTUNITY_CHAPTERS } from "@/lib/opportunity-chapters";
 
 const BOOK_CACHE_MS = 120_000;
 type LoadedBook = Awaited<ReturnType<typeof loadBookData>>;
@@ -127,66 +126,51 @@ async function loadBookData(provinceSlug?: string) {
     locationSlugs: parseJsonArray(o.locationSlugsJson),
   }));
 
-  const orgBySlug = Object.fromEntries(organisations.map((o) => [o.slug, o]));
-  const locBySlug = Object.fromEntries(shaped.map((l) => [l.slug, l]));
-
-  /** Max distance (° ≈ km) for treating an org lat/lng as “in this zone” */
-  const ZONE_PIN_DEG = 1.35;
-
-  /** PDF pages 3–7 chapters with resolved locations + contacts + pins */
-  const opportunityChapters = OPPORTUNITY_CHAPTERS.map((ch) => {
-    const chapterLocs = ch.locationSlugs.map((s) => locBySlug[s]).filter(Boolean);
+  const accents = ["#C9B3E0", "#7A9EAD", "#B8A07A", "#8FBC8F", "#CD853F", "#6B8E9F"];
+  const opportunityChapters = districts.map((d, idx) => {
+    const chapterLocs = shaped.filter(
+      (l) => l.district?.code === d.code || l.district?.name === d.name
+    );
     const primary = chapterLocs[0];
-
+    const districtOrgs = organisations.filter((o) => {
+      if (o.latitude == null || o.longitude == null || !primary) return false;
+      const dLat = Math.abs(primary.latitude - o.latitude);
+      const dLng = Math.abs(primary.longitude - o.longitude) * Math.cos((o.latitude * Math.PI) / 180);
+      return Math.hypot(dLat, dLng) <= 1.35;
+    });
     let pinN = 0;
-    const contactsOrdered = ch.contactSlugs
-      .map((s) => orgBySlug[s])
-      .filter(Boolean)
-      .map((o) => {
-        const trueLat = o.latitude;
-        const trueLng = o.longitude;
-        const nearZone =
-          trueLat != null &&
-          trueLng != null &&
-          chapterLocs.some((l) => {
-            const dLat = Math.abs(l.latitude - trueLat);
-            const dLng = Math.abs(l.longitude - trueLng) * Math.cos((trueLat * Math.PI) / 180);
-            return Math.hypot(dLat, dLng) <= ZONE_PIN_DEG;
-          });
-
-        // Every PDF key contact gets a numbered pin on the zone map:
-        // true coords when in-zone; else host town (proxy) so the list is complete.
-        let pinLat: number | null = null;
-        let pinLng: number | null = null;
-        let pinProxy = false;
-        if (nearZone && trueLat != null && trueLng != null) {
-          pinLat = trueLat;
-          pinLng = trueLng;
-        } else if (primary) {
-          pinLat = primary.latitude;
-          pinLng = primary.longitude;
-          pinProxy = true;
-        } else if (trueLat != null && trueLng != null) {
-          pinLat = trueLat;
-          pinLng = trueLng;
-        }
-
-        const hasPin = pinLat != null && pinLng != null;
-        if (hasPin) pinN += 1;
-        return {
-          ...o,
-          // Map placement (may be zone host for national / out-of-zone HQs)
-          latitude: pinLat,
-          longitude: pinLng,
-          trueLatitude: trueLat,
-          trueLongitude: trueLng,
-          pinProxy,
-          pinNumber: hasPin ? pinN : (null as number | null),
-        };
-      });
+    const contactsOrdered = (districtOrgs.length ? districtOrgs : organisations.slice(0, 6)).map((o) => {
+      const hasPin = o.latitude != null && o.longitude != null;
+      if (hasPin) pinN += 1;
+      return {
+        ...o,
+        trueLatitude: o.latitude,
+        trueLongitude: o.longitude,
+        pinProxy: false,
+        pinNumber: hasPin ? pinN : (null as number | null),
+      };
+    });
+    const categoryNotes = Array.from(
+      new Set(chapterLocs.map((l) => l.category?.name).filter(Boolean))
+    ).slice(0, 5);
 
     return {
-      ...ch,
+      pdfPage: idx + 1,
+      id: d.code || d.id,
+      title: `${d.name} — live catalogue`,
+      zoneLabel: d.province?.name ? `${d.name} · ${d.province.name}` : d.name,
+      emoji: "●",
+      accent: accents[idx % accents.length],
+      districtCodes: d.code ? [d.code] : [],
+      munCodes: (d.municipalities || []).map((m: { code?: string | null }) => m.code).filter(Boolean) as string[],
+      locationSlugs: chapterLocs.map((l) => l.slug),
+      contactSlugs: contactsOrdered.map((o) => o.slug),
+      chips: categoryNotes.map((label) => ({ label: String(label), note: "From published sites" })),
+      opportunities: chapterLocs.slice(0, 5).map((l) => l.name),
+      strategic:
+        chapterLocs.length > 0
+          ? `${chapterLocs.length} published site(s) in ${d.name} from the shared ops catalogue.`
+          : `No published sites in ${d.name} yet — add and publish them in Ops.`,
       locations: chapterLocs,
       contacts: contactsOrdered,
       coordsLabel: primary
@@ -215,7 +199,7 @@ async function loadBookData(provinceSlug?: string) {
   return {
     generatedAt: new Date().toISOString(),
     scope: province ? province.name : "All provinces",
-    sourceDocument: "NC_ICT_Ecosystem_Presentation.pptx.pdf (mLab NC, Updated 2025)",
+    sourceDocument: "Live catalogue (shared Neon DB via Ops)",
     province,
     provinces,
     categories,

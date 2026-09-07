@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const showDemoHints = process.env.NEXT_PUBLIC_DEMO_HINTS === "1";
@@ -11,6 +12,7 @@ const showMfaPrompt =
   process.env.NODE_ENV === "production" &&
   process.env.NEXT_PUBLIC_MFA_LOGIN !== "0" &&
   process.env.NEXT_PUBLIC_MFA_LOGIN !== "false";
+const opsAppUrl = (process.env.NEXT_PUBLIC_OPS_APP_URL || "").replace(/\/$/, "");
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,10 +42,25 @@ export default function LoginPage() {
         router.refresh();
         return;
       }
-      const opsRoles = ["SUPER_ADMIN", "PROVINCIAL_ADMIN"];
-      router.push(opsRoles.includes(String(me?.role || "")) ? "/admin/ops" : "/admin");
+      const role = String(me?.role || "");
+      const staffHome =
+        role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN"
+          ? "/admin/ops"
+          : role === "ORG_ADMIN" || role === "CONTRIBUTOR"
+            ? "/admin"
+            : null;
+
+      if (staffHome) {
+        if (opsAppUrl && window.location.origin !== opsAppUrl) {
+          window.location.href = `${opsAppUrl}${staffHome}`;
+          return;
+        }
+        router.push(staffHome);
+      } else {
+        router.push("/");
+      }
     } catch {
-      router.push("/admin");
+      router.push("/");
     }
     router.refresh();
   }
@@ -51,7 +68,7 @@ export default function LoginPage() {
   return (
     <div className="page max-w-md">
       <p className="eyebrow">Secure access</p>
-      <h1>Administrator login</h1>
+      <h1>Sign in</h1>
       {showDemoHints ? (
         <div className="panel-card mb-6 text-sm">
           <p className="font-semibold">Local presentation logins</p>
@@ -70,7 +87,8 @@ export default function LoginPage() {
         </div>
       ) : (
         <p className="text-muted mb-6 text-sm">
-          Use credentials issued by your platform administrator. Session lasts 8 hours.
+          Sign in on the public map or ops console. Both share the same database — published sites
+          appear on the map. Session lasts 8 hours.
         </p>
       )}
       <form onSubmit={onSubmit} className="panel-card grid gap-3" autoComplete="on">
@@ -100,9 +118,13 @@ export default function LoginPage() {
         </button>
         {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
         <p className="text-sm">
-          <a href="/reset-password" className="text-g700 font-semibold">
+          <Link href="/signup" className="text-g700 font-semibold">
+            Create an account
+          </Link>
+          {" · "}
+          <Link href="/reset-password" className="text-g700 font-semibold">
             Forgot password?
-          </a>
+          </Link>
         </p>
       </form>
     </div>

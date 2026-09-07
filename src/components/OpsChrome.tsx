@@ -26,6 +26,9 @@ export default function OpsChrome() {
               <span className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-sm text-white">
                 {role.replace(/_/g, " ")}
               </span>
+              <Link href="/account/security" className="secondary-button">
+                Account
+              </Link>
               <button
                 type="button"
                 className="secondary-button"
@@ -35,9 +38,14 @@ export default function OpsChrome() {
               </button>
             </>
           ) : (
-            <Link href="/login" className="secondary-button">
-              Sign in
-            </Link>
+            <>
+              <Link href="/login" className="secondary-button">
+                Sign in
+              </Link>
+              <Link href="/signup" className="secondary-button">
+                Sign up
+              </Link>
+            </>
           )}
         </div>
       </div>

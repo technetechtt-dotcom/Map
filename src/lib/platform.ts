@@ -1,17 +1,21 @@
 /**
  * Platform split: public map (citizens) vs ops console (staff).
  * Each runs as a separate origin locally and in production.
+ * Both share one Neon database — catalogue APIs work on both origins.
  */
 
 export type AppPlatform = "public" | "ops";
 
-const OPS_UI_PREFIXES = [
-  "/admin",
+/** Staff console UI — stays on the ops origin. */
+const OPS_UI_PREFIXES = ["/admin", "/dashboard"] as const;
+
+/** Auth pages served on both public and ops (same-origin session cookies). */
+const SHARED_AUTH_PREFIXES = [
   "/login",
+  "/signup",
+  "/reset-password",
   "/account",
   "/accept-invite",
-  "/dashboard",
-  "/reset-password",
 ] as const;
 
 const INFRA_PREFIXES = ["/_next", "/favicon.ico", "/api/health"] as const;
@@ -49,6 +53,12 @@ export function isInfraRoute(pathname: string): boolean {
   return INFRA_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+export function isSharedAuthRoute(pathname: string): boolean {
+  return SHARED_AUTH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
 export function isOpsRoute(pathname: string): boolean {
   if (isInfraRoute(pathname)) return false;
   if (OPS_UI_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
@@ -65,6 +75,7 @@ export function isAllowedOnPublicPlatform(pathname: string): boolean {
   if (isInfraRoute(pathname)) return true;
   if (pathname.startsWith("/api/csp-report")) return true;
   if (pathname.startsWith("/api/auth")) return true;
+  if (isSharedAuthRoute(pathname)) return true;
   if (pathname.startsWith("/api/")) {
     return !pathname.startsWith("/api/admin");
   }
@@ -76,6 +87,9 @@ export function isAllowedOnOpsPlatform(pathname: string): boolean {
   if (isInfraRoute(pathname)) return true;
   if (pathname.startsWith("/api/csp-report")) return true;
   if (pathname.startsWith("/api/auth")) return true;
+  // Staff UI calls catalogue APIs same-origin — both platforms share Neon.
+  if (pathname.startsWith("/api/")) return true;
+  if (isSharedAuthRoute(pathname)) return true;
   if (isOpsRoute(pathname)) return true;
   if (pathname === "/") return true;
   return false;

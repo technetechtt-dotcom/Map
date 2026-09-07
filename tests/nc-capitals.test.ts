@@ -1,24 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { NC_CAPITAL_CITIES, resolveCapitalPins } from "@/lib/nc-capitals";
+import { resolveCapitalPins } from "@/lib/nc-capitals";
 
-describe("Northern Cape capital-city pins", () => {
-  it("pins the five overview capitals in the requested order", () => {
-    expect(NC_CAPITAL_CITIES.map((c) => c.name)).toEqual([
-      "Kimberley",
-      "Kuruman",
-      "Kathu",
-      "Upington",
-      "Springbok",
+describe("province overview pins from live locations", () => {
+  it("builds one pin per district from DB coordinates only", () => {
+    const pins = resolveCapitalPins([
+      {
+        slug: "kimberley",
+        name: "Kimberley",
+        latitude: -28.7,
+        longitude: 24.8,
+        district: { name: "Frances Baard" },
+        category: { name: "Knowledge hub" },
+      },
+      {
+        slug: "upington",
+        name: "Upington",
+        latitude: -28.4,
+        longitude: 21.2,
+        district: { name: "ZF Mgcawu" },
+      },
+      {
+        slug: "kimberley-hub",
+        name: "Kimberley Hub",
+        latitude: -28.71,
+        longitude: 24.81,
+        district: { name: "Frances Baard" },
+      },
     ]);
+    expect(pins).toHaveLength(2);
+    expect(pins[0].name).toBe("Kimberley");
+    expect(pins[0].latitude).toBe(-28.7);
+    expect(pins[1].name).toBe("Upington");
   });
 
-  it("uses live location coordinates when present", () => {
-    const pins = resolveCapitalPins([
-      { slug: "kimberley", name: "Kimberley", latitude: -28.7, longitude: 24.8 },
-    ]);
-    expect(pins[0].latitude).toBe(-28.7);
-    expect(pins[0].longitude).toBe(24.8);
-    expect(pins[1].name).toBe("Kuruman");
-    expect(pins[1].latitude).toBe(NC_CAPITAL_CITIES[1].fallback.latitude);
+  it("omits locations without coordinates", () => {
+    expect(resolveCapitalPins([{ slug: "x", name: "X", latitude: null, longitude: null }])).toEqual([]);
   });
 });

@@ -1,46 +1,6 @@
-export const NC_CAPITAL_CITIES = [
-  {
-    slug: "kimberley",
-    name: "Kimberley",
-    district: "Frances Baard",
-    role: "Provincial capital",
-    color: "#7c3aed",
-    fallback: { latitude: -28.73226, longitude: 24.76232 },
-  },
-  {
-    slug: "kuruman",
-    name: "Kuruman",
-    district: "John Taolo Gaetsewe",
-    role: "District seat",
-    color: "#0369a1",
-    fallback: { latitude: -27.4524, longitude: 23.43246 },
-  },
-  {
-    slug: "kathu",
-    name: "Kathu",
-    district: "John Taolo Gaetsewe",
-    role: "Gamagara municipal seat",
-    color: "#0284c7",
-    fallback: { latitude: -27.69569, longitude: 23.04929 },
-  },
-  {
-    slug: "upington",
-    name: "Upington",
-    district: "ZF Mgcawu",
-    role: "District seat",
-    color: "#3d5a66",
-    fallback: { latitude: -28.44776, longitude: 21.25612 },
-  },
-  {
-    slug: "springbok",
-    name: "Springbok",
-    district: "Namakwa",
-    role: "District seat",
-    color: "#a16207",
-    fallback: { latitude: -29.66434, longitude: 17.8865 },
-  },
-] as const;
-
+/**
+ * Province overview pins — built only from published DB locations (no hardcoded coords).
+ */
 export type CapitalPin = {
   n: number;
   slug: string;
@@ -53,32 +13,43 @@ export type CapitalPin = {
   longitude: number;
 };
 
-export function resolveCapitalPins(
-  locations: { slug?: string | null; name?: string | null; latitude?: number | null; longitude?: number | null }[]
-): CapitalPin[] {
-  const bySlug = new Map(
-    locations.filter((l) => l.slug).map((l) => [String(l.slug).toLowerCase(), l])
-  );
-  const byName = new Map(
-    locations.filter((l) => l.name).map((l) => [String(l.name).toLowerCase(), l])
-  );
+const PALETTE = ["#7c3aed", "#0369a1", "#0284c7", "#3d5a66", "#a16207", "#0f766e", "#b45309"];
 
-  return NC_CAPITAL_CITIES.map((city, i) => {
-    const loc = bySlug.get(city.slug) || byName.get(city.name.toLowerCase());
-    const latitude =
-      loc?.latitude != null && Number.isFinite(loc.latitude) ? loc.latitude : city.fallback.latitude;
-    const longitude =
-      loc?.longitude != null && Number.isFinite(loc.longitude) ? loc.longitude : city.fallback.longitude;
-    return {
-      n: i + 1,
-      slug: city.slug,
-      name: city.name,
-      short: city.name,
-      district: city.district,
-      role: city.role,
-      color: city.color,
-      latitude,
-      longitude,
-    };
-  });
+type Loc = {
+  slug?: string | null;
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  district?: { name?: string | null } | null;
+  category?: { name?: string | null } | null;
+};
+
+/** One map pin per district from live locations; falls back to unique named places. */
+export function resolveCapitalPins(locations: Loc[]): CapitalPin[] {
+  const withCoords = locations.filter(
+    (l) =>
+      l.latitude != null &&
+      l.longitude != null &&
+      Number.isFinite(l.latitude) &&
+      Number.isFinite(l.longitude)
+  );
+  if (!withCoords.length) return [];
+
+  const byDistrict = new Map<string, Loc>();
+  for (const loc of withCoords) {
+    const key = loc.district?.name || loc.slug || loc.name || "place";
+    if (!byDistrict.has(key)) byDistrict.set(key, loc);
+  }
+
+  return Array.from(byDistrict.values()).map((loc, i) => ({
+    n: i + 1,
+    slug: String(loc.slug || `pin-${i + 1}`),
+    name: String(loc.name || loc.slug || `Site ${i + 1}`),
+    short: String(loc.name || loc.slug || `Site ${i + 1}`),
+    district: loc.district?.name || "Unassigned",
+    role: loc.category?.name || "Published site",
+    color: PALETTE[i % PALETTE.length],
+    latitude: Number(loc.latitude),
+    longitude: Number(loc.longitude),
+  }));
 }

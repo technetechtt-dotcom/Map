@@ -17,13 +17,10 @@ describe("presentation catalogue", () => {
     expect(t("en", "brand")).toBe(PRODUCT_NAME);
   });
 
-  it("does not inflate live seed counts", () => {
-    expect(SEED_CATALOGUE.ncTowns).toBe(9);
-    expect(SEED_CATALOGUE.pdfOrganisations).toBe(49);
-    expect(SEED_CATALOGUE.nationalDirectoryPins).toBe(94);
-    const live = SEED_CATALOGUE.ncTowns + SEED_CATALOGUE.pdfOrganisations + SEED_CATALOGUE.nationalDirectoryPins;
-    expect(live).toBe(152);
-    expect(SEED_CATALOGUE.ncTowns).toBeLessThan(20);
+  it("does not ship hardcoded catalogue marketing counts", () => {
+    expect(SEED_CATALOGUE.ncTowns).toBe(0);
+    expect(SEED_CATALOGUE.pdfOrganisations).toBe(0);
+    expect(SEED_CATALOGUE.nationalDirectoryPins).toBe(0);
   });
 
   it("sets a current desktop-verification window on curated NC towns", () => {

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_PILOT_LINE } from "@/lib/brand";
-import { SEED_CATALOGUE } from "@/lib/catalogue";
 import { getOpsAppUrl } from "@/lib/platform";
 
 export const dynamic = "force-dynamic";
@@ -12,13 +11,22 @@ export const metadata = {
 };
 
 export default async function AboutPage() {
-  const [ncTowns, organisations, nationalPins, verified] = await Promise.all([
+  const [ncTowns, organisations, nationalPins, verified, published] = await Promise.all([
     prisma.location.count({
-      where: { province: { slug: "northern-cape" }, lastVerifiedAt: { not: null } },
+      where: {
+        province: { slug: "northern-cape" },
+        status: { in: ["PUBLISHED", "VERIFIED"] },
+      },
     }),
     prisma.organisation.count({ where: { status: "PUBLISHED" } }),
-    prisma.location.count({ where: { sourceConfidence: "public-directory" } }),
+    prisma.location.count({
+      where: {
+        status: { in: ["PUBLISHED", "VERIFIED"] },
+        NOT: { province: { slug: "northern-cape" } },
+      },
+    }),
     prisma.location.count({ where: { lastVerifiedAt: { not: null } } }),
+    prisma.location.count({ where: { status: { in: ["PUBLISHED", "VERIFIED"] } } }),
   ]);
 
   return (
@@ -35,25 +43,31 @@ export default async function AboutPage() {
           National coverage
         </Link>
         {" · "}
-        <span className="text-muted">Print this page for a one-page leave-behind.</span>
+        <Link href="/login" className="text-g700 font-semibold">
+          Sign in
+        </Link>
+        {" · "}
+        <Link href="/signup" className="text-g700 font-semibold">
+          Sign up
+        </Link>
       </p>
 
       <div className="stat-grid mt-6">
         <div className="stat">
-          <strong>{ncTowns || SEED_CATALOGUE.ncTowns}</strong>
-          <span className="text-xs uppercase tracking-wide text-muted">Curated NC towns</span>
+          <strong>{ncTowns}</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Published NC sites</span>
         </div>
         <div className="stat">
-          <strong>{organisations || SEED_CATALOGUE.pdfOrganisations}</strong>
-          <span className="text-xs uppercase tracking-wide text-muted">PDF organisations</span>
+          <strong>{organisations}</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Published organisations</span>
         </div>
         <div className="stat">
-          <strong>{nationalPins || SEED_CATALOGUE.nationalDirectoryPins}</strong>
-          <span className="text-xs uppercase tracking-wide text-muted">National directory pins</span>
+          <strong>{nationalPins}</strong>
+          <span className="text-xs uppercase tracking-wide text-muted">Other-province sites</span>
         </div>
         <div className="stat">
           <strong>{verified}</strong>
-          <span className="text-xs uppercase tracking-wide text-muted">Desktop-verified pins</span>
+          <span className="text-xs uppercase tracking-wide text-muted">Verified pins</span>
         </div>
       </div>
 
@@ -70,9 +84,8 @@ export default async function AboutPage() {
         <h2 className="font-bold">What this platform is</h2>
         <p className="mt-2 text-sm leading-relaxed">
           A public map and directory with a management workflow: draft, review, verify, publish.
-          Northern Cape is the deep, sourced pilot. The other eight provinces are a directory
-          scaffold so tenancy, search and reporting are national on day one. Depth follows
-          official ingestion — it is not a claim of national field coverage.
+          Public map and Ops console share one database — sites created and published in Ops appear
+          on the map immediately.
         </p>
       </section>
 
@@ -80,20 +93,15 @@ export default async function AboutPage() {
         <h2 className="font-bold">What is live today</h2>
         <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>{SEED_CATALOGUE.ncTowns} Northern Cape towns</strong> from the mLab NC
-            presentation, desktop-verified, town-centre coordinates.
+            <strong>{published} published or verified sites</strong> loaded from the shared catalogue
+            (managed in Ops).
           </li>
           <li>
-            <strong>{SEED_CATALOGUE.pdfOrganisations} organisations</strong> and contacts from
-            that same sourced set.
+            <strong>{ncTowns} Northern Cape</strong> and <strong>{nationalPins} elsewhere</strong> —
+            live counts, not marketing estimates.
           </li>
           <li>
-            <strong>{SEED_CATALOGUE.nationalDirectoryPins} national public-directory pins</strong>{" "}
-            (universities and institutions) so the map can switch provinces.
-          </li>
-          <li>
-            A larger candidate spreadsheet exists for research. It is <strong>not</strong> loaded
-            as live map truth. Do not claim 100+ verified locations.
+            <strong>{organisations} organisations</strong> with published directory records.
           </li>
         </ul>
       </section>
@@ -113,26 +121,27 @@ export default async function AboutPage() {
             <Link className="text-g700 font-semibold" href="/">
               Map
             </Link>{" "}
-            — Kimberley and the Northern Cape towns. Set Verification to Current (desktop + field) for the desktop-reviewed set.
+            — explore published pins from the shared database.
           </li>
           <li>
             <Link className="text-g700 font-semibold" href="/organisations">
               Contacts
             </Link>{" "}
-            — sourced organisations, not a scrapelist.
+            — published organisations.
           </li>
           <li>
-            <Link className="text-g700 font-semibold" href="/national">
-              National
+            <Link className="text-g700 font-semibold" href="/signup">
+              Sign up
             </Link>{" "}
-            — nine-province scaffold and verification counts.
-          </li>
-          <li>
-            Sign in as super or provincial admin on the{" "}
+            or{" "}
+            <Link className="text-g700 font-semibold" href="/login">
+              sign in
+            </Link>{" "}
+            on the public map, then use the{" "}
             <a className="text-g700 font-semibold" href={getOpsAppUrl()} rel="noopener noreferrer">
               Operations console
             </a>{" "}
-            (separate staff platform) — sites, content, users, uploads, and platform health.
+            to create and publish sites.
           </li>
         </ol>
         <p className="mt-3 text-sm">

@@ -77,7 +77,7 @@ export default function OpsSitesPanel() {
         categorySlug: form.categorySlug,
         provinceSlug: form.provinceSlug,
         imageUrl: form.imageUrl || undefined,
-        status: "DRAFT",
+        status: "PUBLISHED",
       }),
     });
     setSaving(false);
@@ -87,7 +87,7 @@ export default function OpsSitesPanel() {
       return;
     }
     setForm((f) => ({ ...f, name: "", summary: "", imageUrl: "" }));
-    setMessage("Site created as DRAFT.");
+    setMessage("Site created and published — visible on the public map.");
     load();
   }
 
@@ -105,7 +105,8 @@ export default function OpsSitesPanel() {
     <div>
       <h2 className="mb-2 text-lg font-extrabold">Sites and map pins</h2>
       <p className="text-muted mb-4 text-sm">
-        Upload a site onto the map, attach an image, then verify and publish. Full editor:{" "}
+        Upload a site onto the map, attach an image, then publish. New sites are published by default
+        so the public map stays in sync. Full editor:{" "}
         <Link className="font-semibold text-g700" href="/admin/locations">
           Locations
         </Link>

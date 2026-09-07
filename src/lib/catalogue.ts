@@ -1,9 +1,9 @@
 /**
- * Honest live-seed sizes. The larger candidate CSV is not loaded.
- * Do not claim “100+ verified locations” from marketing copy.
+ * @deprecated Prefer live Prisma counts. Kept only for any residual imports.
+ * Marketing seed sizes are no longer used in UI copy.
  */
 export const SEED_CATALOGUE = {
-  ncTowns: 9,
-  pdfOrganisations: 49,
-  nationalDirectoryPins: 94,
+  ncTowns: 0,
+  pdfOrganisations: 0,
+  nationalDirectoryPins: 0,
 } as const;
