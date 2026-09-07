@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { PRODUCT_NAME } from "@/lib/brand";
 
 export default function OpsChrome() {
-  const { data: session } = useSession();
-  const role = String((session?.user as { role?: string } | undefined)?.role || "");
+  const { data: session, status } = useSession();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const role =
+    mounted && status === "authenticated"
+      ? String((session?.user as { role?: string } | undefined)?.role || "")
+      : "";
 
   return (
     <header className="site-header">
@@ -21,7 +27,11 @@ export default function OpsChrome() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {role ? (
+          {!mounted || status === "loading" ? (
+            <span className="secondary-button opacity-50" aria-hidden>
+              …
+            </span>
+          ) : role ? (
             <>
               <span className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-sm text-white">
                 {role.replace(/_/g, " ")}

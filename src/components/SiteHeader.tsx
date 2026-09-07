@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { t, type Locale } from "@/lib/i18n";
@@ -12,8 +13,14 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
   const L = (locales.includes(locale as Locale) ? locale : "en") as Locale;
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
-  const role = String((session?.user as { role?: string } | undefined)?.role || "");
+  const { data: session, status } = useSession();
+  // Avoid React #418: server and first client paint must match (session is client-only).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const role =
+    mounted && status === "authenticated"
+      ? String((session?.user as { role?: string } | undefined)?.role || "")
+      : "";
 
   function setLocale(next: string) {
     document.cookie = `locale=${next};path=/;max-age=31536000`;
@@ -56,7 +63,11 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
             <option value="xh">isiXhosa</option>
             <option value="zu">isiZulu</option>
           </select>
-          {role ? (
+          {!mounted || status === "loading" ? (
+            <span className="secondary-button opacity-50" aria-hidden>
+              …
+            </span>
+          ) : role ? (
             <>
               {opsAppUrl && (role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" || role === "ORG_ADMIN") ? (
                 <a href={`${opsAppUrl}/admin/ops`} className="secondary-button">

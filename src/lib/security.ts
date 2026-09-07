@@ -178,6 +178,8 @@ function proxyApproved(
   headers: Headers | Record<string, string | string[] | undefined> | undefined,
   remoteAddress?: string | null
 ): boolean {
+  // Render/Cloudflare bootstrap: trust X-Forwarded-For when explicitly relaxed.
+  if (process.env.TRUST_PROXY_RELAX === "1") return true;
   const cidrs = (process.env.TRUST_PROXY_CIDRS || "")
     .split(",")
     .map((value) => value.trim())

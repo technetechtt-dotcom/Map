@@ -29,6 +29,8 @@ envVarGroups:
         value: "1"
       - key: TRUST_PROXY_HOPS
         value: "1"
+      - key: TRUST_PROXY_RELAX
+        value: "1"
       - key: CAPTCHA_DISABLED
         value: "1"
       - key: GEOCODER_DISABLED

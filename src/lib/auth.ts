@@ -40,127 +40,140 @@ export const authOptions: NextAuthOptions = {
         const password = credentials?.password || "";
         if (!email || !password) return null;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const headers = (req as any)?.headers;
-        const ip = clientIdentityFromHeaders(headers);
-        const e2e = process.env.E2E === "1";
-        const rlIp = await rateLimitAsync(`login:ip:${ip}`, { limit: e2e ? 500 : 20, windowMs: 15 * 60_000 });
-        const rlEmail = await rateLimitAsync(`login:email:${email}`, {
-          limit: e2e ? 100 : 10,
-          windowMs: 15 * 60_000,
-        });
-        if (!rlIp.ok || !rlEmail.ok) {
-          log.warn("login.rate_limited", { email, ip });
-          return null;
-        }
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const headers = (req as any)?.headers;
+          const ip = clientIdentityFromHeaders(headers || {});
+          const e2e = process.env.E2E === "1";
+          // Only enforce IP buckets when we have a real client IP. Shared anon
+          // buckets (TRUST_PROXY without CIDRs) were locking out all logins.
+          const hasRealIp = ip.startsWith("ip:");
+          const rlEmail = await rateLimitAsync(`login:email:${email}`, {
+            limit: e2e ? 100 : 20,
+            windowMs: 15 * 60_000,
+          });
+          const rlIp = hasRealIp
+            ? await rateLimitAsync(`login:ip:${ip}`, { limit: e2e ? 500 : 40, windowMs: 15 * 60_000 })
+            : { ok: true as const, remaining: 1, resetAt: Date.now() + 60_000 };
+          if (!rlIp.ok || !rlEmail.ok) {
+            log.warn("login.rate_limited", { email, ip, hasRealIp });
+            return null;
+          }
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-          await bcrypt.compare(
-            password,
-            "$2a$12$invalidhashinvalidhashinvalidhashinvalidhashinvalid"
-          );
-          return null;
-        }
+          const user = await prisma.user.findUnique({ where: { email } });
+          if (!user) {
+            await bcrypt.compare(
+              password,
+              "$2a$12$invalidhashinvalidhashinvalidhashinvalidhashinvalid"
+            );
+            return null;
+          }
 
-        if (!user.active) return null;
+          if (!user.active) return null;
 
-        if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-          log.warn("login.locked", { email, until: user.lockedUntil.toISOString() });
-          return null;
-        }
+          if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+            log.warn("login.locked", { email, until: user.lockedUntil.toISOString() });
+            return null;
+          }
 
-        const ok = await bcrypt.compare(password, user.passwordHash);
-        if (!ok) {
-          const failed = user.failedLoginCount + 1;
-          const lockNow = failed >= MAX_FAILED;
+          const ok = await bcrypt.compare(password, user.passwordHash);
+          if (!ok) {
+            const failed = user.failedLoginCount + 1;
+            const lockNow = failed >= MAX_FAILED;
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                failedLoginCount: failed,
+                lockedUntil: lockNow
+                  ? new Date(Date.now() + LOCK_MINUTES * 60_000)
+                  : user.lockedUntil,
+              },
+            });
+            log.warn("login.failed", { email, failed });
+            return null;
+          }
+
+          if (user.failedLoginCount > 0) {
+            await new Promise((r) => setTimeout(r, Math.min(2000, user.failedLoginCount * 200)));
+          }
+
+          const inactivityDays = Number(process.env.ADMIN_INACTIVITY_DAYS || 90);
+          if (
+            user.lastLoginAt &&
+            inactivityDays > 0 &&
+            Date.now() - user.lastLoginAt.getTime() > inactivityDays * 24 * 3600 * 1000 &&
+            (user.role === "SUPER_ADMIN" || user.role === "PROVINCIAL_ADMIN")
+          ) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { lockedUntil: new Date(Date.now() + 24 * 3600 * 1000) },
+            });
+            log.warn("login.inactivity_lock", { email });
+            return null;
+          }
+
+          // MFA_ENFORCE=0 (Render bootstrap / local) skips TOTP even if a user has MFA enrolled.
+          if (user.mfaEnabled && process.env.MFA_ENFORCE !== "0") {
+            const code = (credentials?.mfaCode || "").trim();
+            let totpOk = false;
+            if (user.mfaSecret) {
+              try {
+                await primeMfaDataKey(user.mfaKeyVersion || undefined);
+                totpOk = verifyTotp(decryptSecret(user.mfaSecret, user.mfaKeyVersion), code);
+              } catch {
+                totpOk = false;
+              }
+            }
+            if (!totpOk) {
+              const hashes = Array.isArray(user.mfaRecoveryHashes)
+                ? (user.mfaRecoveryHashes as string[])
+                : [];
+              let recovered = false;
+              const remaining: string[] = [];
+              for (const h of hashes) {
+                if (!recovered && h && (await bcrypt.compare(code, h))) {
+                  recovered = true;
+                } else {
+                  remaining.push(h);
+                }
+              }
+              if (!recovered) return null;
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { mfaRecoveryHashes: remaining },
+              });
+              log.warn("login.mfa_recovery_used", { email });
+            }
+          }
+
           await prisma.user.update({
             where: { id: user.id },
             data: {
-              failedLoginCount: failed,
-              lockedUntil: lockNow
-                ? new Date(Date.now() + LOCK_MINUTES * 60_000)
-                : user.lockedUntil,
+              failedLoginCount: 0,
+              lockedUntil: null,
+              lastLoginAt: new Date(),
             },
           });
-          log.warn("login.failed", { email, failed });
-          return null;
-        }
 
-        if (user.failedLoginCount > 0) {
-          await new Promise((r) => setTimeout(r, Math.min(2000, user.failedLoginCount * 200)));
-        }
-
-        const inactivityDays = Number(process.env.ADMIN_INACTIVITY_DAYS || 90);
-        if (
-          user.lastLoginAt &&
-          inactivityDays > 0 &&
-          Date.now() - user.lastLoginAt.getTime() > inactivityDays * 24 * 3600 * 1000 &&
-          (user.role === "SUPER_ADMIN" || user.role === "PROVINCIAL_ADMIN")
-        ) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { lockedUntil: new Date(Date.now() + 24 * 3600 * 1000) },
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            provinceId: user.provinceId,
+            organisationId: user.organisationId,
+            locale: user.locale,
+            sessionVersion: user.sessionVersion,
+            mustChangePassword: user.mustChangePassword,
+            mfaEnabled: user.mfaEnabled,
+          };
+        } catch (error) {
+          log.error("login.authorize_error", {
+            email,
+            detail: error instanceof Error ? error.message : String(error),
           });
-          log.warn("login.inactivity_lock", { email });
           return null;
         }
-
-        // MFA_ENFORCE=0 (Render bootstrap / local) skips TOTP even if a user has MFA enrolled.
-        if (user.mfaEnabled && process.env.MFA_ENFORCE !== "0") {
-          const code = (credentials?.mfaCode || "").trim();
-          let totpOk = false;
-          if (user.mfaSecret) {
-            try {
-              await primeMfaDataKey(user.mfaKeyVersion || undefined);
-              totpOk = verifyTotp(decryptSecret(user.mfaSecret, user.mfaKeyVersion), code);
-            } catch {
-              totpOk = false;
-            }
-          }
-          if (!totpOk) {
-            const hashes = Array.isArray(user.mfaRecoveryHashes)
-              ? (user.mfaRecoveryHashes as string[])
-              : [];
-            let recovered = false;
-            const remaining: string[] = [];
-            for (const h of hashes) {
-              if (!recovered && h && (await bcrypt.compare(code, h))) {
-                recovered = true;
-              } else {
-                remaining.push(h);
-              }
-            }
-            if (!recovered) return null;
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { mfaRecoveryHashes: remaining },
-            });
-            log.warn("login.mfa_recovery_used", { email });
-          }
-        }
-
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            failedLoginCount: 0,
-            lockedUntil: null,
-            lastLoginAt: new Date(),
-          },
-        });
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          provinceId: user.provinceId,
-          organisationId: user.organisationId,
-          locale: user.locale,
-          sessionVersion: user.sessionVersion,
-          mustChangePassword: user.mustChangePassword,
-          mfaEnabled: user.mfaEnabled,
-        };
       },
     }),
   ],
