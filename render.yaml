@@ -45,6 +45,8 @@ envVarGroups:
         value: "0"
       - key: HIBP_DISABLED
         value: "1"
+      - key: AUTH_TRUST_HOST
+        value: "true"
 
 services:
   - type: web

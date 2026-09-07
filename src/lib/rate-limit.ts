@@ -228,10 +228,13 @@ export async function rateLimitAsync(
   const remote = await upstashLimit(key, opts, fetchImpl ?? fetch);
   if (remote) return remote;
   const prod = process.env.NODE_ENV === "production";
-  // Production must never silently fall back to a per-instance limiter: it
-  // would let an attacker bypass limits by changing application instances.
-  // CI/e2e may opt into memory buckets with RATE_LIMIT_ALLOW_MEMORY=1.
-  if (prod && !(isE2eRuntime() && process.env.RATE_LIMIT_ALLOW_MEMORY === "1")) {
+  // Production must not silently fall back to per-instance memory buckets unless
+  // explicitly allowed (E2E, local CI, or RENDER_NEON_BOOTSTRAP first deploy).
+  const allowMemory =
+    isE2eRuntime() ||
+    process.env.RATE_LIMIT_ALLOW_MEMORY === "1" ||
+    process.env.RENDER_NEON_BOOTSTRAP === "1";
+  if (prod && !allowMemory) {
     return failClosed();
   }
   const e2eLimit = isE2eRuntime() ? Math.max(opts.limit, 10_000) : opts.limit;

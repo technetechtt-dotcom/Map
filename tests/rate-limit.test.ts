@@ -28,12 +28,24 @@ describe("Upstash distributed rate limiting", () => {
     (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     delete process.env.E2E;
     delete process.env.RATE_LIMIT_ALLOW_MEMORY;
+    delete process.env.RENDER_NEON_BOOTSTRAP;
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.invalid";
     process.env.UPSTASH_REDIS_REST_TOKEN = "test-token-that-is-long-enough";
     const result = await rateLimitAsync("login:test", { limit: 5, windowMs: 60_000 }, async () => {
       throw new Error("offline");
     });
     expect(result.ok).toBe(false);
+  });
+
+  it("uses memory buckets during RENDER_NEON_BOOTSTRAP without Redis", async () => {
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+    delete process.env.E2E;
+    delete process.env.RATE_LIMIT_ALLOW_MEMORY;
+    process.env.RENDER_NEON_BOOTSTRAP = "1";
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    const first = await rateLimitAsync("login:bootstrap", { limit: 2, windowMs: 60_000 });
+    expect(first.ok).toBe(true);
   });
 
   it("uses memory buckets in CI e2e when RATE_LIMIT_ALLOW_MEMORY is set", async () => {

@@ -106,6 +106,19 @@ export async function middleware(req: NextRequest) {
     process.env.MAP_TILE_CONNECT_SRC ||
     "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
   const tileImg = process.env.MAP_TILE_IMG_SRC || "https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com";
+  const siblingOrigins = Array.from(
+    new Set(
+      [
+        process.env.PUBLIC_APP_URL,
+        process.env.OPS_APP_URL,
+        process.env.NEXT_PUBLIC_PUBLIC_APP_URL,
+        process.env.NEXT_PUBLIC_OPS_APP_URL,
+        process.env.NEXTAUTH_URL,
+      ]
+        .filter(Boolean)
+        .map((u) => String(u).replace(/\/$/, ""))
+    )
+  ).join(" ");
 
   // next dev / webpack Fast Refresh evaluates strings (eval). That is forbidden
   // in production CSP and must stay forbidden on `next start`.
@@ -122,7 +135,7 @@ export async function middleware(req: NextRequest) {
       "style-src 'self' 'unsafe-inline' https://unpkg.com",
       `img-src 'self' data: blob: ${tileImg}`,
       "font-src 'self' data:",
-      `connect-src 'self' ${tileConnect} https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io${hmrConnect}`,
+      `connect-src 'self' ${siblingOrigins} ${tileConnect} https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io${hmrConnect}`,
       "frame-src 'self' https://challenges.cloudflare.com https://www.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",

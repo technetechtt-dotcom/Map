@@ -80,6 +80,11 @@ OPS_APP_URL=${opsUrl}
 NEXT_PUBLIC_PUBLIC_APP_URL=${publicUrl}
 NEXT_PUBLIC_OPS_APP_URL=${opsUrl}
 
+# After deploy: fix NEXTAUTH_URL per service (critical)
+# PUBLIC service NEXTAUTH_URL must be https://sa-ict-map-public.onrender.com
+# OPS service NEXTAUTH_URL must be https://sa-ict-map-ops.onrender.com
+# Same PUBLIC_APP_URL / OPS_APP_URL on both. Wrong NEXTAUTH_URL causes CSP + CLIENT_FETCH_ERROR.
+#
 # After live: npm run ops:finish-render -- ${publicUrl} ${opsUrl} [deployHook]
 `;
 
