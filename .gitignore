@@ -3,6 +3,7 @@
 .env.local
 .env*.local
 .env.production.secrets
+.env.render
 
 # deps
 /node_modules

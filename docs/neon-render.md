@@ -1,59 +1,53 @@
 # Neon + Render connection
 
-## Neon (already provisioned)
+## Neon (done)
 
-| Field | Value |
+See [`docs/neon-setup.md`](neon-setup.md). Project **Eccosystem Map** (`curly-field-07647377`), branch `production`, seeded and migrated.
+
+| Role | Host |
 | --- | --- |
-| Project | Neon Console project that owns `ep-morning-water-ax221rnn` |
-| Branch | default |
-| Database | `neondb` |
-| Region | `aws-us-east-2` |
-| Pooled host | `ep-morning-water-ax221rnn-pooler.c-4.us-east-2.aws.neon.tech` |
-| Direct host | `ep-morning-water-ax221rnn.c-4.us-east-2.aws.neon.tech` |
+| Pooled (`DATABASE_URL`) | `ep-morning-water-ax221rnn-pooler.c-4.us-east-2.aws.neon.tech` |
+| Direct (`DIRECT_URL`) | `ep-morning-water-ax221rnn.c-4.us-east-2.aws.neon.tech` |
 
-Local setup:
+## Render (do this now)
+
+Blueprint: [`render.yaml`](../render.yaml) — shared env group `sa-ict-shared` + services `sa-ict-map-public` / `sa-ict-map-ops`.
+
+### 1. Generate paste sheet (local)
 
 ```bash
-# From Neon Console → Connection details (or MCP get_connection_string)
-NEON_DATABASE_URL='postgresql://…pooler…/neondb?sslmode=require' node scripts/set-neon-env.js
-npm run neon:verify
-npx prisma migrate deploy
+npm run ops:prepare-render
 ```
 
-Use **pooled** for `DATABASE_URL` (runtime) and **unpooled** for `DIRECT_URL` (migrations / `pg_dump`).
+Opens values in `.env.render` (gitignored) including your Neon URLs.
 
-## Render
+### 2. Create Blueprint
 
-Blueprint file: [`render.yaml`](../render.yaml)
+1. Open https://dashboard.render.com/blueprints/new  
+2. Connect GitHub repo **`technetechtt-dotcom/Map`**, branch **`main`**.  
+3. Apply `render.yaml`.  
+4. When prompted for **`DATABASE_URL`** / **`DIRECT_URL`**, paste from `.env.render`.  
+5. After services exist, set URL env on each service (or update Environment):
 
-1. Open [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**.
-2. Connect GitHub repo `technetechtt-dotcom/Map`, branch `main`.
-3. Apply blueprint → creates `sa-ict-map-public` and `sa-ict-map-ops`.
-4. For **each** service, set Environment:
-
-| Key | Public service | Ops service |
+| Variable | Public (`sa-ict-map-public`) | Ops (`sa-ict-map-ops`) |
 | --- | --- | --- |
-| `DATABASE_URL` | Neon pooled URL | same |
-| `DIRECT_URL` | Neon unpooled URL | same |
 | `NEXTAUTH_URL` | `https://sa-ict-map-public.onrender.com` | `https://sa-ict-map-ops.onrender.com` |
-| `PUBLIC_APP_URL` / `NEXT_PUBLIC_PUBLIC_APP_URL` | public onrender URL | public onrender URL |
-| `OPS_APP_URL` / `NEXT_PUBLIC_OPS_APP_URL` | ops onrender URL | ops onrender URL |
-| `NEXTAUTH_SECRET` | same value on both | same value on both |
+| `PUBLIC_APP_URL` / `NEXT_PUBLIC_PUBLIC_APP_URL` | public URL | public URL |
+| `OPS_APP_URL` / `NEXT_PUBLIC_OPS_APP_URL` | ops URL | ops URL |
 
-Copy generated secrets (`CRON_SECRET`, `METRICS_TOKEN`, encryption keys) from public → ops so both share them.
+(Use your real `.onrender.com` hostnames if Render assigned different ones.)
 
-5. After first deploy succeeds, set GitHub Environment `production`:
+### 3. Wire GitHub + smoke
 
 ```bash
-gh secret set PRODUCTION_APP_URL --env production --body "https://sa-ict-map-public.onrender.com"
-gh secret set PRODUCTION_DEPLOY_HOOK --env production   # paste Render Deploy Hook
-gh secret set PRODUCTION_DATABASE_URL --env production  # Neon pooled
-gh secret set PRODUCTION_DIRECT_URL --env production    # Neon unpooled
+npm run ops:finish-render -- https://sa-ict-map-public.onrender.com https://sa-ict-map-ops.onrender.com
+# optional deploy hook as 3rd arg:
+# npm run ops:finish-render -- <public> <ops> <https://api.render.com/deploy/srv-…>
 ```
 
-Render **Deploy Hook**: Service → Settings → Deploy Hook → use as `PRODUCTION_DEPLOY_HOOK`.
+Deploy Hook: each service → **Settings** → **Deploy Hook**.
 
-6. Verify:
+### 4. Verify
 
 ```bash
 curl -fsS https://sa-ict-map-public.onrender.com/api/health/live
@@ -62,7 +56,6 @@ curl -fsS https://sa-ict-map-ops.onrender.com/api/health/live
 
 ## Notes
 
-- Free/starter Render instances cold-start; first health check may take 30–60s.
-- Blueprint sets `RENDER_NEON_BOOTSTRAP=1` so the app can boot with Neon alone (local storage + memory rate limits). Remove that flag after S3, Upstash Redis, CAPTCHA, and email are configured — see `docs/ops-secrets.md`.
-- Do not commit `.env` or Neon passwords.
-- Local Neon verify: `npm run neon:verify` (expects PostGIS + pg_trgm on project `old-night-27455221`).
+- Starter instances cold-start (~30–60s).
+- `RENDER_NEON_BOOTSTRAP=1` allows Neon-only boot; remove after S3 / Upstash / CAPTCHA / email — see `docs/ops-secrets.md`.
+- Optional: paste a Render API key and we can automate service creation via API.
