@@ -57,6 +57,7 @@
     "i18n:audit": "node scripts/i18n-audit.js",
     "staging:load-cert": "node scripts/staging-load-certification.js",
     "neon:verify": "node scripts/neon-verify.js",
+    "neon:set-env": "node scripts/set-neon-env.js",
     "mfa:rotate": "tsx scripts/rotate-mfa-secrets.ts",
     "sbom": "node scripts/generate-sbom.js",
     "jobs:worker": "tsx scripts/job-worker.ts",

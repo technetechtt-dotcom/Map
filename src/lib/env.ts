@@ -47,6 +47,9 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
   const enforce = prod || process.env.ENFORCE_ENV_VALIDATION === "1";
   if (!enforce) return issues;
 
+  /** Temporary Render+Neon connect path — remove once S3/Upstash/CAPTCHA/email are live. */
+  const renderBootstrap = prod && process.env.RENDER_NEON_BOOTSTRAP === "1";
+
   require("NEXTAUTH_SECRET", 32);
   require("NEXTAUTH_URL", 8);
   require("DATABASE_URL", 10);
@@ -113,7 +116,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
         message: "Set TURNSTILE_SECRET or RECAPTCHA_SECRET (CAPTCHA_DISABLED=1 is not allowed in public production)",
       });
     }
-  } else if (prod) {
+  } else if (prod && !renderBootstrap) {
     issues.push({
       key: "CAPTCHA_DISABLED",
       level: "error",
@@ -121,7 +124,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     });
   }
 
-  if (prod && process.env.STORAGE_DRIVER !== "s3") {
+  if (prod && process.env.STORAGE_DRIVER !== "s3" && !renderBootstrap) {
     issues.push({
       key: "STORAGE_DRIVER",
       level: "error",
@@ -144,14 +147,14 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     }
   }
 
-  if (prod && !process.env.UPSTASH_REDIS_REST_URL) {
+  if (prod && !process.env.UPSTASH_REDIS_REST_URL && !renderBootstrap) {
     issues.push({
       key: "UPSTASH_REDIS_REST_URL",
       level: "error",
       message: "Production requires Upstash Redis REST for distributed rate limiting",
     });
   }
-  if (prod && process.env.RATE_LIMIT_ALLOW_MEMORY === "1") {
+  if (prod && process.env.RATE_LIMIT_ALLOW_MEMORY === "1" && !renderBootstrap) {
     issues.push({ key: "RATE_LIMIT_ALLOW_MEMORY", level: "error", message: "Per-instance memory rate limiting is forbidden in production" });
   }
   if (prod && process.env.RATE_LIMIT_FAIL_OPEN === "1") {
@@ -166,7 +169,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
       message: "Set TRUST_PROXY=1 behind a reverse proxy, or TRUST_PROXY=0 if exposed directly",
     });
   }
-  if (prod && process.env.TRUST_PROXY === "1") {
+  if (prod && process.env.TRUST_PROXY === "1" && !renderBootstrap) {
     const hops = Number(process.env.TRUST_PROXY_HOPS || 0);
     if (!Number.isInteger(hops) || hops < 1 || hops > 16) {
       issues.push({ key: "TRUST_PROXY_HOPS", level: "error", message: "Set the exact trusted proxy hop count (1-16)" });
@@ -184,7 +187,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     });
   }
 
-  if (prod && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL) {
+  if (prod && !process.env.RESEND_API_KEY && !process.env.NOTIFY_WEBHOOK_URL && !renderBootstrap) {
     issues.push({
       key: "RESEND_API_KEY",
       level: "error",

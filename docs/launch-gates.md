@@ -24,6 +24,7 @@ Sync secrets: `npm run ops:sync-secrets .env.production.secrets`
 ### Gate 2 — Encrypted backups (both channels)
 
 - [ ] All backup secrets in `docs/ops-secrets.md` set on Environment `production`
+- [ ] Neon + Render connected per `docs/neon-render.md` (`render.yaml` Blueprint)
 - [ ] `gh workflow run backup.yml --ref main` → SUCCESS
 - [ ] Prove: pg_dump → encrypt → off-site copy → object replication → checksum → `BackupRecord` SUCCESS
 - [ ] Ops console (`:3001/admin/ops`) shows fresh database + object-storage channels, latest success/failure, RPO

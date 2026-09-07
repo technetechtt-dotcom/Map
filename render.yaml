@@ -1,0 +1,144 @@
+# Northern Cape ICT Map — Render Blueprint
+# https://render.com/docs/blueprint-spec
+#
+# Neon is external (not Render Postgres). After creating the Blueprint:
+# 1. Open each web service → Environment
+# 2. Paste Neon pooled URL into DATABASE_URL
+# 3. Paste Neon unpooled URL into DIRECT_URL
+# 4. Set NEXTAUTH_URL to each service's onrender.com URL (or custom domain)
+# 5. Set remaining sync:false secrets from docs/ops-secrets.md
+#
+# Create Blueprint: Render Dashboard → New → Blueprint → this repo (main)
+
+services:
+  - type: web
+    name: sa-ict-map-public
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health/live
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_PLATFORM
+        value: public
+      - key: RENDER_NEON_BOOTSTRAP
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: BACKUP_ENCRYPTION_KEY
+        generateValue: true
+      - key: MFA_ENCRYPTION_KEY
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: METRICS_TOKEN
+        generateValue: true
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: OPS_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_PUBLIC_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_OPS_APP_URL
+        sync: false
+      - key: CAPTCHA_DISABLED
+        value: "1"
+      - key: GEOCODER_DISABLED
+        value: "1"
+      - key: STORAGE_DRIVER
+        value: local
+      - key: STORAGE_ALLOW_LOCAL_FALLBACK
+        value: "1"
+      - key: RATE_LIMIT_ALLOW_MEMORY
+        value: "1"
+      - key: MONITORING_OPTIONAL
+        value: "1"
+      - key: MFA_ENFORCE
+        value: "0"
+      - key: HIBP_DISABLED
+        value: "1"
+      - key: NOTIFY_WEBHOOK_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+
+  - type: web
+    name: sa-ict-map-ops
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health/live
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_PLATFORM
+        value: ops
+      - key: RENDER_NEON_BOOTSTRAP
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: MFA_ENCRYPTION_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: METRICS_TOKEN
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: OPS_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_PUBLIC_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_OPS_APP_URL
+        sync: false
+      - key: CAPTCHA_DISABLED
+        value: "1"
+      - key: GEOCODER_DISABLED
+        value: "1"
+      - key: STORAGE_DRIVER
+        value: local
+      - key: STORAGE_ALLOW_LOCAL_FALLBACK
+        value: "1"
+      - key: RATE_LIMIT_ALLOW_MEMORY
+        value: "1"
+      - key: MONITORING_OPTIONAL
+        value: "1"
+      - key: MFA_ENFORCE
+        value: "0"
+      - key: HIBP_DISABLED
+        value: "1"
+      - key: NOTIFY_WEBHOOK_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

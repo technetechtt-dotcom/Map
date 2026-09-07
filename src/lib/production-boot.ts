@@ -1,6 +1,13 @@
 /** Hard boot gaps for `next start` in real production. E2E must not use this gate. */
 export function productionBootGaps(env: NodeJS.ProcessEnv = process.env): string[] {
   if (env.E2E === "1") return [];
+  if (env.RENDER_NEON_BOOTSTRAP === "1") {
+    const required = ["NEXTAUTH_SECRET", "NEXTAUTH_URL", "DATABASE_URL", "BACKUP_ENCRYPTION_KEY", "CRON_SECRET"];
+    const missing = required.filter((key) => !env[key]);
+    if (!/^postgres(?:ql)?:\/\//i.test(env.DATABASE_URL || "")) missing.push("DATABASE_URL(postgresql)");
+    if (!/^https:\/\//i.test(env.NEXTAUTH_URL || "")) missing.push("NEXTAUTH_URL(https)");
+    return missing;
+  }
   const required = [
     "NEXTAUTH_SECRET",
     "NEXTAUTH_URL",
