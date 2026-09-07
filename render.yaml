@@ -56,7 +56,10 @@ services:
     region: oregon
     branch: main
     autoDeployTrigger: commit
-    buildCommand: test -f src/components/AdminShell.tsx && npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    buildCommand: |
+      echo "RENDER_BUILD_SHA=$(git rev-parse --short HEAD)" &&
+      ls -la src/components/AdminShell.tsx &&
+      npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health/live
     envVars:
@@ -81,7 +84,10 @@ services:
     region: oregon
     branch: main
     autoDeployTrigger: commit
-    buildCommand: test -f src/components/AdminShell.tsx && npm ci && npx prisma generate && npm run build
+    buildCommand: |
+      echo "RENDER_BUILD_SHA=$(git rev-parse --short HEAD)" &&
+      ls -la src/components/AdminShell.tsx &&
+      npm ci && npx prisma generate && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health/live
     envVars:
