@@ -22,8 +22,13 @@ function parseEnv(file) {
   return out;
 }
 
+function gen(bytes = 32) {
+  return randomBytes(bytes).toString("base64url");
+}
+
 const root = join(__dirname, "..");
 const env = parseEnv(join(root, ".env"));
+const prior = parseEnv(join(root, ".env.render"));
 const pooled = env.DATABASE_URL;
 const direct = env.DIRECT_URL;
 if (!pooled || !direct) {
@@ -31,38 +36,51 @@ if (!pooled || !direct) {
   process.exit(1);
 }
 
-const publicUrl = process.env.RENDER_PUBLIC_URL || "https://sa-ict-map-public.onrender.com";
-const opsUrl = process.env.RENDER_OPS_URL || "https://sa-ict-map-ops.onrender.com";
+const publicUrl = process.env.RENDER_PUBLIC_URL || prior.PUBLIC_APP_URL || "https://sa-ict-map-public.onrender.com";
+const opsUrl = process.env.RENDER_OPS_URL || prior.OPS_APP_URL || "https://sa-ict-map-ops.onrender.com";
+
+const secrets = {
+  NEXTAUTH_SECRET: prior.NEXTAUTH_SECRET || env.NEXTAUTH_SECRET || gen(32),
+  BACKUP_ENCRYPTION_KEY: prior.BACKUP_ENCRYPTION_KEY || env.BACKUP_ENCRYPTION_KEY || gen(24),
+  MFA_ENCRYPTION_KEY: prior.MFA_ENCRYPTION_KEY || env.MFA_ENCRYPTION_KEY || gen(32),
+  CRON_SECRET: prior.CRON_SECRET || env.CRON_SECRET || gen(32),
+  METRICS_TOKEN: prior.METRICS_TOKEN || env.METRICS_TOKEN || gen(32),
+};
+
+const notify = prior.NOTIFY_WEBHOOK_URL || env.NOTIFY_WEBHOOK_URL || "";
+const resend = prior.RESEND_API_KEY || env.RESEND_API_KEY || "";
 
 const sheet = `# Render paste sheet — DO NOT COMMIT
 # Generated ${new Date().toISOString()}
-#
-# 1. Dashboard → New → Blueprint → technetechtt-dotcom/Map (main)
-# 2. When prompted for sa-ict-shared DATABASE_URL / DIRECT_URL, paste below
-# 3. After first deploy, set URL vars on EACH service (or update Blueprint env)
+# Use the SAME secret values on public + ops (or shared env group).
 
-# === Shared env group: sa-ict-shared ===
+# ========== SHARED (sa-ict-shared / both services) ==========
 DATABASE_URL=${pooled}
 DIRECT_URL=${direct}
+NEXTAUTH_SECRET=${secrets.NEXTAUTH_SECRET}
+BACKUP_ENCRYPTION_KEY=${secrets.BACKUP_ENCRYPTION_KEY}
+MFA_ENCRYPTION_KEY=${secrets.MFA_ENCRYPTION_KEY}
+CRON_SECRET=${secrets.CRON_SECRET}
+METRICS_TOKEN=${secrets.METRICS_TOKEN}
+NOTIFY_WEBHOOK_URL=${notify || "https://example.invalid/notify-placeholder"}
+RESEND_API_KEY=${resend || "re_placeholder_not_for_production"}
 
-# === Public service (sa-ict-map-public) ===
+# ========== PUBLIC service: sa-ict-map-public ==========
 NEXTAUTH_URL=${publicUrl}
 PUBLIC_APP_URL=${publicUrl}
 OPS_APP_URL=${opsUrl}
 NEXT_PUBLIC_PUBLIC_APP_URL=${publicUrl}
 NEXT_PUBLIC_OPS_APP_URL=${opsUrl}
 
-# === Ops service (sa-ict-map-ops) ===
-# Use the SAME NEXTAUTH_SECRET / CRON_SECRET / METRICS_TOKEN / encryption keys as public
-# (Blueprint env group already shares them if you used fromGroup)
+# ========== OPS service: sa-ict-map-ops ==========
+# Paste identical DATABASE_URL, DIRECT_URL, and all secrets from SHARED above.
 NEXTAUTH_URL=${opsUrl}
 PUBLIC_APP_URL=${publicUrl}
 OPS_APP_URL=${opsUrl}
 NEXT_PUBLIC_PUBLIC_APP_URL=${publicUrl}
 NEXT_PUBLIC_OPS_APP_URL=${opsUrl}
 
-# === After deploy: GitHub secrets ===
-# npm run ops:finish-render -- ${publicUrl} ${opsUrl} <deploy-hook-url>
+# After live: npm run ops:finish-render -- ${publicUrl} ${opsUrl} [deployHook]
 `;
 
 const out = join(root, ".env.render");
@@ -74,15 +92,13 @@ console.log(
       wrote: out,
       publicUrl,
       opsUrl,
-      next: [
-        "Open https://dashboard.render.com/blueprints/new",
-        "Connect repo technetechtt-dotcom/Map branch main",
-        "Paste DATABASE_URL + DIRECT_URL from .env.render when prompted",
-        "After live URLs exist: npm run ops:finish-render -- <publicUrl> <opsUrl> [deployHook]",
-      ],
+      placeholders: {
+        NOTIFY_WEBHOOK_URL: !notify,
+        RESEND_API_KEY: !resend,
+      },
+      reminder: "Open .env.render and paste into Render. Secrets must match on both services.",
     },
     null,
     2
   )
 );
-void randomBytes;
