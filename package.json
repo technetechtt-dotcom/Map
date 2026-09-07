@@ -112,7 +112,7 @@
     "@playwright/test": "^1.55.0",
     "eslint": "^8",
     "eslint-config-next": "15.5.24",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "vitest": "^3.2.4"
   },
   "overrides": {
