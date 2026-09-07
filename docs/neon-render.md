@@ -4,12 +4,12 @@
 
 | Field | Value |
 | --- | --- |
-| Project | `northern-cape-ict-map` (`old-night-27455221`) |
-| Branch | `br-noisy-dew-auh86pm6` |
+| Project | Neon Console project that owns `ep-morning-water-ax221rnn` |
+| Branch | default |
 | Database | `neondb` |
-| Region | `aws-us-east-1` |
-| Pooled host | `ep-mute-sun-auhhwkkr-pooler.c-10.us-east-1.aws.neon.tech` |
-| Direct host | `ep-mute-sun-auhhwkkr.c-10.us-east-1.aws.neon.tech` |
+| Region | `aws-us-east-2` |
+| Pooled host | `ep-morning-water-ax221rnn-pooler.c-4.us-east-2.aws.neon.tech` |
+| Direct host | `ep-morning-water-ax221rnn.c-4.us-east-2.aws.neon.tech` |
 
 Local setup:
 
