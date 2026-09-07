@@ -1,12 +1,14 @@
 ---
-description: Push all git changes directly to main; do not use pull requests
+description: Auto-commit and push every change directly to main; no PRs
 alwaysApply: true
 ---
 
 # Push directly to `main`
 
-- Commit and `git push origin main`. Do not create branches, PRs, or `gh pr create` unless the user explicitly asks for a PR.
+- After every completed change set, **commit and `git push origin main` immediately** without waiting for the user to ask. The user has standing permission for this.
+- Do not create branches, PRs, or `gh pr create` unless the user explicitly asks for a PR.
 - Do not rebase onto a feature branch or open Dependabot-style side branches for our own work.
 - Never force-push `main`.
-- If GitHub branch protection blocks a direct push, relax the PR/review requirement, push `main`, then restore protection **without** requiring PRs (see `docs/branch-protection.json`).
+- If GitHub branch protection blocks a direct push, relax the PR/review requirement (see `docs/branch-protection-push.json`), push `main`, then leave protection without requiring PRs unless the user asks otherwise.
 - After pushing, confirm `main` matches `origin/main`.
+- Still never commit secrets (`.env`, `.env.render`, credentials). Warn if asked to commit those.
