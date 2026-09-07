@@ -18,7 +18,7 @@ function recoveryCodes(n = 10): string[] {
 
 /** Start MFA enrollment — returns base32 secret + otpauth URI (authenticator apps). */
 export async function POST(req: NextRequest) {
-  if (process.env.MFA_ENFORCE === "0") {
+  if (process.env.MFA_ENFORCE === "0" && process.env.E2E !== "1") {
     return jsonError("MFA enrollment is temporarily disabled", 403);
   }
 
@@ -177,7 +177,7 @@ export async function PUT(req: NextRequest) {
     return jsonOk({ mfaEnabled: false });
   }
 
-  if (process.env.MFA_ENFORCE === "0") {
+  if (process.env.MFA_ENFORCE === "0" && process.env.E2E !== "1") {
     return jsonError("MFA enrollment is temporarily disabled", 403);
   }
 

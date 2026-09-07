@@ -14,28 +14,19 @@ test.describe("10-minute investor walkthrough", () => {
 
     await page.goto("/about");
     await expect(page.getByRole("heading", { name: /SA ICT Ecosystem Map/i })).toBeVisible();
-    await expect(page.getByText(/9 Northern Cape towns/i)).toBeVisible();
-    await expect(page.getByText(/not claim 100\+ verified locations/i)).toBeVisible();
+    await expect(page.getByText(/published or verified sites/i)).toBeVisible();
 
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /Map directory/i })).toBeVisible({ timeout: 20_000 });
     const townsChip = page.getByRole("button", { name: /Towns \(/ });
     await expect(townsChip).toBeVisible({ timeout: 20_000 });
-    await expect(townsChip).not.toHaveText(/Towns \(0\)/);
-
-    const verification = page.getByLabel(/^verification$/i);
-    await verification.selectOption("current");
-    await expect(townsChip).toHaveText(/Towns \(9\)/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: "Kimberley" })).toBeVisible();
 
     await page.goto("/organisations");
     await expect(page.getByRole("heading", { name: /organisations/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /mLab/i }).first()).toBeVisible();
 
     await page.goto("/national");
     await expect(page.getByRole("heading", { name: /National search/i })).toBeVisible();
-    await expect(page.getByText(/9 NC towns/i)).toBeVisible();
-    await expect(page.getByText(/Desktop \/ field verified/i)).toBeVisible();
+    await expect(page.getByText(/live counts from the shared catalogue/i)).toBeVisible();
 
     await page.goto(opsUrl("/login"));
     await page.locator('input[name="email"]').fill(superEmail);

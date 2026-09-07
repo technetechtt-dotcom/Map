@@ -9,18 +9,51 @@ import { t, type Locale } from "@/lib/i18n";
 const locales: Locale[] = ["en", "af", "xh", "zu"];
 const opsAppUrl = (process.env.NEXT_PUBLIC_OPS_APP_URL || "").replace(/\/$/, "");
 
+/** Auth controls only after mount — avoids React #418 session hydration mismatches. */
+function AuthControls() {
+  const { data: session, status } = useSession();
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+
+  if (!ready || status === "loading") {
+    return <div className="flex min-h-[40px] min-w-[8rem] items-center gap-2" aria-hidden />;
+  }
+
+  const role = String((session?.user as { role?: string } | undefined)?.role || "");
+  if (role) {
+    return (
+      <>
+        {opsAppUrl && (role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" || role === "ORG_ADMIN") ? (
+          <a href={`${opsAppUrl}/admin/ops`} className="secondary-button">
+            Ops
+          </a>
+        ) : null}
+        <Link href="/account/security" className="secondary-button">
+          Account
+        </Link>
+        <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/" })}>
+          Sign out
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Link href="/login" className="secondary-button">
+        Sign in
+      </Link>
+      <Link href="/signup" className="secondary-button">
+        Sign up
+      </Link>
+    </>
+  );
+}
+
 export default function SiteHeader({ locale = "en" }: { locale?: string }) {
   const L = (locales.includes(locale as Locale) ? locale : "en") as Locale;
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session, status } = useSession();
-  // Avoid React #418: server and first client paint must match (session is client-only).
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const role =
-    mounted && status === "authenticated"
-      ? String((session?.user as { role?: string } | undefined)?.role || "")
-      : "";
 
   function setLocale(next: string) {
     document.cookie = `locale=${next};path=/;max-age=31536000`;
@@ -63,34 +96,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
             <option value="xh">isiXhosa</option>
             <option value="zu">isiZulu</option>
           </select>
-          {!mounted || status === "loading" ? (
-            <span className="secondary-button opacity-50" aria-hidden>
-              …
-            </span>
-          ) : role ? (
-            <>
-              {opsAppUrl && (role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" || role === "ORG_ADMIN") ? (
-                <a href={`${opsAppUrl}/admin/ops`} className="secondary-button">
-                  Ops
-                </a>
-              ) : null}
-              <Link href="/account/security" className="secondary-button">
-                Account
-              </Link>
-              <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/" })}>
-                Sign out
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="secondary-button">
-                Sign in
-              </Link>
-              <Link href="/signup" className="secondary-button">
-                Sign up
-              </Link>
-            </>
-          )}
+          <AuthControls />
         </div>
       </div>
       <nav className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-3">

@@ -18,8 +18,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   if (platform === "ops") {
     return (
-      <html lang={locale}>
-        <body>
+      <html lang={locale} suppressHydrationWarning>
+        <body suppressHydrationWarning>
           <Providers>
             <a href="#main-content" className="skip-link">
               Skip to content
@@ -33,8 +33,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <Providers>
           <a href="#main-content" className="skip-link">
             Skip to content

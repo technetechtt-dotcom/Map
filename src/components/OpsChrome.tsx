@@ -5,15 +5,45 @@ import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { PRODUCT_NAME } from "@/lib/brand";
 
-export default function OpsChrome() {
+function AuthControls() {
   const { data: session, status } = useSession();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const role =
-    mounted && status === "authenticated"
-      ? String((session?.user as { role?: string } | undefined)?.role || "")
-      : "";
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
+  if (!ready || status === "loading") {
+    return <div className="flex min-h-[40px] min-w-[8rem] items-center gap-2" aria-hidden />;
+  }
+
+  const role = String((session?.user as { role?: string } | undefined)?.role || "");
+  if (role) {
+    return (
+      <>
+        <span className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-sm text-white">
+          {role.replace(/_/g, " ")}
+        </span>
+        <Link href="/account/security" className="secondary-button">
+          Account
+        </Link>
+        <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/login" })}>
+          Sign out
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Link href="/login" className="secondary-button">
+        Sign in
+      </Link>
+      <Link href="/signup" className="secondary-button">
+        Sign up
+      </Link>
+    </>
+  );
+}
+
+export default function OpsChrome() {
   return (
     <header className="site-header">
       <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -27,36 +57,7 @@ export default function OpsChrome() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!mounted || status === "loading" ? (
-            <span className="secondary-button opacity-50" aria-hidden>
-              …
-            </span>
-          ) : role ? (
-            <>
-              <span className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-sm text-white">
-                {role.replace(/_/g, " ")}
-              </span>
-              <Link href="/account/security" className="secondary-button">
-                Account
-              </Link>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => signOut({ callbackUrl: "/login" })}
-              >
-                Sign out
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="secondary-button">
-                Sign in
-              </Link>
-              <Link href="/signup" className="secondary-button">
-                Sign up
-              </Link>
-            </>
-          )}
+          <AuthControls />
         </div>
       </div>
     </header>

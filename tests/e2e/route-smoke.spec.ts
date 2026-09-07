@@ -34,7 +34,10 @@ for (const path of opsRoutes) {
   });
 }
 
-test("public map does not serve admin login inline", async ({ page }) => {
+test("public and ops both serve login", async ({ page }) => {
   await page.goto("/login");
-  await expect(page).toHaveURL(/127\.0\.0\.1:3001\/login/);
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+  await page.goto(opsUrl("/login"));
+  await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
 });
