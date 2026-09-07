@@ -18,6 +18,10 @@ function recoveryCodes(n = 10): string[] {
 
 /** Start MFA enrollment — returns base32 secret + otpauth URI (authenticator apps). */
 export async function POST(req: NextRequest) {
+  if (process.env.MFA_ENFORCE === "0") {
+    return jsonError("MFA enrollment is temporarily disabled", 403);
+  }
+
   const limited = await enforceRateLimitAsync(req, "mfa-setup", { limit: 10, windowMs: 60_000 });
   if (limited) return limited;
 
@@ -171,6 +175,10 @@ export async function PUT(req: NextRequest) {
       body: "Multi-factor authentication was disabled on your account.",
     });
     return jsonOk({ mfaEnabled: false });
+  }
+
+  if (process.env.MFA_ENFORCE === "0") {
+    return jsonError("MFA enrollment is temporarily disabled", 403);
   }
 
   if (!user.mfaPendingSecret || !user.mfaPendingKeyVersion) {

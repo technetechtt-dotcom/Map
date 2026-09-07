@@ -106,7 +106,8 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        if (user.mfaEnabled) {
+        // MFA_ENFORCE=0 (Render bootstrap / local) skips TOTP even if a user has MFA enrolled.
+        if (user.mfaEnabled && process.env.MFA_ENFORCE !== "0") {
           const code = (credentials?.mfaCode || "").trim();
           let totpOk = false;
           if (user.mfaSecret) {

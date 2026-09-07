@@ -7,7 +7,10 @@ import { useRouter } from "next/navigation";
 const showDemoHints = process.env.NEXT_PUBLIC_DEMO_HINTS === "1";
 const demoSuperEmail = process.env.NEXT_PUBLIC_DEMO_SUPER_EMAIL || "admin@ictmap.gov.za";
 const demoProvincialEmail = process.env.NEXT_PUBLIC_DEMO_PROVINCIAL_EMAIL || "nc.admin@ictmap.gov.za";
-const showMfaPrompt = process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_MFA_LOGIN !== "0";
+const showMfaPrompt =
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PUBLIC_MFA_LOGIN !== "0" &&
+  process.env.NEXT_PUBLIC_MFA_LOGIN !== "false";
 
 export default function LoginPage() {
   const router = useRouter();
