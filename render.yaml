@@ -56,7 +56,7 @@ services:
     region: oregon
     branch: main
     autoDeployTrigger: commit
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    buildCommand: test -f src/components/AdminShell.tsx && npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health/live
     envVars:
@@ -81,7 +81,7 @@ services:
     region: oregon
     branch: main
     autoDeployTrigger: commit
-    buildCommand: npm ci && npx prisma generate && npm run build
+    buildCommand: test -f src/components/AdminShell.tsx && npm ci && npx prisma generate && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health/live
     envVars:

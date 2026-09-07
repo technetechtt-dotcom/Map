@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 
 export default function AdminDataQualityPage() {
   const [data, setData] = useState<Record<string, unknown> | null>(null);

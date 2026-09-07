@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 import type { PublicLocation } from "@/lib/shape";
 import Link from "next/link";
 

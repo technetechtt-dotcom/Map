@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 import OpsSitesPanel from "@/components/admin/ops/OpsSitesPanel";
 import OpsContentPanel from "@/components/admin/ops/OpsContentPanel";
 import OpsPeoplePanel from "@/components/admin/ops/OpsPeoplePanel";

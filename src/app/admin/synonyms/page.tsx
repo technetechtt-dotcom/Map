@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 
 type Synonym = { id: string; locale: string; term: string; synonymsJson: string };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState<{

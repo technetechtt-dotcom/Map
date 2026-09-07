@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 
 type ReviewPayload = {
   duplicates: { id: string; slug: string; name: string; status: string; verificationTier: string; missingFromSource: boolean; consecutiveMisses: number }[];

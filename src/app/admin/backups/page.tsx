@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/AdminShell";
 
 export default function AdminBackupsPage() {
   const [result, setResult] = useState<string | null>(null);

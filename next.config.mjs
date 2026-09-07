@@ -47,6 +47,14 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION ||
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
+  webpack: (config) => {
+    const root = path.dirname(fileURLToPath(import.meta.url));
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@": path.join(root, "src"),
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
