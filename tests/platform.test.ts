@@ -12,7 +12,8 @@ describe("platform routes", () => {
     expect(isOpsRoute("/admin/ops")).toBe(true);
     expect(isOpsRoute("/login")).toBe(true);
     expect(isOpsRoute("/api/admin/users")).toBe(true);
-    expect(isOpsRoute("/api/auth/session")).toBe(true);
+    // NextAuth must stay same-origin on both platforms (no cross-origin redirect)
+    expect(isOpsRoute("/api/auth/session")).toBe(false);
     expect(isOpsRoute("/")).toBe(false);
     expect(isOpsRoute("/about")).toBe(false);
     expect(isOpsRoute("/api/locations")).toBe(false);
@@ -22,6 +23,7 @@ describe("platform routes", () => {
     expect(isAllowedOnPublicPlatform("/")).toBe(true);
     expect(isAllowedOnPublicPlatform("/about")).toBe(true);
     expect(isAllowedOnPublicPlatform("/api/locations")).toBe(true);
+    expect(isAllowedOnPublicPlatform("/api/auth/session")).toBe(true);
     expect(isAllowedOnPublicPlatform("/admin/ops")).toBe(false);
     expect(isAllowedOnPublicPlatform("/login")).toBe(false);
   });
@@ -29,6 +31,7 @@ describe("platform routes", () => {
   it("allows only staff routes on the ops origin", () => {
     expect(isAllowedOnOpsPlatform("/admin/ops")).toBe(true);
     expect(isAllowedOnOpsPlatform("/login")).toBe(true);
+    expect(isAllowedOnOpsPlatform("/api/auth/session")).toBe(true);
     expect(isAllowedOnOpsPlatform("/")).toBe(true);
     expect(isAllowedOnOpsPlatform("/about")).toBe(false);
     expect(isAllowedOnOpsPlatform("/api/locations")).toBe(false);

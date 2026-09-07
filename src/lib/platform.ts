@@ -54,7 +54,9 @@ export function isOpsRoute(pathname: string): boolean {
   if (OPS_UI_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return true;
   }
-  if (pathname.startsWith("/api/admin") || pathname.startsWith("/api/auth")) return true;
+  // Admin APIs are ops-only. /api/auth stays on both origins so SessionProvider
+  // can same-origin fetch (cross-origin redirect breaks browsers via CORS).
+  if (pathname.startsWith("/api/admin")) return true;
   return false;
 }
 
@@ -62,8 +64,9 @@ export function isOpsRoute(pathname: string): boolean {
 export function isAllowedOnPublicPlatform(pathname: string): boolean {
   if (isInfraRoute(pathname)) return true;
   if (pathname.startsWith("/api/csp-report")) return true;
+  if (pathname.startsWith("/api/auth")) return true;
   if (pathname.startsWith("/api/")) {
-    return !pathname.startsWith("/api/admin") && !pathname.startsWith("/api/auth");
+    return !pathname.startsWith("/api/admin");
   }
   return !isOpsRoute(pathname);
 }
@@ -72,6 +75,7 @@ export function isAllowedOnPublicPlatform(pathname: string): boolean {
 export function isAllowedOnOpsPlatform(pathname: string): boolean {
   if (isInfraRoute(pathname)) return true;
   if (pathname.startsWith("/api/csp-report")) return true;
+  if (pathname.startsWith("/api/auth")) return true;
   if (isOpsRoute(pathname)) return true;
   if (pathname === "/") return true;
   return false;
