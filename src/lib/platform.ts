@@ -38,7 +38,7 @@ export function getPublicAppUrl(): string {
     process.env.PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_PUBLIC_APP_URL ||
     "http://localhost:3000"
-  );
+  ).trim();
 }
 
 export function getOpsAppUrl(): string {
@@ -46,7 +46,7 @@ export function getOpsAppUrl(): string {
     process.env.OPS_APP_URL ||
     process.env.NEXT_PUBLIC_OPS_APP_URL ||
     "http://localhost:3001"
-  );
+  ).trim();
 }
 
 export function isInfraRoute(pathname: string): boolean {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { cspOrigins } from "@/lib/csp";
 import {
   absoluteOpsUrl,
   absolutePublicUrl,
@@ -106,19 +107,13 @@ export async function middleware(req: NextRequest) {
     process.env.MAP_TILE_CONNECT_SRC ||
     "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
   const tileImg = process.env.MAP_TILE_IMG_SRC || "https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com";
-  const siblingOrigins = Array.from(
-    new Set(
-      [
-        process.env.PUBLIC_APP_URL,
-        process.env.OPS_APP_URL,
-        process.env.NEXT_PUBLIC_PUBLIC_APP_URL,
-        process.env.NEXT_PUBLIC_OPS_APP_URL,
-        process.env.NEXTAUTH_URL,
-      ]
-        .filter(Boolean)
-        .map((u) => String(u).replace(/\/$/, ""))
-    )
-  ).join(" ");
+  const siblingOrigins = cspOrigins([
+    process.env.PUBLIC_APP_URL,
+    process.env.OPS_APP_URL,
+    process.env.NEXT_PUBLIC_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_OPS_APP_URL,
+    process.env.NEXTAUTH_URL,
+  ]);
 
   // next dev / webpack Fast Refresh evaluates strings (eval). That is forbidden
   // in production CSP and must stay forbidden on `next start`.

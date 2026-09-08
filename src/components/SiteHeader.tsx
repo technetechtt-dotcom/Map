@@ -7,7 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { t, type Locale } from "@/lib/i18n";
 
 const locales: Locale[] = ["en", "af", "xh", "zu"];
-const opsAppUrl = (process.env.NEXT_PUBLIC_OPS_APP_URL || "").replace(/\/$/, "");
+const opsAppUrl = (process.env.NEXT_PUBLIC_OPS_APP_URL || "").trim().replace(/\/$/, "");
 
 /** Auth controls only after mount — avoids React #418 session hydration mismatches. */
 function AuthControls() {

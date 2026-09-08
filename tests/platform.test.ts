@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   absoluteOpsUrl,
   absolutePublicUrl,
@@ -7,6 +7,16 @@ import {
   isOpsRoute,
   isSharedAuthRoute,
 } from "@/lib/platform";
+
+const originalPublicAppUrl = process.env.PUBLIC_APP_URL;
+const originalOpsAppUrl = process.env.OPS_APP_URL;
+
+afterEach(() => {
+  if (originalPublicAppUrl === undefined) delete process.env.PUBLIC_APP_URL;
+  else process.env.PUBLIC_APP_URL = originalPublicAppUrl;
+  if (originalOpsAppUrl === undefined) delete process.env.OPS_APP_URL;
+  else process.env.OPS_APP_URL = originalOpsAppUrl;
+});
 
 describe("platform routes", () => {
   it("classifies ops UI and API routes", () => {
@@ -55,5 +65,13 @@ describe("platform routes", () => {
   it("builds cross-origin redirect URLs", () => {
     expect(absoluteOpsUrl("/login")).toBe("http://localhost:3001/login");
     expect(absolutePublicUrl("/about")).toBe("http://localhost:3000/about");
+  });
+
+  it("trims pasted line endings from redirect origins", () => {
+    process.env.PUBLIC_APP_URL = "https://sa-ict-map-public.onrender.com\r\n";
+    process.env.OPS_APP_URL = "https://sa-ict-map-ops.onrender.com\n";
+
+    expect(absoluteOpsUrl("/login")).toBe("https://sa-ict-map-ops.onrender.com/login");
+    expect(absolutePublicUrl("/about")).toBe("https://sa-ict-map-public.onrender.com/about");
   });
 });
