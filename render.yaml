@@ -23,34 +23,36 @@ envVarGroups:
         generateValue: true
       - key: METRICS_TOKEN
         generateValue: true
-      - key: RENDER_NEON_BOOTSTRAP
-        value: "1"
       - key: TRUST_PROXY
         value: "1"
       - key: TRUST_PROXY_HOPS
         value: "1"
-      - key: TRUST_PROXY_RELAX
-        value: "1"
-      - key: CAPTCHA_DISABLED
-        value: "1"
-      - key: GEOCODER_DISABLED
-        value: "1"
       - key: STORAGE_DRIVER
-        value: local
+        value: s3
       - key: STORAGE_ALLOW_LOCAL_FALLBACK
-        value: "1"
+        value: "0"
       - key: RATE_LIMIT_ALLOW_MEMORY
+        value: "0"
+      - key: MFA_ENFORCE
+        value: "1"
+      - key: NEXT_PUBLIC_MFA_LOGIN
+        value: "1"
+      - key: HIBP_DISABLED
+        value: "0"
+      - key: CAPTCHA_DISABLED
+        value: "0"
+      - key: ENFORCE_COORD_QUALITY
+        value: "1"
+      - key: ENFORCE_GEO_BOUNDARIES
+        value: "1"
+      - key: MAINTENANCE_MODE
+        value: "0"
+      - key: CSP_STRICT
         value: "1"
       - key: MONITORING_OPTIONAL
-        value: "1"
-      - key: MFA_ENFORCE
         value: "0"
-      - key: NEXT_PUBLIC_MFA_LOGIN
+      - key: GEOCODER_DISABLED
         value: "0"
-      - key: HIBP_DISABLED
-        value: "1"
-      - key: AUTH_TRUST_HOST
-        value: "true"
 
 services:
   - type: web

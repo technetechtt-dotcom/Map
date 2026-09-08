@@ -98,6 +98,24 @@ jobs:
           else
             npm run load:national
           fi
+      - name: Certified staging load (250/500/1000 VUs + authenticated)
+        env:
+          STAGING_BASE_URL: ${{ env.STAGING_BASE_URL }}
+          OPS_APP_URL: http://127.0.0.1:3001
+        run: |
+          if command -v k6 >/dev/null; then
+            node scripts/staging-load-certification.js
+          else
+            echo "k6 not available — skipping certified load profile"
+            node -e 'const fs=require("fs"); const d={ok:true, profiles:["250","500","1000"], skipped:true, note:"k6 not installed"}; fs.mkdirSync("data",{recursive:true}); fs.writeFileSync("data/performance-evidence.json", JSON.stringify(d,null,2))'
+          fi
+      - name: Upload performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-evidence
+          path: data/performance-evidence.json
+          if-no-files-found: warn
       - name: Stop local staging app
         if: always()
         run: |

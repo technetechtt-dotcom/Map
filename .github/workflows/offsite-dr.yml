@@ -142,6 +142,13 @@ jobs:
             exit 0
           fi
           echo "configured=true" >> "$GITHUB_OUTPUT"
+      - name: Fail closed when off-site secrets are missing
+        if: steps.offsite.outputs.configured != 'true'
+        run: |
+          echo "Real off-site DR proof requires BACKUP_DESTINATION and BACKUP_ENCRYPTION_KEY on Environment production."
+          echo "Set them with: gh secret set BACKUP_DESTINATION --env production"
+          echo "gh secret set BACKUP_ENCRYPTION_KEY --env production"
+          exit 1
       - name: PostgreSQL client
         if: steps.offsite.outputs.configured == 'true'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client

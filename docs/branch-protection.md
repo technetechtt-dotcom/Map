@@ -8,7 +8,7 @@ Keep these GitHub settings:
 2. Require status checks `test-and-build`, `postgres-postgis`, `secret-scan`, `codeql`, `dependency-audit-sbom`, and `license-check` when a pull request is used
 3. **Enforce the same checks for administrators** (`enforce_admins: true`)
 4. Restrict force pushes and deletions
-5. Do **not** yet require signed commits (the current push path is unsigned)
+5. **Do not** yet require signed commits (the current push path is unsigned)
 
 Required status checks do not stop a direct push from landing on `main`. Production exposure is blocked by the **Production deploy** workflow: it must deploy a certified SHA, prove a non-null live SHA matches `CERTIFIED_SHA`, and smoke the live origin. A red SHA is not promoted.
 
@@ -20,3 +20,19 @@ Apply the live settings via:
 gh api -X PUT repos/OWNER/REPO/branches/main/protection \
   --input docs/branch-protection.json
 ```
+
+## Signed release governance (launch gate)
+
+When the repo switches to PR-based flow, apply `docs/branch-protection-launch.json`:
+
+```bash
+node scripts/apply-launch-governance.js
+```
+
+This requires:
+- Required PR reviews with CODEOWNERS
+- Signed commits (`required_signatures: true`)
+- Protected production Environment with required reviewers
+- No routine unsigned direct pushes to `main`
+
+Until then, the commit-signature-check workflow (`commit-signature-check.yml`) scans PRs for unsigned commits and blocks merge.

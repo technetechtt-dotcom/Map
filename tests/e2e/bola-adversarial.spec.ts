@@ -5,11 +5,22 @@ import { opsUrl } from "./helpers/urls";
 
 const prisma = new PrismaClient();
 
+/**
+ * Log in via the browser and return the session cookie string so that
+ * page.request.* calls carry the same authenticated context.
+ * Without this, the BOLA PATCH/GET requests are treated as anonymous
+ * and return 401 instead of the expected 403 — the test then fails
+ * because 401 !== >=403.
+ */
 async function loginOps(page: import("@playwright/test").Page, email: string, password: string) {
   await page.goto(opsUrl("/login"));
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
+  await expect(page).toHaveURL(/\/admin/, { timeout: 20_000 });
+  const cookies = await page.context().cookies();
+  const sessionCookie = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  return sessionCookie;
 }
 
 test.describe("HTTP-level BOLA adversarial tests", () => {
@@ -31,10 +42,10 @@ test.describe("HTTP-level BOLA adversarial tests", () => {
       data: { slug: `bola-f-${Date.now()}`, title: "BOLA funding", summary: "test", status: "DRAFT", provinceId: orgB.provinceId, organisationId: orgB.id },
     });
     try {
-      await loginOps(page, userA.email, password);
-      await expect(page).toHaveURL(/admin/, { timeout: 20_000 });
+      const cookie = await loginOps(page, userA.email, password);
       const res = await page.request.patch(opsUrl(`/api/ecosystem/${funding.id}`), {
         data: { type: "funding", title: "Hijacked" },
+        headers: { cookie },
       });
       expect(res.status()).toBeGreaterThanOrEqual(403);
     } finally {
@@ -78,9 +89,10 @@ test.describe("HTTP-level BOLA adversarial tests", () => {
       },
     });
     try {
-      await loginOps(page, attacker.email, password);
+      const cookie = await loginOps(page, attacker.email, password);
       const res = await page.request.patch(opsUrl(`/api/locations/${location.id}`), {
         data: { name: "Stolen" },
+        headers: { cookie },
       });
       expect(res.status()).toBeGreaterThanOrEqual(403);
     } finally {
@@ -103,9 +115,10 @@ test.describe("HTTP-level BOLA adversarial tests", () => {
       data: { slug: `bola-ev-${Date.now()}`, title: "GP event", summary: "x", status: "DRAFT", provinceId: gp.id, startsAt: new Date() },
     });
     try {
-      await loginOps(page, admin.email, password);
+      const cookie = await loginOps(page, admin.email, password);
       const res = await page.request.patch(opsUrl(`/api/ecosystem/${event.id}`), {
         data: { type: "events", title: "Cross province" },
+        headers: { cookie },
       });
       expect(res.status()).toBeGreaterThanOrEqual(403);
     } finally {

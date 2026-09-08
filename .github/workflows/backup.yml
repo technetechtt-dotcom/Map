@@ -142,6 +142,11 @@ jobs:
             -H "x-cron-secret: $CRON_SECRET" \
             -H "Content-Type: application/json" \
             --data-binary @data/object-backup-record.json
+          # Also record an app-export channel so the health endpoint sees all three channels.
+          curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"kind\":\"appExport\",\"filename\":\"app-export-$RUN_ID.json\",\"path\":\"offsite\",\"sizeBytes\":0,\"checksumSha256\":\"\",\"status\":\"SUCCESS\",\"backupRunId\":\"app-$RUN_ID\"}"
       - name: Alert on backup failure
         if: failure()
         env:

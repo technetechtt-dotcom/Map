@@ -73,3 +73,21 @@ jobs:
           METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: node scripts/deploy-both-platforms.js
+
+      - name: Verify live public SHA
+        if: always()
+        env:
+          PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node scripts/post-deploy-verify.js
+
+      - name: Verify live ops SHA
+        if: always()
+        env:
+          PRODUCTION_APP_URL: ${{ secrets.OPS_APP_URL }}
+          CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node scripts/post-deploy-verify.js
