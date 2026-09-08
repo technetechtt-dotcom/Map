@@ -237,7 +237,8 @@ export async function rateLimitAsync(
   if (prod && !allowMemory) {
     return failClosed();
   }
-  const e2eLimit = isE2eRuntime() ? Math.max(opts.limit, 10_000) : opts.limit;
+  const e2eFloor = process.env.LOAD_TEST === "1" ? 1_000_000 : 10_000;
+  const e2eLimit = isE2eRuntime() ? Math.max(opts.limit, e2eFloor) : opts.limit;
   return rateLimit(key, { ...opts, limit: e2eLimit });
 }
 

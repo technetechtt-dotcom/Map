@@ -54,6 +54,52 @@ describe("national entity ids", () => {
 });
 
 describe("security scanners", () => {
+  it("requires both public and ops origins in production deploy preflight", () => {
+    const src = readFileSync(path.join(process.cwd(), "scripts/ops-preflight.js"), "utf8");
+    expect(src).toContain('const DEPLOY_REQUIRED = ["PRODUCTION_APP_URL", "OPS_APP_URL"]');
+  });
+
+  it("requires both database URLs for a complete off-site backup", () => {
+    const src = readFileSync(path.join(process.cwd(), "scripts/ops-preflight.js"), "utf8");
+    expect(src).toContain('"PRODUCTION_DIRECT_URL"');
+    expect(src).toContain('"PRODUCTION_DATABASE_URL"');
+  });
+
+  it("launch governance requires every PR-only security and signature check", () => {
+    const policy = JSON.parse(
+      readFileSync(path.join(process.cwd(), "docs/branch-protection-launch.json"), "utf8")
+    );
+    expect(policy.required_status_checks.contexts).toEqual(
+      expect.arrayContaining(["dependency-review", "signed-commits"])
+    );
+    expect(policy.required_pull_request_reviews.require_code_owner_reviews).toBe(true);
+    expect(policy.required_signatures).toBe(true);
+  });
+
+  it("reports the Render-provided commit in privileged health", () => {
+    const src = readFileSync(path.join(process.cwd(), "src/app/api/health/route.ts"), "utf8");
+    expect(src).toContain("process.env.RENDER_GIT_COMMIT");
+  });
+
+  it("groups cluster geometry through one stable grid expression", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "src/app/api/locations/clusters/route.ts"),
+      "utf8"
+    );
+    expect(src).toContain("WITH gridded AS");
+    expect(src).toContain("GROUP BY cell");
+    expect(src.match(/\$\{cellSize\}/g)).toHaveLength(1);
+  });
+
+  it("runs each formal k6 profile by LOAD_PROFILE", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "scripts/staging-load-certification.js"),
+      "utf8"
+    );
+    expect(src).toContain("`LOAD_PROFILE=${profile}`");
+    expect(src).not.toContain("`VUS=${profile}`");
+  });
+
   it("does not allowlist Next.js in the dependency audit", () => {
     const src = readFileSync(path.join(process.cwd(), "scripts/ci-audit.js"), "utf8");
     expect(src).not.toMatch(/allowed = new Set\(\["next"\]\)/);

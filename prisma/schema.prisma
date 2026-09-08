@@ -101,7 +101,6 @@ model User {
   passwordChangedAt    DateTime?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
-  auditLogs            AuditLog[]
   locationsOwned       Location[]           @relation("LocationOwner")
   locationsReviewed    Location[]           @relation("LocationReviewer")
   submissions          Submission[]         @relation("SubmissionSubmitter")
@@ -568,7 +567,9 @@ model Submission {
 model AuditLog {
   id             String   @id @default(cuid())
   userId         String?
-  user           User?    @relation(fields: [userId], references: [id])
+  actorEmail     String?
+  actorName      String?
+  actorRole      String?
   action         String
   entityType     String
   entityId       String?

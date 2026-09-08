@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
     where: auditTenantWhere(auth.user),
     take,
     orderBy: { createdAt: "desc" },
-    include: { user: { select: { name: true, email: true } } },
   });
 
   await writeAudit({
@@ -40,7 +39,7 @@ export async function GET(req: NextRequest) {
     for (const row of logs) {
       lines.push([
         row.id, row.createdAt.toISOString(), row.action, row.entityType, row.entityId,
-        row.userId, row.user?.email, row.ipAddress, row.provinceId, row.organisationId,
+        row.userId, row.actorEmail, row.ipAddress, row.provinceId, row.organisationId,
       ].map(csvCell).join(","));
     }
     return new NextResponse(lines.join("\n"), {
@@ -62,8 +61,8 @@ export async function GET(req: NextRequest) {
       organisationId: row.organisationId,
       createdAt: row.createdAt,
       ipAddress: isSuperAdmin(auth.user) ? row.ipAddress : null,
-      user: row.user
-        ? { name: row.user.name, email: isSuperAdmin(auth.user) ? row.user.email : undefined }
+      user: row.userId || row.actorName || row.actorEmail
+        ? { name: row.actorName, email: isSuperAdmin(auth.user) ? row.actorEmail : undefined }
         : null,
     })),
     retentionNote: "Append-only audit records are exported to encrypted archival storage before database lifecycle retention.",

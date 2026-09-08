@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Deploy public map then ops console when OPS_APP_URL is configured. */
+/** Deploy and exact-SHA verify the mandatory public map and ops console. */
 const { spawnSync } = require("child_process");
 const { join } = require("path");
 

@@ -89,12 +89,23 @@ test.describe("HTTP-level BOLA adversarial tests", () => {
       },
     });
     try {
+      const before = await prisma.location.findUniqueOrThrow({
+        where: { id: location.id },
+      });
       const cookie = await loginOps(page, attacker.email, password);
       const res = await page.request.patch(opsUrl(`/api/locations/${location.id}`), {
-        data: { name: "Stolen" },
+        data: {
+          name: "Stolen",
+          summary: "Cross-tenant mutation must never persist",
+          organisationId: orgA.id,
+        },
         headers: { cookie },
       });
-      expect(res.status()).toBeGreaterThanOrEqual(403);
+      expect(res.status()).toBe(403);
+      const after = await prisma.location.findUniqueOrThrow({
+        where: { id: location.id },
+      });
+      expect(after).toEqual(before);
     } finally {
       await prisma.location.delete({ where: { id: location.id } }).catch(() => undefined);
       await prisma.user.deleteMany({ where: { id: { in: [ownerB.id, attacker.id] } } }).catch(() => undefined);
@@ -127,7 +138,7 @@ test.describe("HTTP-level BOLA adversarial tests", () => {
     }
   });
 
-  test("guessed unpublished ecosystem id returns forbidden for org admin", async ({ page }) => {
+  test("guessed unpublished ecosystem id cannot be patched by another tenant", async ({ page }) => {
     test.setTimeout(90_000);
     const password = "E2E-Bola-Guess-42!";
     const province = await prisma.province.findFirst({ where: { code: "NC" } });
@@ -142,9 +153,15 @@ test.describe("HTTP-level BOLA adversarial tests", () => {
       data: { slug: `hidden-${Date.now()}`, title: "Hidden programme", summary: "draft", status: "DRAFT", provinceId: province.id, organisationId: null },
     });
     try {
-      await loginOps(page, admin.email, password);
-      const res = await page.request.get(opsUrl(`/api/ecosystem/${hidden.id}?type=programmes&scope=manage`));
-      expect([403, 404]).toContain(res.status());
+      const before = await prisma.programme.findUniqueOrThrow({ where: { id: hidden.id } });
+      const cookie = await loginOps(page, admin.email, password);
+      const res = await page.request.patch(opsUrl(`/api/ecosystem/${hidden.id}`), {
+        data: { type: "programmes", title: "Guessed and hijacked", organisationId: org.id },
+        headers: { cookie },
+      });
+      expect(res.status()).toBe(403);
+      const after = await prisma.programme.findUniqueOrThrow({ where: { id: hidden.id } });
+      expect(after).toEqual(before);
     } finally {
       await prisma.programme.delete({ where: { id: hidden.id } }).catch(() => undefined);
       await prisma.user.delete({ where: { id: admin.id } }).catch(() => undefined);

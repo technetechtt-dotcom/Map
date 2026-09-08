@@ -7,6 +7,7 @@ const mode = process.argv[2] || "backup";
 
 const BACKUP_REQUIRED = [
   "PRODUCTION_DIRECT_URL",
+  "PRODUCTION_DATABASE_URL",
   "BACKUP_ENCRYPTION_KEY",
   "BACKUP_DESTINATION",
   "RCLONE_CONFIG",
@@ -20,10 +21,11 @@ const BACKUP_REQUIRED = [
   "CRON_SECRET",
 ];
 
-const DEPLOY_REQUIRED = ["PRODUCTION_APP_URL"];
+const DEPLOY_REQUIRED = ["PRODUCTION_APP_URL", "OPS_APP_URL"];
 const DEPLOY_ONE_OF = [
   ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"],
   ["PRODUCTION_DEPLOY_HOOK"],
+  ["RENDER_AUTO_DEPLOY"],
 ];
 const DEPLOY_AUTH = ["METRICS_TOKEN", "CRON_SECRET"];
 
@@ -43,8 +45,11 @@ function main() {
     }
     const hasVercel = DEPLOY_ONE_OF[0].every(present);
     const hasHook = present("PRODUCTION_DEPLOY_HOOK");
-    if (!hasVercel && !hasHook) {
-      missing.push("VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID or PRODUCTION_DEPLOY_HOOK");
+    const hasRenderAutoDeploy = process.env.RENDER_AUTO_DEPLOY === "1";
+    if (!hasVercel && !hasHook && !hasRenderAutoDeploy) {
+      missing.push(
+        "VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK, or RENDER_AUTO_DEPLOY=1"
+      );
     }
     if (!DEPLOY_AUTH.some(present)) missing.push("METRICS_TOKEN or CRON_SECRET");
   } else {

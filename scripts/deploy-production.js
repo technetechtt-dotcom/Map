@@ -81,8 +81,18 @@ async function main() {
       signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) throw new Error(`deploy hook ${res.status}`);
+  } else if (process.env.RENDER_AUTO_DEPLOY === "1") {
+    console.log(
+      JSON.stringify({
+        deployment: "render-auto-deploy",
+        action: "verify-existing-commit-triggered-deployment",
+        sha,
+      })
+    );
   } else {
-    console.error("Set Vercel deploy tokens or PRODUCTION_DEPLOY_HOOK — Production deploy cannot succeed without a deploy target");
+    console.error(
+      "Set Vercel deploy tokens, PRODUCTION_DEPLOY_HOOK, or RENDER_AUTO_DEPLOY=1"
+    );
     process.exit(1);
   }
 

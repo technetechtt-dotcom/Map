@@ -34,7 +34,12 @@ One of:
 Always:
 
 - `PRODUCTION_APP_URL`
+- `OPS_APP_URL`
 - `METRICS_TOKEN` or `CRON_SECRET` (must match Vercel runtime)
+
+For the existing Render services, set `RENDER_AUTO_DEPLOY=1`. A push deploys both
+services through Render; Production Gate then waits for and verifies the exact SHA
+on both origins. This mode never reports that the workflow itself triggered a deploy.
 
 `CRON_SECRET` on GitHub and Vercel must be identical so backup health recording and post-deploy SHA proof both work.
 

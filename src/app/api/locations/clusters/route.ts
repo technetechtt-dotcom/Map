@@ -23,14 +23,18 @@ export async function GET(req: NextRequest) {
   const clusters = await prisma.$queryRaw<
     { id: string; latitude: number; longitude: number; count: bigint }[]
   >`
-    SELECT md5(ST_AsText(ST_SnapToGrid(geom, ${cellSize}))) AS id,
+    WITH gridded AS (
+      SELECT geom, ST_SnapToGrid(geom, ${cellSize}) AS cell
+      FROM "Location"
+      WHERE status IN ('PUBLISHED', 'VERIFIED')
+        AND geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
+    )
+    SELECT md5(ST_AsText(cell)) AS id,
            ST_Y(ST_Centroid(ST_Collect(geom)))::float8 AS latitude,
            ST_X(ST_Centroid(ST_Collect(geom)))::float8 AS longitude,
            COUNT(*)::bigint AS count
-    FROM "Location"
-    WHERE status IN ('PUBLISHED', 'VERIFIED')
-      AND geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
-    GROUP BY ST_SnapToGrid(geom, ${cellSize})
+    FROM gridded
+    GROUP BY cell
     ORDER BY count DESC
     LIMIT 2000
   `;

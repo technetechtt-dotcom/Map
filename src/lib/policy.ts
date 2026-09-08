@@ -20,6 +20,7 @@ export type AuthUser = {
   provinceId?: string | null;
   organisationId?: string | null;
   email?: string | null;
+  name?: string | null;
   sessionVersion?: number;
   mustChangePassword?: boolean;
   mfaEnabled?: boolean;

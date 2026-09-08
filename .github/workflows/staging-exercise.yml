@@ -38,6 +38,7 @@ jobs:
       GEOCODER_DISABLED: "1"
       HIBP_DISABLED: "1"
       E2E: "1"
+      LOAD_TEST: "1"
       RATE_LIMIT_ALLOW_MEMORY: "1"
       TRUST_PROXY: "0"
       KEEP_RESTORE_DB: "1"
@@ -45,6 +46,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
       METRICS_TOKEN: staging-restore-metrics
       REMOTE_STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      REMOTE_STAGING_OPS_URL: ${{ secrets.STAGING_OPS_URL }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -59,19 +61,28 @@ jobs:
       - name: Build and start app against restored database
         run: |
           if [ -n "$REMOTE_STAGING_BASE_URL" ]; then
+            if [ -z "$REMOTE_STAGING_OPS_URL" ]; then
+              echo "STAGING_OPS_URL is required when STAGING_BASE_URL uses a remote staging stack"
+              exit 1
+            fi
             echo "STAGING_BASE_URL=$REMOTE_STAGING_BASE_URL" >> "$GITHUB_ENV"
-            echo "Using remote staging app"
+            echo "OPS_STAGING_BASE_URL=$REMOTE_STAGING_OPS_URL" >> "$GITHUB_ENV"
+            echo "Using remote dual-platform staging apps"
             exit 0
           fi
           RESTORE_URL=$(node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("data/dr-restore.json","utf8")); process.stdout.write(r.restoreUrl)')
           echo "DATABASE_URL=$RESTORE_URL" >> "$GITHUB_ENV"
           echo "DIRECT_URL=$RESTORE_URL" >> "$GITHUB_ENV"
-          npm run build
-          DATABASE_URL="$RESTORE_URL" DIRECT_URL="$RESTORE_URL" npx next start -p 3000 &
-          echo $! > .staging-app.pid
+          APP_PLATFORM=public NEXT_DIST_DIR=.next-public npm run build
+          APP_PLATFORM=ops NEXT_DIST_DIR=.next-ops npm run build
+          DATABASE_URL="$RESTORE_URL" DIRECT_URL="$RESTORE_URL" APP_PLATFORM=public NEXT_DIST_DIR=.next-public PUBLIC_APP_URL=http://127.0.0.1:3000 OPS_APP_URL=http://127.0.0.1:3001 npx next start -p 3000 &
+          echo $! > .staging-public.pid
+          DATABASE_URL="$RESTORE_URL" DIRECT_URL="$RESTORE_URL" APP_PLATFORM=ops NEXT_DIST_DIR=.next-ops PUBLIC_APP_URL=http://127.0.0.1:3000 OPS_APP_URL=http://127.0.0.1:3001 NEXTAUTH_URL=http://127.0.0.1:3001 npx next start -p 3001 &
+          echo $! > .staging-ops.pid
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null; then
+            if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null && curl -fsS http://127.0.0.1:3001/api/health/live >/dev/null; then
               echo "STAGING_BASE_URL=http://127.0.0.1:3000" >> "$GITHUB_ENV"
+              echo "OPS_STAGING_BASE_URL=http://127.0.0.1:3001" >> "$GITHUB_ENV"
               exit 0
             fi
             sleep 2
@@ -89,19 +100,12 @@ jobs:
       - name: National load suite
         env:
           BASE_URL: ${{ env.STAGING_BASE_URL }}
-          LOAD_PROFILE: national
-        run: |
-          if command -v k6 >/dev/null; then
-            k6 run -e LOAD_PROFILE=250 scripts/performance/k6-national.js
-            k6 run -e LOAD_PROFILE=500 scripts/performance/k6-national.js
-            k6 run -e LOAD_PROFILE=1000 scripts/performance/k6-national.js
-          else
-            npm run load:national
-          fi
+          LOAD_PROFILE: ci
+        run: npm run load:national
       - name: Certified staging load (250/500/1000 VUs + authenticated)
         env:
           STAGING_BASE_URL: ${{ env.STAGING_BASE_URL }}
-          OPS_APP_URL: http://127.0.0.1:3001
+          OPS_APP_URL: ${{ env.OPS_STAGING_BASE_URL }}
         run: |
           if command -v k6 >/dev/null; then
             node scripts/staging-load-certification.js
@@ -119,4 +123,5 @@ jobs:
       - name: Stop local staging app
         if: always()
         run: |
-          if [ -f .staging-app.pid ]; then kill "$(cat .staging-app.pid)" || true; fi
+          if [ -f .staging-public.pid ]; then kill "$(cat .staging-public.pid)" || true; fi
+          if [ -f .staging-ops.pid ]; then kill "$(cat .staging-ops.pid)" || true; fi

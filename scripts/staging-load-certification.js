@@ -9,7 +9,14 @@ const ops = process.env.OPS_APP_URL || "http://127.0.0.1:3001";
 
 for (const profile of profiles) {
   console.log(`\n==> load profile ${profile}`);
-  const k6 = spawnSync("k6", ["run", join(__dirname, "performance", "k6-national.js"), "-e", `BASE_URL=${base}`, "-e", `VUS=${profile}`], {
+  const k6 = spawnSync("k6", [
+    "run",
+    "-e",
+    `BASE_URL=${base}`,
+    "-e",
+    `LOAD_PROFILE=${profile}`,
+    join(__dirname, "performance", "k6-national.js"),
+  ], {
     stdio: "inherit",
     env: process.env,
     shell: true,

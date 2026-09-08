@@ -12,6 +12,13 @@ export async function writeAudit(params: {
   organisationId?: string | null;
   user?: AuthUser | null;
 }) {
+  const userId = params.userId || params.user?.id || null;
+  const actor = userId
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true, role: true },
+      })
+    : null;
   const provinceId =
     params.provinceId ?? params.user?.provinceId ?? null;
   const organisationId =
@@ -20,7 +27,12 @@ export async function writeAudit(params: {
   // Append-only: never update/delete via application code
   await prisma.auditLog.create({
     data: {
-      userId: params.userId || params.user?.id || null,
+      // userId is deliberately not a foreign key. Deleting an account must not
+      // mutate or erase its immutable audit history.
+      userId,
+      actorEmail: actor?.email || params.user?.email || null,
+      actorName: actor?.name || params.user?.name || null,
+      actorRole: actor?.role || params.user?.role || null,
       action: params.action,
       entityType: params.entityType,
       entityId: params.entityId || null,

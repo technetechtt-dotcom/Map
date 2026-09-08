@@ -10,15 +10,21 @@ const { join } = require("path");
 const dryRun = process.argv.includes("--dry-run");
 const configPath = join(__dirname, "..", "docs", "branch-protection-launch.json");
 const config = JSON.parse(readFileSync(configPath, "utf8"));
+const { required_signatures: requireSignatures, ...protection } = config;
 
 function gh(args) {
   const cmd = `gh api repos/{owner}/{repo}/branches/main/protection --method PUT --input -`;
   if (dryRun) {
     console.log("[dry-run]", cmd);
-    console.log(JSON.stringify(config, null, 2));
+    console.log(JSON.stringify(protection, null, 2));
+    console.log(`[dry-run] gh api repos/{owner}/{repo}/branches/main/protection/required_signatures --method ${requireSignatures ? "POST" : "DELETE"}`);
     return;
   }
-  execSync(cmd, { input: JSON.stringify(config), stdio: ["pipe", "inherit", "inherit"] });
+  execSync(cmd, { input: JSON.stringify(protection), stdio: ["pipe", "inherit", "inherit"] });
+  execSync(
+    `gh api repos/{owner}/{repo}/branches/main/protection/required_signatures --method ${requireSignatures ? "POST" : "DELETE"}`,
+    { stdio: "inherit" }
+  );
 }
 
 try {

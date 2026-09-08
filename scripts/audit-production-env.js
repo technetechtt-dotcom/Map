@@ -22,12 +22,14 @@ const BACKUP = [
 ];
 const DEPLOY = [
   "PRODUCTION_APP_URL",
+  "OPS_APP_URL",
   "METRICS_TOKEN",
   "CRON_SECRET",
   "VERCEL_TOKEN",
   "VERCEL_ORG_ID",
   "VERCEL_PROJECT_ID",
   "PRODUCTION_DEPLOY_HOOK",
+  "RENDER_AUTO_DEPLOY",
 ];
 const OPTIONAL = ["NEON_API_KEY", "NEON_PROJECT_ID", "NOTIFY_WEBHOOK_URL", "RESEND_API_KEY"];
 
@@ -53,9 +55,15 @@ function main() {
   const backupMissing = backupAudit.filter((r) => !r.present).map((r) => r.name);
   const deployMissing = [];
   if (!present.has("PRODUCTION_APP_URL")) deployMissing.push("PRODUCTION_APP_URL");
+  if (!present.has("OPS_APP_URL")) deployMissing.push("OPS_APP_URL");
   const hasVercel = ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"].every((n) => present.has(n));
   const hasHook = present.has("PRODUCTION_DEPLOY_HOOK");
-  if (!hasVercel && !hasHook) deployMissing.push("VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID or PRODUCTION_DEPLOY_HOOK");
+  const hasRenderAutoDeploy = present.has("RENDER_AUTO_DEPLOY");
+  if (!hasVercel && !hasHook && !hasRenderAutoDeploy) {
+    deployMissing.push(
+      "VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK, or RENDER_AUTO_DEPLOY=1"
+    );
+  }
   if (!present.has("METRICS_TOKEN") && !present.has("CRON_SECRET")) deployMissing.push("METRICS_TOKEN or CRON_SECRET");
   const deployReady = deployMissing.length === 0;
   const backupReady = backupMissing.length === 0;

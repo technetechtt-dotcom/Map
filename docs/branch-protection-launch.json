@@ -5,9 +5,11 @@
       "test-and-build",
       "postgres-postgis",
       "secret-scan",
+      "dependency-review",
       "codeql",
       "dependency-audit-sbom",
-      "license-check"
+      "license-check",
+      "signed-commits"
     ]
   },
   "enforce_admins": true,

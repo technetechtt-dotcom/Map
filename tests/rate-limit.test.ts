@@ -27,6 +27,7 @@ describe("Upstash distributed rate limiting", () => {
   it("fails closed in production when Redis is unavailable", async () => {
     (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     delete process.env.E2E;
+    delete process.env.LOAD_TEST;
     delete process.env.RATE_LIMIT_ALLOW_MEMORY;
     delete process.env.RENDER_NEON_BOOTSTRAP;
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.invalid";
@@ -40,6 +41,7 @@ describe("Upstash distributed rate limiting", () => {
   it("uses memory buckets during RENDER_NEON_BOOTSTRAP without Redis", async () => {
     (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     delete process.env.E2E;
+    delete process.env.LOAD_TEST;
     delete process.env.RATE_LIMIT_ALLOW_MEMORY;
     process.env.RENDER_NEON_BOOTSTRAP = "1";
     delete process.env.UPSTASH_REDIS_REST_URL;

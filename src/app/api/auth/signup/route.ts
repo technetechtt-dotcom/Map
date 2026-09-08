@@ -66,6 +66,9 @@ export async function POST(req: NextRequest) {
         await tx.auditLog.create({
           data: {
             userId: created.id,
+            actorEmail: created.email,
+            actorName: created.name,
+            actorRole: created.role,
             action: "SIGNUP",
             entityType: "User",
             entityId: created.id,

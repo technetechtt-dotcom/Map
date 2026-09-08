@@ -90,14 +90,6 @@ export async function GET() {
           where: auditWhere,
           take: 20,
           orderBy: { createdAt: "desc" },
-          include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
         })
       : Promise.resolve([]),
   ]);
@@ -137,10 +129,10 @@ export async function GET() {
       entityId: a.entityId,
       createdAt: a.createdAt,
       provinceId: a.provinceId,
-      user: a.user
+      user: a.userId || a.actorName || a.actorEmail
         ? {
-            name: a.user.name,
-            email: isSuperAdmin(auth.user) ? a.user.email : undefined,
+            name: a.actorName,
+            email: isSuperAdmin(auth.user) ? a.actorEmail : undefined,
           }
         : null,
     })),

@@ -4,6 +4,7 @@
 prisma/ @technetechtt-dotcom
 src/lib/auth.ts @technetechtt-dotcom
 src/lib/policy.ts @technetechtt-dotcom
+src/lib/audit.ts @technetechtt-dotcom
 src/middleware.ts @technetechtt-dotcom
 src/app/api/auth/ @technetechtt-dotcom
 src/app/api/admin/backups/ @technetechtt-dotcom

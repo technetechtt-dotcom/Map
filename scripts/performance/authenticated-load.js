@@ -2,7 +2,7 @@
 /**
  * Authenticated smoke against an isolated app. Never point at production Neon.
  */
-const base = process.env.BASE_URL || "http://127.0.0.1:3000";
+const base = process.env.OPS_APP_URL || process.env.BASE_URL || "http://127.0.0.1:3001";
 const email = process.env.SEED_ADMIN_EMAIL || "admin@ictmap.gov.za";
 const password = process.env.SEED_ADMIN_PASSWORD || "";
 
