@@ -6,6 +6,10 @@ import { opsUrl } from "./helpers/urls";
 
 const prisma = new PrismaClient();
 
+async function cleanupSignupUser(email: string) {
+  await prisma.user.deleteMany({ where: { email } });
+}
+
 test("funding, events and submit pages expose the community lifecycle", async ({ page }) => {
   await page.goto("/funding");
   await expect(page.getByRole("heading", { name: /funding calls/i })).toBeVisible();
@@ -33,6 +37,68 @@ test("login is available on both public and ops origins", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
   await page.goto(opsUrl("/login"));
   await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+});
+
+test("public signup and login stay on the public origin, then work on ops", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "stateful auth flow runs once");
+  test.setTimeout(90_000);
+  const email = `e2e-public-signup-${Date.now()}@example.test`;
+  const password = "E2E-Public-Signup-42!";
+
+  try {
+    await page.goto("/signup");
+    await page.locator('input[name="name"]').fill("E2E Public Signup");
+    await page.locator('input[name="email"]').fill(email);
+    await page.getByLabel("Province").selectOption({ label: "Northern Cape" });
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('input[name="confirmPassword"]').fill(password);
+    await page.getByRole("button", { name: /create account/i }).click();
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/?$/, { timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible();
+
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/?$/, { timeout: 20_000 });
+
+    await page.context().clearCookies();
+    await page.goto(opsUrl("/login?callbackUrl=%2Fadmin%2Flocations"));
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/127\.0\.0\.1:3001\/admin\/locations$/, { timeout: 20_000 });
+  } finally {
+    await cleanupSignupUser(email);
+  }
+});
+
+test("ops signup signs a contributor into the management dashboard", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "stateful auth flow runs once");
+  test.setTimeout(90_000);
+  const email = `e2e-ops-signup-${Date.now()}@example.test`;
+  const password = "E2E-Ops-Signup-42!";
+
+  try {
+    await page.goto(opsUrl("/signup"));
+    await page.locator('input[name="name"]').fill("E2E Ops Signup");
+    await page.locator('input[name="email"]').fill(email);
+    await page.getByLabel("Province").selectOption({ label: "Northern Cape" });
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('input[name="confirmPassword"]').fill(password);
+    await page.getByRole("button", { name: /create account/i }).click();
+    await expect(page).toHaveURL(/127\.0\.0\.1:3001\/admin$/, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: /management system/i })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    const created = await prisma.user.findUnique({ where: { email } });
+    expect(created?.role).toBe("CONTRIBUTOR");
+    expect(created?.provinceId).toBeTruthy();
+  } finally {
+    await cleanupSignupUser(email);
+  }
 });
 
 test("about page states the live catalogue honestly", async ({ page }) => {

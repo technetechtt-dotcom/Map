@@ -137,7 +137,7 @@ export default async function AboutPage() {
             <Link className="text-g700 font-semibold" href="/login">
               sign in
             </Link>{" "}
-            on the public map, then use the{" "}
+            on the public map, then sign in separately to the{" "}
             <a className="text-g700 font-semibold" href={getOpsAppUrl()} rel="noopener noreferrer">
               Operations console
             </a>{" "}

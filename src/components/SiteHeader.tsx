@@ -21,10 +21,12 @@ function AuthControls() {
 
   const role = String((session?.user as { role?: string } | undefined)?.role || "");
   if (role) {
+    const opsPath =
+      role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" ? "/admin/ops" : "/admin";
     return (
       <>
-        {opsAppUrl && (role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" || role === "ORG_ADMIN") ? (
-          <a href={`${opsAppUrl}/admin/ops`} className="secondary-button">
+        {opsAppUrl ? (
+          <a href={`${opsAppUrl}${opsPath}`} className="secondary-button">
             Ops
           </a>
         ) : null}

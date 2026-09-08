@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { cspOrigins } from "@/lib/csp";
+import { defaultPostAuthPath } from "@/lib/auth-navigation";
 import {
   absoluteOpsUrl,
   absolutePublicUrl,
@@ -30,9 +31,7 @@ export async function middleware(req: NextRequest) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const role = (token as { role?: string; invalid?: boolean } | null)?.role;
     if (token && role && !(token as { invalid?: boolean }).invalid) {
-      const opsHome =
-        role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN" ? "/admin/ops" : "/admin";
-      return NextResponse.redirect(new URL(opsHome, req.url));
+      return NextResponse.redirect(new URL(defaultPostAuthPath("ops", role), req.url));
     }
     return NextResponse.redirect(new URL("/login", req.url));
   }
@@ -73,7 +72,7 @@ export async function middleware(req: NextRequest) {
     const role = (token as { role?: string; invalid?: boolean } | null)?.role;
     if (!token || !role || (token as { invalid?: boolean }).invalid) {
       const login = new URL("/login", req.url);
-      login.searchParams.set("callbackUrl", pathname);
+      login.searchParams.set("callbackUrl", `${pathname}${req.nextUrl.search}`);
       return NextResponse.redirect(login);
     }
     const allowed = ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"];
@@ -81,6 +80,14 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/", req.url));
     }
     if (pathname.startsWith("/admin/ops") && role !== "SUPER_ADMIN" && role !== "PROVINCIAL_ADMIN") {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
+    if (
+      pathname.startsWith("/dashboard") &&
+      role !== "SUPER_ADMIN" &&
+      role !== "PROVINCIAL_ADMIN" &&
+      role !== "ORG_ADMIN"
+    ) {
       return NextResponse.redirect(new URL("/admin", req.url));
     }
     if (

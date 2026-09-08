@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
+
+loadEnvConfig(process.cwd());
 
 const publicBase = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const opsBase = process.env.PLAYWRIGHT_OPS_BASE_URL || "http://127.0.0.1:3001";
@@ -21,6 +24,10 @@ const e2eEnv = {
   MFA_ENCRYPTION_KEY: process.env.MFA_ENCRYPTION_KEY || "ci-mfa-encryption-key-at-least-32-characters",
   CRON_SECRET: process.env.CRON_SECRET || "ci-cron-secret-for-e2e-tests-only",
   METRICS_TOKEN: process.env.METRICS_TOKEN || "ci-metrics-token-for-e2e-tests",
+  PUBLIC_APP_URL: publicBase,
+  OPS_APP_URL: opsBase,
+  NEXT_PUBLIC_PUBLIC_APP_URL: publicBase,
+  NEXT_PUBLIC_OPS_APP_URL: opsBase,
 };
 
 export default defineConfig({

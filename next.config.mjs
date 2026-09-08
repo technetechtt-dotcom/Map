@@ -40,6 +40,7 @@ const nextConfig = {
   env: {
     GIT_COMMIT:
       process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.GIT_COMMIT || "",
+    NEXT_PUBLIC_APP_PLATFORM: process.env.APP_PLATFORM === "ops" ? "ops" : "public",
     NEXT_PUBLIC_MAP_TILE_URL:
       process.env.NEXT_PUBLIC_MAP_TILE_URL ||
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",

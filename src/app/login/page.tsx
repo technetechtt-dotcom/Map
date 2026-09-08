@@ -1,9 +1,9 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { requestedPostAuthPath, type AuthPlatform } from "@/lib/auth-navigation";
 
 const showDemoHints = process.env.NEXT_PUBLIC_DEMO_HINTS === "1";
 const demoSuperEmail = process.env.NEXT_PUBLIC_DEMO_SUPER_EMAIL || "admin@ictmap.gov.za";
@@ -12,63 +12,59 @@ const showMfaPrompt =
   process.env.NODE_ENV === "production" &&
   process.env.NEXT_PUBLIC_MFA_LOGIN !== "0" &&
   process.env.NEXT_PUBLIC_MFA_LOGIN !== "false";
-const opsAppUrl = (process.env.NEXT_PUBLIC_OPS_APP_URL || "").trim().replace(/\/$/, "");
+const appPlatform: AuthPlatform =
+  process.env.NEXT_PUBLIC_APP_PLATFORM === "ops" ? "ops" : "public";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("created") === "1") {
+      setNotice("Account created. Sign in with your new credentials.");
+    }
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: String(fd.get("email")),
-      password: String(fd.get("password")),
-      mfaCode: String(fd.get("mfaCode") || ""),
-      redirect: false,
-    });
-    setLoading(false);
-    if (res?.error) {
-      setError(showMfaPrompt ? "Invalid email or password (or MFA code if required)" : "Invalid email or password");
-      return;
-    }
     try {
-      const me = await fetch("/api/auth/mfa").then((r) => r.json());
-      if (me?.mustChangePassword) {
-        router.push("/account/security?force=1");
-        router.refresh();
+      const res = await signIn("credentials", {
+        email: String(fd.get("email")),
+        password: String(fd.get("password")),
+        mfaCode: String(fd.get("mfaCode") || ""),
+        redirect: false,
+      });
+      if (!res || res.error) {
+        setError(
+          showMfaPrompt
+            ? "Invalid email or password (or MFA code if required)"
+            : "Invalid email or password"
+        );
         return;
       }
-      const role = String(me?.role || "");
-      const staffHome =
-        role === "SUPER_ADMIN" || role === "PROVINCIAL_ADMIN"
-          ? "/admin/ops"
-          : role === "ORG_ADMIN" || role === "CONTRIBUTOR"
-            ? "/admin"
-            : null;
 
-      if (staffHome) {
-        if (opsAppUrl && window.location.origin !== opsAppUrl) {
-          window.location.href = `${opsAppUrl}${staffHome}`;
-          return;
-        }
-        router.push(staffHome);
-      } else {
-        router.push("/");
-      }
+      const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+      window.location.assign(requestedPostAuthPath(callbackUrl, appPlatform));
     } catch {
-      router.push("/");
+      setError("Could not sign in. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    router.refresh();
   }
 
   return (
     <div className="page max-w-md">
       <p className="eyebrow">Secure access</p>
       <h1>Sign in</h1>
+      {notice && (
+        <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+          {notice}
+        </p>
+      )}
       {showDemoHints ? (
         <div className="panel-card mb-6 text-sm">
           <p className="font-semibold">Local presentation logins</p>
