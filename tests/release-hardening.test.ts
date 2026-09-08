@@ -100,6 +100,16 @@ describe("security scanners", () => {
     expect(src).not.toContain("`VUS=${profile}`");
   });
 
+  it("exercises authenticated load against a separately built ops app", () => {
+    const workflow = readFileSync(
+      path.join(process.cwd(), ".github/workflows/load-test.yml"),
+      "utf8"
+    );
+    expect(workflow).toContain("APP_PLATFORM=public NEXT_DIST_DIR=.next-public");
+    expect(workflow).toContain("APP_PLATFORM=ops NEXT_DIST_DIR=.next-ops");
+    expect(workflow).toContain("OPS_APP_URL: http://127.0.0.1:3001");
+  });
+
   it("does not allowlist Next.js in the dependency audit", () => {
     const src = readFileSync(path.join(process.cwd(), "scripts/ci-audit.js"), "utf8");
     expect(src).not.toMatch(/allowed = new Set\(\["next"\]\)/);
