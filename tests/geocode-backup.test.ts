@@ -27,6 +27,28 @@ describe("object backup configuration", () => {
         S3_BACKUP_SECRET_ACCESS_KEY: "bs",
       })
     ).toBe(true);
+    expect(
+      objectBackupConfigured({
+        NODE_ENV: "production",
+        S3_BUCKET: "src",
+        S3_BACKUP_BUCKET: "src",
+        S3_ACCESS_KEY_ID: "k",
+        S3_SECRET_ACCESS_KEY: "s",
+        S3_BACKUP_ACCESS_KEY_ID: "bk",
+        S3_BACKUP_SECRET_ACCESS_KEY: "bs",
+      })
+    ).toBe(false);
+    expect(
+      objectBackupConfigured({
+        NODE_ENV: "production",
+        S3_BUCKET: "src",
+        S3_BACKUP_BUCKET: "dst",
+        S3_ACCESS_KEY_ID: "k",
+        S3_SECRET_ACCESS_KEY: "s",
+        S3_BACKUP_ACCESS_KEY_ID: "k",
+        S3_BACKUP_SECRET_ACCESS_KEY: "s",
+      })
+    ).toBe(false);
   });
 
   it("is a production boot gap when backup credentials are missing", () => {

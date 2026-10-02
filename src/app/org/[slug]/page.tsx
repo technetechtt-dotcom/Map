@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/shape";
+import SaveFavouriteButton from "@/components/SaveFavouriteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,8 @@ export default async function OrgPage({ params }: { params: Promise<{ slug: stri
         </section>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <SaveFavouriteButton kind="organisation" slug={org.slug} title={org.name} />
         {org.verified && <span className="chip chip-active">Verified from presentation</span>}
         <span className="chip">{org.status}</span>
         {org.coordQuality && <span className="chip">Map: {org.coordQuality}</span>}

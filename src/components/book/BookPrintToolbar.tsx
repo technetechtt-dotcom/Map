@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 
 /**
  * Download buttons use real HTTP attachments from /api/book/download.
@@ -79,9 +80,9 @@ export default function BookPrintToolbar({
         >
           Download JSON
         </a>
-        <a className="btn btn-outline" href="/book">
+        <Link className="btn btn-outline" href="/book">
           Change scope
-        </a>
+        </Link>
       </div>
     </div>
   );

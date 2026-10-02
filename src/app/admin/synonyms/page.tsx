@@ -42,6 +42,18 @@ export default function AdminSynonymsPage() {
     if (res.ok) await load();
   }
 
+  async function remove(id: string, term: string) {
+    if (!confirm(`Delete synonym mapping for "${term}"?`)) return;
+    const res = await fetch("/api/admin/synonyms", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setMessage(res.ok ? "Synonym deleted" : body.error || "Failed to delete");
+    if (res.ok) await load();
+  }
+
   return (
     <AdminShell>
       <p className="eyebrow">Platform</p>
@@ -67,18 +79,39 @@ export default function AdminSynonymsPage() {
         </label>
         <button className="btn" type="submit">Save</button>
       </form>
-      {message && <p className="mb-4 text-sm font-semibold">{message}</p>}
+      {message && <p className="mb-4 text-sm font-semibold text-g700">{message}</p>}
       <div className="panel-card overflow-x-auto">
         <table className="table">
-          <thead><tr><th>Locale</th><th>Term</th><th>Synonyms</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Locale</th>
+              <th>Term</th>
+              <th>Synonyms</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td>{r.locale}</td>
-                <td>{r.term}</td>
+                <td><span className="chip text-xs">{r.locale}</span></td>
+                <td className="font-semibold">{r.term}</td>
                 <td>{r.synonymsJson}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="chip text-xs hover:bg-red-50 hover:text-red-700"
+                    onClick={() => remove(r.id, r.term)}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={4} className="text-muted py-4 text-center">No synonyms registered.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

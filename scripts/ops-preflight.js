@@ -19,6 +19,7 @@ const BACKUP_REQUIRED = [
   "S3_BACKUP_SECRET_ACCESS_KEY",
   "PRODUCTION_APP_URL",
   "CRON_SECRET",
+  "NOTIFY_WEBHOOK_URL",
 ];
 
 const DEPLOY_REQUIRED = ["PRODUCTION_APP_URL", "OPS_APP_URL"];
@@ -38,6 +39,33 @@ function main() {
   if (mode === "backup") {
     for (const name of BACKUP_REQUIRED) {
       if (!present(name)) missing.push(name);
+    }
+    if (present("NOTIFY_WEBHOOK_URL")) {
+      try {
+        const webhook = new URL(process.env.NOTIFY_WEBHOOK_URL);
+        if (webhook.protocol !== "https:" || webhook.hostname === "example.invalid") {
+          missing.push("NOTIFY_WEBHOOK_URL (real HTTPS operator endpoint)");
+        }
+      } catch {
+        missing.push("NOTIFY_WEBHOOK_URL (valid HTTPS URL)");
+      }
+    }
+    if (present("S3_BUCKET") && process.env.S3_BUCKET === process.env.S3_BACKUP_BUCKET) {
+      missing.push("S3_BACKUP_BUCKET (must differ from S3_BUCKET)");
+    }
+    if (
+      present("S3_ACCESS_KEY_ID") &&
+      present("S3_BACKUP_ACCESS_KEY_ID") &&
+      process.env.S3_ACCESS_KEY_ID === process.env.S3_BACKUP_ACCESS_KEY_ID
+    ) {
+      missing.push("S3_BACKUP_ACCESS_KEY_ID (must use independent credentials)");
+    }
+    if (
+      present("S3_SECRET_ACCESS_KEY") &&
+      present("S3_BACKUP_SECRET_ACCESS_KEY") &&
+      process.env.S3_SECRET_ACCESS_KEY === process.env.S3_BACKUP_SECRET_ACCESS_KEY
+    ) {
+      missing.push("S3_BACKUP_SECRET_ACCESS_KEY (must use independent credentials)");
     }
   } else if (mode === "deploy") {
     for (const name of DEPLOY_REQUIRED) {

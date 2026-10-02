@@ -29,7 +29,14 @@ function AuthControls() {
           <a href={`${opsAppUrl}${opsPath}`} className="secondary-button">
             Ops
           </a>
-        ) : null}
+        ) : (
+          <Link href={opsPath} className="secondary-button">
+            Ops
+          </Link>
+        )}
+        <Link href="/saved" className="secondary-button">
+          Saved
+        </Link>
         <Link href="/account/security" className="secondary-button">
           Account
         </Link>
@@ -42,6 +49,9 @@ function AuthControls() {
 
   return (
     <>
+      <Link href="/saved" className="secondary-button">
+        Saved
+      </Link>
       <Link href="/login" className="secondary-button">
         Sign in
       </Link>
@@ -73,6 +83,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
     { href: "/programmes", label: t(L, "programmes") },
     { href: "/procurement", label: t(L, "procurement") },
     { href: "/submit", label: t(L, "submit") },
+    { href: "/saved", label: "Saved" },
     { href: "/rights", label: "Rights" },
   ];
 

@@ -46,14 +46,25 @@ export function objectBackupCredentials(env: NodeJS.ProcessEnv | Record<string, 
     accessKeyId: env.S3_BACKUP_ACCESS_KEY_ID || "",
     secretAccessKey: env.S3_BACKUP_SECRET_ACCESS_KEY || "",
   };
-  if (backup.accessKeyId && backup.secretAccessKey) return { source, backup, independent: true as const };
+  if (backup.accessKeyId && backup.secretAccessKey) {
+    const independent =
+      backup.accessKeyId !== source.accessKeyId && backup.secretAccessKey !== source.secretAccessKey;
+    if (productionObjectBackup(env) && !independent) return null;
+    return { source, backup, independent };
+  }
   if (productionObjectBackup(env)) return null;
   if (source.accessKeyId && source.secretAccessKey) return { source, backup: source, independent: false as const };
   return null;
 }
 
 export function objectBackupConfigured(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {
-  return Boolean(env.S3_BUCKET && env.S3_BACKUP_BUCKET && objectBackupCredentials(env));
+  const distinctBuckets = env.S3_BUCKET !== env.S3_BACKUP_BUCKET;
+  return Boolean(
+    env.S3_BUCKET &&
+      env.S3_BACKUP_BUCKET &&
+      (!productionObjectBackup(env) || distinctBuckets) &&
+      objectBackupCredentials(env)
+  );
 }
 
 function client(sdk: S3Sdk, side: StorageSide, env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {

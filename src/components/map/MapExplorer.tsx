@@ -617,9 +617,29 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           )}
           {selectedTown && (
             <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-[500] max-w-xl rounded-xl border border-line bg-white/95 p-3 text-sm shadow-soft md:right-auto">
-              <p className="font-bold text-g700">{selectedTown.category.name}</p>
-              <p className="text-base font-semibold">{selectedTown.name}</p>
-              <p className="text-muted">{selectedTown.summary}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-bold text-g700">{selectedTown.category.name}</p>
+                  <p className="text-base font-semibold">{selectedTown.name}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="rounded-full px-2 py-0.5 text-xs font-bold text-muted hover:bg-black/5 hover:text-ink"
+                  onClick={() => setSelectedId(null)}
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="mt-1 text-muted">{selectedTown.summary}</p>
+              <div className="mt-2">
+                <Link
+                  href={`/locations/${selectedTown.slug}`}
+                  className="inline-block text-xs font-semibold text-g700 hover:underline"
+                >
+                  {t(L, "viewProfile")} →
+                </Link>
+              </div>
               {hubsNearSelection.length > 0 && (
                 <div className="mt-2 border-t border-line pt-2">
                   <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted">
@@ -655,8 +675,20 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           )}
           {selectedHub && (
             <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-[500] max-w-xl rounded-xl border border-line bg-white/95 p-3 text-sm shadow-soft md:right-auto">
-              <p className="font-bold text-g700">Hub / organisation · {selectedHub.type}</p>
-              <p className="text-base font-semibold">{selectedHub.name}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-bold text-g700">Hub / organisation · {selectedHub.type}</p>
+                  <p className="text-base font-semibold">{selectedHub.name}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="rounded-full px-2 py-0.5 text-xs font-bold text-muted hover:bg-black/5 hover:text-ink"
+                  onClick={() => setSelectedId(null)}
+                >
+                  ✕
+                </button>
+              </div>
               {selectedHub.address ? (
                 <p className="text-muted">{selectedHub.address}</p>
               ) : (

@@ -45,7 +45,7 @@ export default function EcosystemDetailView({ type, item }: DetailProps) {
       <div className="mt-4 flex flex-wrap gap-2">
         {item.province && <span className="chip">{item.province.name}</span>}
         {item.organisation && (
-          <Link href={`/organisations/${item.organisation.slug}`} className="chip chip-active">
+          <Link href={`/org/${item.organisation.slug}`} className="chip chip-active">
             {item.organisation.name}
           </Link>
         )}

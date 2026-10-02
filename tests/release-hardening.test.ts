@@ -63,6 +63,9 @@ describe("security scanners", () => {
     const src = readFileSync(path.join(process.cwd(), "scripts/ops-preflight.js"), "utf8");
     expect(src).toContain('"PRODUCTION_DIRECT_URL"');
     expect(src).toContain('"PRODUCTION_DATABASE_URL"');
+    expect(src).toContain('"NOTIFY_WEBHOOK_URL"');
+    expect(src).toContain("must differ from S3_BUCKET");
+    expect(src).toContain("must use independent credentials");
   });
 
   it("launch governance requires every PR-only security and signature check", () => {
@@ -73,12 +76,34 @@ describe("security scanners", () => {
       expect.arrayContaining(["dependency-review", "signed-commits"])
     );
     expect(policy.required_pull_request_reviews.require_code_owner_reviews).toBe(true);
+    expect(policy.required_pull_request_reviews.require_last_push_approval).toBe(true);
     expect(policy.required_signatures).toBe(true);
+    expect(policy.required_conversation_resolution).toBe(true);
+
+    const tagPolicy = JSON.parse(
+      readFileSync(path.join(process.cwd(), "docs/tag-protection-launch.json"), "utf8")
+    );
+    expect(tagPolicy).toMatchObject({ target: "tag", enforcement: "active" });
+    expect(tagPolicy.conditions.ref_name.include).toContain("refs/tags/v*");
+    expect(tagPolicy.rules).toEqual(expect.arrayContaining([{ type: "required_signatures" }]));
+
+    const tagWorkflow = readFileSync(
+      path.join(process.cwd(), ".github/workflows/tag-signature-check.yml"),
+      "utf8"
+    );
+    expect(tagWorkflow).toContain("verify-github-tag-signature.js");
   });
 
   it("reports the Render-provided commit in privileged health", () => {
     const src = readFileSync(path.join(process.cwd(), "src/app/api/health/route.ts"), "utf8");
     expect(src).toContain("process.env.RENDER_GIT_COMMIT");
+  });
+
+  it("allows scoped secret sync and rejects placeholder values", () => {
+    const src = readFileSync(path.join(process.cwd(), "scripts/sync-production-secrets.js"), "utf8");
+    expect(src).toContain("process.argv.slice(3)");
+    expect(src).toContain("missingRequested");
+    expect(src).toMatch(/example\\\.invalid\|placeholder/);
   });
 
   it("groups cluster geometry through one stable grid expression", () => {

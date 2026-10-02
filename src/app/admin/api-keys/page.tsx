@@ -53,6 +53,18 @@ export default function AdminApiKeysPage() {
     await load();
   }
 
+  async function revoke(id: string) {
+    if (!confirm("Revoke this API key? Client requests using this key will be rejected immediately.")) return;
+    const res = await fetch("/api/admin/api-keys", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setMessage(res.ok ? "API key revoked." : body.error || "Failed to revoke key");
+    await load();
+  }
+
   return (
     <AdminShell>
       <p className="eyebrow">Platform</p>
@@ -69,24 +81,57 @@ export default function AdminApiKeysPage() {
         </label>
         <button className="btn" type="submit">Create key</button>
       </form>
-      {message && <p className="mb-4 text-sm font-semibold">{message}</p>}
+      {message && <p className="mb-4 text-sm font-semibold text-g700">{message}</p>}
       {secret && (
-        <pre className="panel-card mb-6 overflow-x-auto text-sm">{secret}</pre>
+        <div className="panel-card mb-6">
+          <p className="font-bold text-sm mb-2 text-red-700">New API Key Secret (shown once only):</p>
+          <pre className="overflow-x-auto text-sm font-mono bg-g100 p-3 rounded">{secret}</pre>
+        </div>
       )}
       <div className="panel-card overflow-x-auto">
         <table className="table">
           <thead>
-            <tr><th>Name</th><th>Prefix</th><th>Active</th><th>Last used</th></tr>
+            <tr>
+              <th>Name</th>
+              <th>Prefix</th>
+              <th>Status</th>
+              <th>Rate limit</th>
+              <th>Last used</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody>
             {keys.map((k) => (
               <tr key={k.id}>
-                <td>{k.name}</td>
-                <td><code>{k.prefix}</code></td>
-                <td>{k.active ? "Yes" : "No"}</td>
-                <td>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "—"}</td>
+                <td className="font-semibold">{k.name}</td>
+                <td><code>{k.prefix}…</code></td>
+                <td>
+                  <span className={k.active ? "chip chip-active" : "chip"}>
+                    {k.active ? "Active" : "Revoked"}
+                  </span>
+                </td>
+                <td>{k.rateLimit}/hr</td>
+                <td>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never"}</td>
+                <td>
+                  {k.active ? (
+                    <button
+                      type="button"
+                      className="chip text-xs hover:bg-red-50 hover:text-red-700"
+                      onClick={() => revoke(k.id)}
+                    >
+                      Revoke
+                    </button>
+                  ) : (
+                    <span className="text-muted text-xs">—</span>
+                  )}
+                </td>
               </tr>
             ))}
+            {keys.length === 0 && (
+              <tr>
+                <td colSpan={6} className="text-muted py-4 text-center">No API keys issued yet.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

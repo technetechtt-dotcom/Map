@@ -46,6 +46,7 @@ process.env.DATABASE_URL = url;
 process.env.DIRECT_URL = url;
 
 run("npx prisma generate");
+run("node scripts/external-identity-preflight.js");
 run("npx prisma migrate deploy");
 run("node scripts/ingestion-post-migration-smoke.js");
 

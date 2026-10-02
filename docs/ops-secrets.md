@@ -18,9 +18,15 @@ gh secret set S3_BACKUP_ACCESS_KEY_ID --env production
 gh secret set S3_BACKUP_SECRET_ACCESS_KEY --env production
 gh secret set PRODUCTION_APP_URL --env production
 gh secret set CRON_SECRET --env production
+gh secret set NOTIFY_WEBHOOK_URL --env production
 ```
 
-Optional: `NEON_API_KEY` + `NEON_PROJECT_ID` (creates a daily Neon PITR branch even when rclone is not yet configured). `NOTIFY_WEBHOOK_URL` pages operators on failure.
+`S3_BUCKET` and `S3_BACKUP_BUCKET` must be different buckets, and the backup
+access key pair must differ from the primary object-store key pair. The backup
+preflight also requires a real HTTPS `NOTIFY_WEBHOOK_URL`; a failed scheduled or
+manual backup must page operators.
+
+Optional: `NEON_API_KEY` + `NEON_PROJECT_ID` (creates a daily Neon PITR branch even when rclone is not yet configured).
 
 `PRODUCTION_DIRECT_URL` must be the **unpooled** Neon connection string. The pooled runtime URL is not valid for `pg_dump`.
 
@@ -42,6 +48,14 @@ services through Render; Production Gate then waits for and verifies the exact S
 on both origins. This mode never reports that the workflow itself triggered a deploy.
 
 `CRON_SECRET` on GitHub and Vercel must be identical so backup health recording and post-deploy SHA proof both work.
+
+For the current Render deployment, `.env.render` is the local source sheet for
+the runtime tokens. Synchronise only those two values without copying placeholder
+notification settings:
+
+```bash
+node scripts/sync-production-secrets.js .env.render METRICS_TOKEN CRON_SECRET
+```
 
 ## Complementary Neon snapshot
 

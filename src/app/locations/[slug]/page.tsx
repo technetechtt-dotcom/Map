@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { shapeLocation, parseJsonArray, PUBLIC_STATUSES } from "@/lib/shape";
 import { trackEvent } from "@/lib/audit";
+import SaveFavouriteButton from "@/components/SaveFavouriteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,8 @@ export default async function LocationProfilePage({
       <h1>{loc.name}</h1>
       <p className="text-muted mb-4 max-w-3xl text-lg">{loc.summary}</p>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <SaveFavouriteButton kind="location" slug={loc.slug} title={loc.name} />
         <span className="chip chip-active">Published</span>
         {loc.lastVerifiedAt && (
           <span className="chip">

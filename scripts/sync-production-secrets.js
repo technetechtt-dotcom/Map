@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Push secrets from a local env file into GitHub Environment `production`.
- * Usage: node scripts/sync-production-secrets.js .env.production.secrets
+ * Usage: node scripts/sync-production-secrets.js .env.production.secrets [NAME ...]
  * Never commit the secrets file.
  */
 const { readFileSync, existsSync } = require("fs");
@@ -12,6 +12,7 @@ if (!file || !existsSync(file)) {
   console.error("Usage: node scripts/sync-production-secrets.js <secrets-file>");
   process.exit(1);
 }
+const requested = new Set(process.argv.slice(3));
 
 const ALLOWED = new Set([
   "PRODUCTION_APP_URL",
@@ -53,7 +54,11 @@ for (const line of lines) {
   if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
     value = value.slice(1, -1);
   }
-  if (!ALLOWED.has(key) || !value) continue;
+  if (!ALLOWED.has(key) || !value || (requested.size > 0 && !requested.has(key))) continue;
+  if (/example\.invalid|placeholder|not[_-]for[_-]production/i.test(value)) {
+    console.error(`Refusing placeholder value for ${key}`);
+    process.exit(1);
+  }
   set.push(key);
   const result = spawnSync("gh", ["secret", "set", key, "--env", "production"], {
     input: value,
@@ -61,6 +66,14 @@ for (const line of lines) {
     shell: false,
   });
   if (result.status !== 0) process.exit(result.status || 1);
+}
+
+if (requested.size > 0) {
+  const missingRequested = [...requested].filter((key) => !set.includes(key));
+  if (missingRequested.length) {
+    console.error(JSON.stringify({ ok: false, missingRequested }));
+    process.exit(1);
+  }
 }
 
 console.log(JSON.stringify({ ok: true, set, count: set.length }));

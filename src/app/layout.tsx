@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import SiteHeader from "@/components/SiteHeader";
@@ -43,8 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main id="main-content">{children}</main>
           <footer className="site-footer">
             <span>
-              <a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·{" "}
-              <a href="/rights">Data rights</a>
+              <Link href="/about">About</Link> · <Link href="/national">National</Link> · <Link href="/organisations">Contacts</Link> · <Link href="/saved">Saved</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/rights">Data rights</Link>
             </span>
             <span>
               {PRODUCT_NAME} · {PRODUCT_PILOT_LINE}

@@ -7,9 +7,10 @@ export const dynamic = "force-dynamic";
 export default async function OrganisationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; location?: string }>;
+  searchParams: Promise<{ type?: string; location?: string; q?: string }>;
 }) {
   const filters = await searchParams;
+  const q = (filters.q || "").trim().toLowerCase();
   const rows = await prisma.organisation.findMany({
     where: { status: "PUBLISHED" },
     orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -31,6 +32,15 @@ export default async function OrganisationsPage({
         o.locationSlugs.includes("province")
     );
   }
+  if (q) {
+    orgs = orgs.filter(
+      (o) =>
+        o.name.toLowerCase().includes(q) ||
+        (o.description && o.description.toLowerCase().includes(q)) ||
+        o.type.toLowerCase().includes(q) ||
+        (o.address && o.address.toLowerCase().includes(q))
+    );
+  }
 
   const byType = new Map<string, typeof orgs>();
   for (const o of orgs) {
@@ -49,26 +59,54 @@ export default async function OrganisationsPage({
         HQs without an NC office stay directory-only.
       </p>
 
+      <form method="GET" action="/organisations" className="mb-4 flex flex-wrap gap-2">
+        {filters.type && <input type="hidden" name="type" value={filters.type} />}
+        {filters.location && <input type="hidden" name="location" value={filters.location} />}
+        <input
+          type="search"
+          name="q"
+          defaultValue={filters.q || ""}
+          placeholder="Search organisations by name, description, address…"
+          className="field max-w-md flex-1"
+        />
+        <button type="submit" className="btn">Search</button>
+        {filters.q && (
+          <Link
+            href={`/organisations${filters.type ? `?type=${encodeURIComponent(filters.type)}` : ""}${filters.location ? `${filters.type ? "&" : "?"}location=${encodeURIComponent(filters.location)}` : ""}`}
+            className="btn btn-outline"
+          >
+            Clear
+          </Link>
+        )}
+      </form>
+
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
-          href="/organisations"
+          href={`/organisations${filters.q ? `?q=${encodeURIComponent(filters.q)}` : ""}`}
           className={`chip ${!filters.type ? "chip-active" : ""}`}
         >
           All ({rows.length})
         </Link>
-        {types.map((t) => (
-          <Link
-            key={t}
-            href={`/organisations?type=${encodeURIComponent(t)}`}
-            className={`chip ${filters.type === t ? "chip-active" : ""}`}
-          >
-            {t}
-          </Link>
-        ))}
+        {types.map((t) => {
+          const params = new URLSearchParams();
+          params.set("type", t);
+          if (filters.q) params.set("q", filters.q);
+          if (filters.location) params.set("location", filters.location);
+          return (
+            <Link
+              key={t}
+              href={`/organisations?${params.toString()}`}
+              className={`chip ${filters.type === t ? "chip-active" : ""}`}
+            >
+              {t}
+            </Link>
+          );
+        })}
       </div>
 
       <p className="text-sm text-muted mb-6">
         Showing {orgs.length} organisation{orgs.length === 1 ? "" : "s"}
+        {filters.q ? ` · matching "${filters.q}"` : ""}
         {filters.type ? ` · ${filters.type}` : ""}
         {filters.location ? ` · linked to ${filters.location}` : ""}.
       </p>

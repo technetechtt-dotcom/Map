@@ -79,6 +79,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             ))}
           </details>
         )}
+        <div className="mt-6 border-t border-line/40 pt-4">
+          <Link href="/" className="text-xs font-semibold text-g700 hover:underline">
+            ← View public map
+          </Link>
+        </div>
       </aside>
       <div className="p-4 md:p-6">{children}</div>
     </div>

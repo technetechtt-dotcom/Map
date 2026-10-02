@@ -33,3 +33,15 @@ export async function PUT(req: NextRequest) {
   });
   return jsonOk({ synonym: row });
 }
+
+export async function DELETE(req: NextRequest) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+  if (!isSuperAdmin(auth.user)) return jsonError("Forbidden", 403);
+  const parsed = await readJsonLimited(req);
+  if (!parsed.ok) return jsonError(parsed.error, 413);
+  const id = String((parsed.data as { id?: unknown }).id || "");
+  if (!id) return jsonError("id required", 400);
+  await prisma.searchSynonym.delete({ where: { id } });
+  return jsonOk({ deleted: true });
+}

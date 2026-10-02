@@ -1,18 +1,21 @@
 # Branch protection (`main`)
 
-This repository **pushes commits directly to `main`**. Pull requests are not required.
+This repository previously pushed commits directly to `main`. Launch governance
+now requires reviewed pull requests, CODEOWNERS approval, and verified signatures.
 
 Keep these GitHub settings:
 
-1. **Do not** require a pull request before merging
+1. Require a pull request with at least one approval and approval of the last push
 2. Require status checks `test-and-build`, `postgres-postgis`, `secret-scan`, `codeql`, `dependency-audit-sbom`, and `license-check` when a pull request is used
 3. **Enforce the same checks for administrators** (`enforce_admins: true`)
 4. Restrict force pushes and deletions
-5. **Do not** yet require signed commits (the current push path is unsigned)
+5. Require signed commits and the active `v*` tag ruleset
 
 Required status checks do not stop a direct push from landing on `main`. Production exposure is blocked by the **Production deploy** workflow: it must deploy a certified SHA, prove a non-null live SHA matches `CERTIFIED_SHA`, and smoke the live origin. A red SHA is not promoted.
 
-A later launch gate (`docs/branch-protection-launch.json`) records required reviewed PRs and signed commits. **Do not apply that file while this repository still ships by direct push to `main`.**
+`docs/branch-protection-launch.json` is the branch policy and
+`docs/tag-protection-launch.json` is the release-tag policy. The tag workflow also
+rejects lightweight or unverified annotated `v*` tags.
 
 Apply the live settings via:
 

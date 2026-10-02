@@ -45,6 +45,8 @@ describe("platform routes", () => {
   it("allows public catalogue routes on the map origin", () => {
     expect(isAllowedOnPublicPlatform("/")).toBe(true);
     expect(isAllowedOnPublicPlatform("/about")).toBe(true);
+    expect(isAllowedOnPublicPlatform("/saved")).toBe(true);
+    expect(isAllowedOnPublicPlatform("/organisations")).toBe(true);
     expect(isAllowedOnPublicPlatform("/api/locations")).toBe(true);
     expect(isAllowedOnPublicPlatform("/api/auth/session")).toBe(true);
     expect(isAllowedOnPublicPlatform("/admin/ops")).toBe(false);

@@ -21,7 +21,7 @@ export default function NationalSearchBox() {
 
   function hrefFor(row: Result) {
     if (row.kind === "location") return `/locations/${row.slug}`;
-    if (row.kind === "organisation") return `/organisations/${row.slug}`;
+    if (row.kind === "organisation") return `/org/${row.slug}`;
     if (row.kind === "funding") return `/funding/${row.slug}`;
     if (row.kind === "programme") return `/programmes/${row.slug}`;
     if (row.kind === "event") return `/events/${row.slug}`;

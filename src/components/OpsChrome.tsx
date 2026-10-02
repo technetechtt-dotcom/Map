@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { getPublicAppUrl } from "@/lib/platform";
 
 function AuthControls() {
   const { data: session, status } = useSession();
@@ -57,6 +58,9 @@ export default function OpsChrome() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <a href={getPublicAppUrl()} className="secondary-button">
+            Public map →
+          </a>
           <AuthControls />
         </div>
       </div>
