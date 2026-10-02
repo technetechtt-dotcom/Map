@@ -7,6 +7,22 @@ import { geocoderReady } from "./geocode";
 
 export type EnvIssue = { key: string; level: "error" | "warn"; message: string };
 
+/**
+ * Strict boolean parser for environment variables.
+ * Treats "1", "true", "yes", "on", "enabled" as true.
+ * Treats "0", "false", "no", "off", "disabled" as false.
+ * Default is false unless specified otherwise.
+ */
+export function parseStrictBoolean(value: unknown, defaultValue = false): boolean {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const s = String(value).trim().toLowerCase();
+  if (s === "1" || s === "true" || s === "yes" || s === "on" || s === "enabled") return true;
+  if (s === "0" || s === "false" || s === "no" || s === "off" || s === "disabled") return false;
+  return defaultValue;
+}
+
 const PLACEHOLDERS = [
   "changeme",
   "generate-a-long-random-string",
@@ -108,7 +124,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     }
   }
 
-  if (process.env.CAPTCHA_DISABLED !== "1") {
+  if (!parseStrictBoolean(process.env.CAPTCHA_DISABLED)) {
     if (!process.env.TURNSTILE_SECRET && !process.env.RECAPTCHA_SECRET) {
       issues.push({
         key: "CAPTCHA",
@@ -138,7 +154,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     require("S3_BACKUP_BUCKET", 3);
     require("S3_BACKUP_ACCESS_KEY_ID", 8);
     require("S3_BACKUP_SECRET_ACCESS_KEY", 8);
-    if (process.env.STORAGE_ALLOW_LOCAL_FALLBACK === "1") {
+    if (parseStrictBoolean(process.env.STORAGE_ALLOW_LOCAL_FALLBACK)) {
       issues.push({
         key: "STORAGE_ALLOW_LOCAL_FALLBACK",
         level: "error",
@@ -154,10 +170,10 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
       message: "Production requires Upstash Redis REST for distributed rate limiting",
     });
   }
-  if (prod && process.env.RATE_LIMIT_ALLOW_MEMORY === "1" && !renderBootstrap) {
+  if (prod && parseStrictBoolean(process.env.RATE_LIMIT_ALLOW_MEMORY) && !renderBootstrap) {
     issues.push({ key: "RATE_LIMIT_ALLOW_MEMORY", level: "error", message: "Per-instance memory rate limiting is forbidden in production" });
   }
-  if (prod && process.env.RATE_LIMIT_FAIL_OPEN === "1") {
+  if (prod && parseStrictBoolean(process.env.RATE_LIMIT_FAIL_OPEN)) {
     issues.push({ key: "RATE_LIMIT_FAIL_OPEN", level: "error", message: "Rate limiting must fail closed in production" });
   }
   if (process.env.UPSTASH_REDIS_REST_URL) require("UPSTASH_REDIS_REST_TOKEN", 16);
@@ -179,7 +195,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     }
   }
 
-  if (prod && process.env.GEOCODER_DISABLED !== "1" && !geocoderReady(process.env)) {
+  if (prod && !parseStrictBoolean(process.env.GEOCODER_DISABLED) && !geocoderReady(process.env)) {
     issues.push({
       key: "GEOCODER_URL",
       level: "error",
@@ -195,7 +211,7 @@ export function validateEnv(options?: { productionOnly?: boolean }): EnvIssue[] 
     });
   }
 
-  if (prod && !process.env.SENTRY_DSN && !process.env.MONITORING_OPTIONAL) {
+  if (prod && !process.env.SENTRY_DSN && !parseStrictBoolean(process.env.MONITORING_OPTIONAL)) {
     issues.push({
       key: "SENTRY_DSN",
       level: "warn",

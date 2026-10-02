@@ -91,6 +91,47 @@ export async function POST(req: NextRequest) {
         take: 500,
       });
 
+      const now = new Date();
+      const expiredFunding = await prisma.fundingCall.findMany({
+        where: {
+          status: "PUBLISHED",
+          deadline: { lt: now },
+          ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
+        },
+        select: { id: true, title: true, deadline: true, organisationId: true },
+        take: 100,
+      });
+
+      const expiredProcurement = await prisma.procurement.findMany({
+        where: {
+          status: "PUBLISHED",
+          closingDate: { lt: now },
+          ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
+        },
+        select: { id: true, title: true, closingDate: true, organisationId: true },
+        take: 100,
+      });
+
+      const expiredEvents = await prisma.ecosystemEvent.findMany({
+        where: {
+          status: "PUBLISHED",
+          endsAt: { lt: now },
+          ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
+        },
+        select: { id: true, title: true, endsAt: true, organisationId: true },
+        take: 100,
+      });
+
+      const expiredProgrammes = await prisma.programme.findMany({
+        where: {
+          status: "PUBLISHED",
+          endDate: { lt: now },
+          ...(authz.provinceId ? { provinceId: authz.provinceId } : {}),
+        },
+        select: { id: true, title: true, endDate: true, organisationId: true },
+        take: 100,
+      });
+
       let demoted = 0;
       if (process.env.ENFORCE_EXPIRY_DOWNGRADE === "1") {
         for (const loc of expired) {
@@ -114,10 +155,28 @@ export async function POST(req: NextRequest) {
             demoted += 1;
           }
         }
+        for (const fc of expiredFunding) {
+          await prisma.fundingCall.update({
+            where: { id: fc.id },
+            data: { status: "ARCHIVED" },
+          });
+          demoted += 1;
+        }
+        for (const pr of expiredProcurement) {
+          await prisma.procurement.update({
+            where: { id: pr.id },
+            data: { status: "ARCHIVED" },
+          });
+          demoted += 1;
+        }
       }
       results.expiry = {
         found: expired.length,
         organisations: expiredOrgs.length,
+        funding: expiredFunding.length,
+        procurement: expiredProcurement.length,
+        events: expiredEvents.length,
+        programmes: expiredProgrammes.length,
         demoted,
         sample: expired.slice(0, 10),
       };

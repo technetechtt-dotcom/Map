@@ -230,13 +230,25 @@ export async function PATCH(
     },
   });
 
+  const statusChanged = Boolean(body.status && body.status !== existing.status);
+
   await writeAudit({
     user: auth.user,
     userId: auth.user.id,
-    action: "UPDATE",
+    action: statusChanged ? `STATUS_TRANSITION_${body.status}` : "UPDATE",
     entityType: "Location",
     entityId: updated.id,
-    metadata: { fields: Object.keys(body) },
+    metadata: {
+      fields: Object.keys(body),
+      ...(statusChanged
+        ? {
+            previousStatus: existing.status,
+            nextStatus: body.status,
+            reviewerId: auth.user.id,
+            reason: body.verificationNotes || null,
+          }
+        : {}),
+    },
     provinceId: updated.provinceId,
     organisationId: updated.organisationId,
     ipAddress: clientIp(req),

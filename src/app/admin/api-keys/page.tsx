@@ -17,7 +17,9 @@ type KeyRow = {
 export default function AdminApiKeysPage() {
   const [keys, setKeys] = useState<KeyRow[]>([]);
   const [secret, setSecret] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/api-keys");
@@ -49,8 +51,45 @@ export default function AdminApiKeysPage() {
       return;
     }
     setSecret(body.secret || null);
+    setCopied(false);
     setMessage("API key created — copy the secret now; it will not be shown again.");
     await load();
+  }
+
+  async function rotateKey(keyToRotate: KeyRow) {
+    if (!confirm(`Rotate API key "${keyToRotate.name}"? A new secret will be generated and the existing key will immediately stop working.`)) return;
+    setRotatingId(keyToRotate.id);
+    const res = await fetch("/api/admin/api-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `${keyToRotate.name} (rotated)`,
+        scopes: ["locations:read", "organisations:read", "ecosystem:read"],
+        rateLimit: keyToRotate.rateLimit,
+        rotateId: keyToRotate.id,
+      }),
+    });
+    setRotatingId(null);
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error || "Failed to rotate key");
+      return;
+    }
+    setSecret(body.secret || null);
+    setCopied(false);
+    setMessage(`API key rotated successfully. Copy the new secret now.`);
+    await load();
+  }
+
+  async function copySecret() {
+    if (!secret) return;
+    try {
+      await navigator.clipboard.writeText(secret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      // Fallback
+    }
   }
 
   async function revoke(id: string) {
@@ -70,10 +109,11 @@ export default function AdminApiKeysPage() {
       <p className="eyebrow">Platform</p>
       <h1>API keys</h1>
       <p className="text-muted mb-6">Issue scoped read keys for partner integrations.</p>
+
       <form onSubmit={create} className="panel-card mb-6 grid max-w-lg gap-3">
         <label className="grid gap-1 text-sm font-semibold">
           Name
-          <input className="field" name="name" required minLength={3} />
+          <input className="field" name="name" required minLength={3} placeholder="e.g. Provincial Analytics Partner" />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
           Rate limit / hour
@@ -81,13 +121,26 @@ export default function AdminApiKeysPage() {
         </label>
         <button className="btn" type="submit">Create key</button>
       </form>
+
       {message && <p className="mb-4 text-sm font-semibold text-g700">{message}</p>}
+
       {secret && (
-        <div className="panel-card mb-6">
-          <p className="font-bold text-sm mb-2 text-red-700">New API Key Secret (shown once only):</p>
-          <pre className="overflow-x-auto text-sm font-mono bg-g100 p-3 rounded">{secret}</pre>
+        <div className="panel-card mb-6 border-2 border-amber-400 bg-amber-50">
+          <p className="font-bold text-sm mb-1 text-amber-900">New API Key Secret (shown once only):</p>
+          <p className="text-xs text-amber-700 mb-3">Save this key in your secure password manager or environment secrets store. You will not be able to retrieve it again.</p>
+          <div className="flex items-center gap-2">
+            <pre className="flex-1 overflow-x-auto text-sm font-mono bg-white p-3 rounded border border-amber-200">{secret}</pre>
+            <button
+              type="button"
+              className="btn btn-outline text-xs whitespace-nowrap"
+              onClick={copySecret}
+            >
+              {copied ? "✓ Copied to clipboard" : "📋 Copy to clipboard"}
+            </button>
+          </div>
         </div>
       )}
+
       <div className="panel-card overflow-x-auto">
         <table className="table">
           <thead>
@@ -96,6 +149,7 @@ export default function AdminApiKeysPage() {
               <th>Prefix</th>
               <th>Status</th>
               <th>Rate limit</th>
+              <th>Expires</th>
               <th>Last used</th>
               <th>Actions</th>
             </tr>
@@ -111,16 +165,31 @@ export default function AdminApiKeysPage() {
                   </span>
                 </td>
                 <td>{k.rateLimit}/hr</td>
-                <td>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never"}</td>
+                <td className="text-xs text-muted">
+                  {k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : "Never"}
+                </td>
+                <td className="text-xs text-muted">
+                  {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never"}
+                </td>
                 <td>
                   {k.active ? (
-                    <button
-                      type="button"
-                      className="chip text-xs hover:bg-red-50 hover:text-red-700"
-                      onClick={() => revoke(k.id)}
-                    >
-                      Revoke
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="chip text-xs hover:bg-amber-50 hover:text-amber-700"
+                        onClick={() => rotateKey(k)}
+                        disabled={rotatingId === k.id}
+                      >
+                        {rotatingId === k.id ? "Rotating…" : "Rotate"}
+                      </button>
+                      <button
+                        type="button"
+                        className="chip text-xs hover:bg-red-50 hover:text-red-700"
+                        onClick={() => revoke(k.id)}
+                      >
+                        Revoke
+                      </button>
+                    </div>
                   ) : (
                     <span className="text-muted text-xs">—</span>
                   )}
@@ -129,7 +198,7 @@ export default function AdminApiKeysPage() {
             ))}
             {keys.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-muted py-4 text-center">No API keys issued yet.</td>
+                <td colSpan={7} className="text-muted py-4 text-center">No API keys issued yet.</td>
               </tr>
             )}
           </tbody>

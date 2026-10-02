@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/shape";
 import SaveFavouriteButton from "@/components/SaveFavouriteButton";
@@ -17,7 +17,34 @@ export default async function OrgPage({ params }: { params: Promise<{ slug: stri
       relationshipsTo: { where: { status: "PUBLISHED" }, include: { source: true } },
     },
   });
-  if (!org) notFound();
+  if (!org) {
+    // Check if this organisation was merged into another to avoid dead links
+    const archivedOrg = await prisma.organisation.findFirst({
+      where: {
+        OR: [{ slug }, { id: slug }],
+      },
+      include: { mergedInto: true },
+    });
+    if (archivedOrg?.mergedInto?.slug) {
+      redirect(`/org/${archivedOrg.mergedInto.slug}`);
+    }
+    if (archivedOrg) {
+      const mergeRecord = await prisma.organisationMerge.findFirst({
+        where: { sourceId: archivedOrg.id },
+        orderBy: { createdAt: "desc" },
+      });
+      if (mergeRecord) {
+        const targetOrg = await prisma.organisation.findUnique({
+          where: { id: mergeRecord.targetId },
+          select: { slug: true },
+        });
+        if (targetOrg?.slug) {
+          redirect(`/org/${targetOrg.slug}`);
+        }
+      }
+    }
+    notFound();
+  }
 
   const locationSlugs = parseJsonArray(org.locationSlugsJson).filter((s) => s !== "province");
   const linkedLocations = locationSlugs.length

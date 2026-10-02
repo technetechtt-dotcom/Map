@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/policy";
 import { jsonError, jsonOk, requireSession } from "@/lib/api";
-import { readJsonLimited, clientIp } from "@/lib/security";
+import { readJsonLimited, clientIp, isValidCidr } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 
 const createSchema = z.object({
@@ -13,7 +13,10 @@ const createSchema = z.object({
   scopes: z.array(z.enum(["locations:read", "organisations:read", "ecosystem:read"])).min(1),
   rateLimit: z.number().int().min(10).max(10_000).default(600),
   expiresAt: z.string().datetime().optional(),
-  allowedCidrs: z.array(z.string().min(3).max(64)).max(20).optional(),
+  allowedCidrs: z
+    .array(z.string().min(3).max(64).refine(isValidCidr, { message: "Invalid IPv4 or IPv6 CIDR format" }))
+    .max(20)
+    .optional(),
   rotateId: z.string().optional(),
 });
 
@@ -51,7 +54,9 @@ export async function POST(req: NextRequest) {
       rateLimit: body.data.rateLimit,
       allowedCidrsJson: body.data.allowedCidrs || [],
       rotatedFromId: body.data.rotateId,
-      expiresAt: body.data.expiresAt ? new Date(body.data.expiresAt) : undefined,
+      expiresAt: body.data.expiresAt
+        ? new Date(body.data.expiresAt)
+        : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // Default 90-day expiry
     },
   });
   if (body.data.rotateId) {

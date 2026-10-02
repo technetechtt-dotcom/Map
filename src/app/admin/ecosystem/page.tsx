@@ -29,7 +29,26 @@ const emptyForm = {
   status: "DRAFT",
 };
 
-type Item = Record<string, unknown> & { id: string; title: string; summary: string; status: string };
+type Item = {
+  id: string;
+  title: string;
+  summary: string;
+  description?: string | null;
+  status: string;
+  url?: string | null;
+  freshness?: string;
+  amount?: string;
+  deadline?: string;
+  startsAt?: string;
+  endsAt?: string;
+  venue?: string;
+  onlineUrl?: string;
+  startDate?: string;
+  endDate?: string;
+  closingDate?: string;
+  budget?: string;
+  tags?: string[] | string;
+};
 
 export default function AdminEcosystemPage() {
   const [type, setType] = useState<(typeof TYPES)[number]["id"]>("funding");
@@ -252,7 +271,22 @@ export default function AdminEcosystemPage() {
                   <div className="font-semibold">{item.title}</div>
                   <div className="text-xs text-muted">{item.summary}</div>
                 </td>
-                <td><span className="chip">{item.status}</span></td>
+                <td>
+                  <span className="chip">{String(item.status)}</span>
+                  {item.freshness && (
+                    <span
+                      className={`ml-1 chip text-xs ${
+                        item.freshness === "Closing soon"
+                          ? "chip-urgent font-bold"
+                          : item.freshness === "Closed" || item.freshness === "Past"
+                          ? "opacity-60 bg-gray-100 text-gray-700"
+                          : "chip-active"
+                      }`}
+                    >
+                      {String(item.freshness)}
+                    </span>
+                  )}
+                </td>
                 <td className="space-x-1 whitespace-nowrap">
                   <button className="chip" type="button" onClick={() => openEdit(item)}>Edit</button>
                   <button className="chip chip-active" type="button" onClick={() => setStatus(item.id, "PUBLISHED")}>Publish</button>

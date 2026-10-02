@@ -38,8 +38,38 @@ jobs:
           GITHUB_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: node scripts/assert-main-green.js --wait
 
-  deploy:
+  database-migration:
     needs: certify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.certify.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Preflight external identity collision check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node scripts/external-identity-preflight.js
+      - name: Controlled production database migration (prisma migrate deploy)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate deploy
+      - name: Post-migration database smoke test
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node scripts/ingestion-post-migration-smoke.js
+
+  deploy:
+    needs: [certify, database-migration]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -102,3 +132,25 @@ jobs:
           METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: node scripts/post-deploy-verify.js
+
+      - name: Alert on deployment failure
+        if: failure()
+        env:
+          CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+        run: |
+          echo "Production release of $CERTIFIED_SHA failed verification."
+          node -e "
+            const url = process.env.NOTIFY_WEBHOOK_URL;
+            if (url) {
+              fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  text: 'CRITICAL: Production deploy verification failed for certified SHA ' + process.env.CERTIFIED_SHA,
+                  sha: process.env.CERTIFIED_SHA,
+                  timestamp: new Date().toISOString()
+                })
+              }).catch(() => {});
+            }
+          "

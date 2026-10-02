@@ -61,8 +61,9 @@ services:
     plan: starter
     region: oregon
     branch: main
-    autoDeployTrigger: commit
-    buildCommand: NPM_CONFIG_PRODUCTION=false npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    autoDeployTrigger: off
+    autoDeploy: false
+    buildCommand: NODE_OPTIONS=--max-old-space-size=1536 NPM_CONFIG_PRODUCTION=false npm ci && npx prisma generate && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health/live
     envVars:
@@ -81,6 +82,8 @@ services:
         sync: false
       - key: NEXT_PUBLIC_OPS_APP_URL
         sync: false
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=1536"
 
   - type: web
     name: sa-ict-map-ops
@@ -88,7 +91,8 @@ services:
     plan: starter
     region: oregon
     branch: main
-    autoDeployTrigger: commit
+    autoDeployTrigger: off
+    autoDeploy: false
     # Cap Node heap so starter builders finish next build (prior ops deploys were failing/stuck).
     buildCommand: NODE_OPTIONS=--max-old-space-size=1536 NPM_CONFIG_PRODUCTION=false npm ci && npx prisma generate && npm run build
     startCommand: npm run start

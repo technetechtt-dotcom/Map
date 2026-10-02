@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { shapeLocation, parseJsonArray, PUBLIC_STATUSES } from "@/lib/shape";
@@ -35,7 +35,29 @@ export default async function LocationProfilePage({
       },
     },
   });
-  if (!row) notFound();
+  if (!row) {
+    // Check if this location was merged into another entity to prevent dead links
+    const archived = await prisma.location.findFirst({
+      where: { OR: [{ slug }, { id: slug }] },
+      select: { id: true, slug: true, status: true },
+    });
+    if (archived) {
+      const mergeAction = await prisma.entityReviewAction.findFirst({
+        where: { sourceId: archived.id, action: "merge" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (mergeAction?.targetId) {
+        const target = await prisma.location.findUnique({
+          where: { id: mergeAction.targetId },
+          select: { slug: true },
+        });
+        if (target) {
+          redirect(`/locations/${target.slug}`);
+        }
+      }
+    }
+    notFound();
+  }
 
   const loc = shapeLocation(row);
 

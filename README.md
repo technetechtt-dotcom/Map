@@ -10,16 +10,15 @@ Presentation: [demo script](docs/demo-script.md) · [one-pager](docs/one-pager.m
 
 ```bash
 cp .env.example .env
-# set NEXTAUTH_SECRET, SEED_ADMIN_PASSWORD (min 12), BACKUP_ENCRYPTION_KEY
+# set NEXTAUTH_SECRET, SEED_ADMIN_PASSWORD (min 12), BACKUP_ENCRYPTION_KEY, DATABASE_URL
 npm ci
-npm run postgis:up
 npm run db:setup:dev   # applies migrations + seeds the local database
 npm test
 npm run typecheck
 npm run dev
 ```
 
-**Production:** use `npm run db:setup` (generate + `prisma migrate deploy`). Never use `prisma db push` or seed production without an explicit controlled reset.
+**Production:** use `npm run db:setup` (generate + `prisma migrate deploy`). Never use `prisma db push` or seed production without an explicit controlled reset. See `docs/rollback-procedure.md` for emergency rollback procedures.
 
 ### Admin accounts
 
@@ -76,9 +75,13 @@ GitHub Actions: `.github/workflows/ci.yml` (Prisma, unit tests, build, PostGIS s
 
 ## Production PostgreSQL / PostGIS
 
+Connect to your managed PostgreSQL with PostGIS enabled (e.g. Neon, AWS RDS, or Render PostgreSQL).
+Verify extensions and migrations:
+
 ```bash
-docker compose up -d
-# see prisma/migrations/README.md and scripts/restore-backup.md
+npm run db:setup
+node scripts/neon-verify.js
+# see prisma/migrations/README.md, docs/rollback-procedure.md and scripts/restore-backup.md
 ```
 
 ## Deploy

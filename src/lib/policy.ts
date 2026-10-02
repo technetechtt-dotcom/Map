@@ -4,6 +4,7 @@
  */
 
 import type { RecordStatus, SubmissionStatus } from "@prisma/client";
+import { parseStrictBoolean } from "./env";
 
 export const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",
@@ -114,10 +115,13 @@ export function canModerateSubmissions(user?: AuthUser | null) {
   return isSuperAdmin(user) || isProvincialAdmin(user);
 }
 
-/** MFA required for elevated roles in production (or MFA_ENFORCE=1). */
+/** MFA required for elevated roles in production (strictly cannot be disabled in production) or when MFA_ENFORCE is set. */
 export function requiresMfa(user?: AuthUser | null) {
-  if (process.env.MFA_ENFORCE === "0") return false;
-  if (process.env.MFA_ENFORCE !== "1" && process.env.NODE_ENV !== "production") {
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd) {
+    return isSuperAdmin(user) || isProvincialAdmin(user) || isOrgAdmin(user);
+  }
+  if (!parseStrictBoolean(process.env.MFA_ENFORCE, false)) {
     return false;
   }
   return isSuperAdmin(user) || isProvincialAdmin(user) || isOrgAdmin(user);
@@ -356,6 +360,41 @@ export function ecosystemTenantWhere(user: AuthUser | null | undefined): Record<
   return { id: "__none__" };
 }
 
+/**
+ * Explicit permitted status transition graph.
+ * DRAFT -> PENDING_REVIEW -> VERIFIED -> PUBLISHED -> ARCHIVED
+ * With controlled rework/rejection paths (PENDING_REVIEW -> DRAFT).
+ */
+export const STATUS_TRANSITIONS = {
+  ADMIN: {
+    DRAFT: ["PENDING_REVIEW", "VERIFIED", "PUBLISHED", "ARCHIVED"],
+    PENDING_REVIEW: ["VERIFIED", "DRAFT", "PUBLISHED", "ARCHIVED"],
+    VERIFIED: ["PUBLISHED", "PENDING_REVIEW", "DRAFT", "ARCHIVED"],
+    PUBLISHED: ["ARCHIVED", "VERIFIED", "PENDING_REVIEW"],
+    ARCHIVED: ["DRAFT"],
+  },
+  STAFF: {
+    DRAFT: ["PENDING_REVIEW"],
+    PENDING_REVIEW: [], // Once submitted, only admin can review/reject
+    VERIFIED: [],
+    PUBLISHED: [],
+    ARCHIVED: [],
+  },
+} as const;
+
+export function getAllowedStatusTransitions(
+  currentStatus: string,
+  user?: AuthUser | null
+): string[] {
+  const isAdmin = canVerify(user);
+  const graph = isAdmin ? STATUS_TRANSITIONS.ADMIN : STATUS_TRANSITIONS.STAFF;
+  const allowed = (graph as Record<string, readonly string[]>)[currentStatus] || [];
+  if (isAdmin && process.env.REQUIRE_REVIEW_BEFORE_PUBLISH === "1" && currentStatus === "DRAFT") {
+    return allowed.filter((s) => s !== "PUBLISHED");
+  }
+  return [...allowed];
+}
+
 export function assertStatusChange(
   user: AuthUser | null | undefined,
   nextStatus: string | undefined,
@@ -365,16 +404,35 @@ export function assertStatusChange(
   if (!PUBLISHABLE_STATUSES.includes(nextStatus as LocationStatus)) {
     return { ok: false, reason: "Invalid status" };
   }
+
+  const prev = (previousStatus as LocationStatus) || "DRAFT";
+  const allowed = getAllowedStatusTransitions(prev, user);
+
+  if (!allowed.includes(nextStatus)) {
+    if (!canVerify(user)) {
+      return {
+        ok: false,
+        reason: "Contributors and organisation staff may only submit drafts for review (DRAFT -> PENDING_REVIEW)",
+      };
+    }
+    if (process.env.REQUIRE_REVIEW_BEFORE_PUBLISH === "1" && prev === "DRAFT" && nextStatus === "PUBLISHED") {
+      return {
+        ok: false,
+        reason: "Mandatory review enabled: records must transition via PENDING_REVIEW or VERIFIED before publishing",
+      };
+    }
+    return {
+      ok: false,
+      reason: `Status transition from ${prev} to ${nextStatus} is not permitted`,
+    };
+  }
+
   const elevated = ["VERIFIED", "PUBLISHED"];
   if (elevated.includes(nextStatus) && !canVerify(user)) {
     return {
       ok: false,
       reason: "Only provincial or super administrators may verify or publish records",
     };
-  }
-  // Coordinate quality gate for publication
-  if (nextStatus === "PUBLISHED" && process.env.ENFORCE_COORD_QUALITY === "1") {
-    // caller must pass quality separately — see assertPublishableQuality
   }
   if (nextStatus === "ARCHIVED" && !canArchive(user)) {
     return { ok: false, reason: "Only provincial or super administrators may archive records" };

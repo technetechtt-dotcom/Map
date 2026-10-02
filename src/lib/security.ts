@@ -158,6 +158,21 @@ function ipv6Number(value: string): bigint | null {
   return words.reduce((out, word) => (out << BigInt(16)) + BigInt(word), BigInt(0));
 }
 
+export function isValidCidr(cidr: unknown): boolean {
+  if (typeof cidr !== "string") return false;
+  const parts = cidr.trim().split("/");
+  if (parts.length > 2) return false;
+  const networkValue = parts[0];
+  const version = isIP(normalizeIp(networkValue) || "");
+  if (!version) return false;
+  if (parts.length === 2) {
+    const prefix = Number(parts[1]);
+    const maxBits = version === 4 ? 32 : 128;
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > maxBits) return false;
+  }
+  return true;
+}
+
 export function ipInCidr(ipValue: string, cidr: string): boolean {
   const [networkValue, prefixValue] = cidr.trim().split("/");
   const version = isIP(normalizeIp(ipValue) || "");

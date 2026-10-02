@@ -6,10 +6,37 @@ import Link from "next/link";
 type Fav = { kind: string; slug: string; title: string };
 
 const KEY = "ict_map_favourites";
+const ALLOWED_KINDS = ["funding", "events", "programmes", "procurement", "location", "organisation"];
+const MAX_SAVED = 100;
+
+function sanitizeString(s: unknown, maxLen = 120): string {
+  if (typeof s !== "string") return "";
+  return s.trim().slice(0, maxLen);
+}
 
 function readFavourites(): Fav[] {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "[]") as Fav[];
+    const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is Fav => {
+        return (
+          Boolean(item) &&
+          typeof item === "object" &&
+          ALLOWED_KINDS.includes(item.kind) &&
+          typeof item.slug === "string" &&
+          item.slug.length > 0 &&
+          /^[a-z0-9-_]+$/i.test(item.slug) &&
+          typeof item.title === "string" &&
+          item.title.length > 0
+        );
+      })
+      .slice(0, MAX_SAVED)
+      .map((item) => ({
+        kind: item.kind,
+        slug: sanitizeString(item.slug, 80),
+        title: sanitizeString(item.title, 120),
+      }));
   } catch {
     return [];
   }
@@ -62,7 +89,7 @@ export default function SavedPage() {
         <div>
           <h1>Saved opportunities &amp; contacts</h1>
           <p className="text-muted text-sm mt-1">
-            Items you have bookmarked across the platform. Stored privately in your local browser session.
+            Items you have bookmarked across the platform. Stored privately on this browser/device.
           </p>
         </div>
         {mounted && favourites.length > 0 && (

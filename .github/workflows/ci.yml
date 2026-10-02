@@ -79,8 +79,20 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build
-        run: npm run build
+      - name: Public production build (.next-public)
+        env:
+          APP_PLATFORM: public
+          NEXT_DIST_DIR: .next-public
+        run: npm run build:public
+
+      - name: Ops production build (.next-ops)
+        env:
+          APP_PLATFORM: ops
+          NEXT_DIST_DIR: .next-ops
+        run: npm run build:ops
+
+      - name: Deployment configuration preflight
+        run: node scripts/ops-preflight.js
 
       - name: Backup encrypt smoke
         run: node scripts/restore-backup-smoke.js
@@ -116,6 +128,7 @@ jobs:
           test -f docs/national-rollout.md
           test -f docs/performance-evidence.md
           test -f docs/ops-secrets.md
+          test -f docs/rollback-procedure.md
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

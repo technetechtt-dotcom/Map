@@ -7,6 +7,97 @@ import { ecosystemTenantWhere } from "./policy";
 export const ECOSYSTEM_TYPES = ["funding", "events", "programmes", "procurement"] as const;
 export type EcosystemType = (typeof ECOSYSTEM_TYPES)[number];
 
+export type FreshnessState =
+  | "Upcoming"
+  | "Open"
+  | "Closing soon"
+  | "Ongoing"
+  | "Closed"
+  | "Past"
+  | "Archived";
+
+export function computeFreshnessState(
+  type: EcosystemType,
+  item: {
+    status?: string;
+    deadline?: Date | string | null;
+    closingDate?: Date | string | null;
+    startsAt?: Date | string | null;
+    endsAt?: Date | string | null;
+    startDate?: Date | string | null;
+    endDate?: Date | string | null;
+    openingDate?: Date | string | null;
+  },
+  now = new Date()
+): FreshnessState {
+  if (item.status === "ARCHIVED") return "Archived";
+  const nowMs = now.getTime();
+
+  if (type === "funding") {
+    if (item.deadline) {
+      const deadlineMs = new Date(item.deadline).getTime();
+      if (deadlineMs < nowMs) return "Closed";
+      if (item.openingDate && new Date(item.openingDate).getTime() > nowMs) return "Upcoming";
+      if (deadlineMs - nowMs <= 7 * 24 * 60 * 60 * 1000) return "Closing soon";
+      return "Open";
+    }
+    if (item.openingDate && new Date(item.openingDate).getTime() > nowMs) return "Upcoming";
+    return "Ongoing";
+  }
+
+  if (type === "procurement") {
+    if (item.closingDate) {
+      const closingMs = new Date(item.closingDate).getTime();
+      if (closingMs < nowMs) return "Closed";
+      if (closingMs - nowMs <= 7 * 24 * 60 * 60 * 1000) return "Closing soon";
+      return "Open";
+    }
+    return "Ongoing";
+  }
+
+  if (type === "events") {
+    const endMs = item.endsAt ? new Date(item.endsAt).getTime() : null;
+    const startMs = item.startsAt ? new Date(item.startsAt).getTime() : null;
+    if (endMs && endMs < nowMs) return "Past";
+    if (!endMs && startMs && startMs < nowMs - 24 * 60 * 60 * 1000) return "Past";
+    if (startMs && startMs > nowMs) return "Upcoming";
+    return "Ongoing";
+  }
+
+  if (type === "programmes") {
+    if (item.endDate) {
+      const endMs = new Date(item.endDate).getTime();
+      if (endMs < nowMs) return "Past";
+      if (item.startDate && new Date(item.startDate).getTime() > nowMs) return "Upcoming";
+      if (endMs - nowMs <= 14 * 24 * 60 * 60 * 1000) return "Closing soon";
+      return "Ongoing";
+    }
+    if (item.startDate && new Date(item.startDate).getTime() > nowMs) return "Upcoming";
+    return "Ongoing";
+  }
+
+  return "Ongoing";
+}
+
+export function freshnessRank(state: FreshnessState): number {
+  switch (state) {
+    case "Closing soon":
+      return 1;
+    case "Open":
+      return 2;
+    case "Ongoing":
+      return 3;
+    case "Upcoming":
+      return 4;
+    case "Closed":
+      return 5;
+    case "Past":
+      return 6;
+    case "Archived":
+      return 7;
+  }
+}
+
 export function isEcosystemType(value: string): value is EcosystemType {
   return (ECOSYSTEM_TYPES as readonly string[]).includes(value);
 }
@@ -53,36 +144,64 @@ export async function getEcosystemItems(
   const where = { ...statusFilter, ...provinceFilter, ...tenantFilter };
   const include = { province: true, organisation: true };
 
+  let items: Array<Record<string, unknown>> = [];
   if (type === "programmes") {
     const rows = await prisma.programme.findMany({
       where,
       include,
       orderBy: { title: "asc" },
     });
-    return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
-  }
-  if (type === "events") {
+    items = rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
+  } else if (type === "events") {
     const rows = await prisma.ecosystemEvent.findMany({
       where,
       include,
       orderBy: { startsAt: "asc" },
     });
-    return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
-  }
-  if (type === "procurement") {
+    items = rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
+  } else if (type === "procurement") {
     const rows = await prisma.procurement.findMany({
       where,
       include,
       orderBy: { closingDate: "asc" },
     });
-    return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
+    items = rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
+  } else {
+    const rows = await prisma.fundingCall.findMany({
+      where,
+      include,
+      orderBy: { deadline: "asc" },
+    });
+    items = rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
   }
-  const rows = await prisma.fundingCall.findMany({
-    where,
-    include,
-    orderBy: { deadline: "asc" },
+
+  const enriched = items.map((item) => {
+    const freshness = computeFreshnessState(type, item);
+    const isCurrent = ["Open", "Closing soon", "Ongoing", "Upcoming"].includes(freshness);
+    const isExpired = ["Closed", "Past", "Archived"].includes(freshness);
+    return {
+      ...item,
+      freshness,
+      isCurrent,
+      isExpired,
+    };
   });
-  return rows.map((r) => ({ ...r, type, tags: parseTags(r.tagsJson) }));
+
+  // Sort active/current opportunities before historical ones
+  enriched.sort((a, b) => {
+    const rankDiff = freshnessRank(a.freshness) - freshnessRank(b.freshness);
+    if (rankDiff !== 0) return rankDiff;
+    const aRec = a as Record<string, unknown>;
+    const bRec = b as Record<string, unknown>;
+    const aDate = aRec.deadline || aRec.closingDate || aRec.startsAt || aRec.startDate || 0;
+    const bDate = bRec.deadline || bRec.closingDate || bRec.startsAt || bRec.startDate || 0;
+    if (aDate && bDate) {
+      return new Date(String(aDate)).getTime() - new Date(String(bDate)).getTime();
+    }
+    return 0;
+  });
+
+  return enriched;
 }
 
 export function slugFromTitle(title: string) {

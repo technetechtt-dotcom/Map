@@ -37,6 +37,29 @@ export async function POST(req: NextRequest) {
     await tx.submission.updateMany({ where: { organisationId: source.id }, data: { organisationId: target.id } });
     await tx.organisationClaim.updateMany({ where: { organisationId: source.id }, data: { organisationId: target.id } });
     await tx.user.updateMany({ where: { organisationId: source.id }, data: { organisationId: target.id } });
+    await tx.correctionRequest.updateMany({ where: { targetId: source.id, targetType: "organisation" }, data: { targetId: target.id, targetSlug: target.slug } });
+    await tx.nationalEntity.updateMany({ where: { linkedEntityId: source.id, linkedEntityType: "organisation" }, data: { linkedEntityId: target.id } });
+    
+    // Resolve ExternalIdentity and Translation
+    const sourceIdentities = await tx.externalIdentity.findMany({ where: { entityId: source.id, entityType: "organisation" } });
+    const targetIdentities = await tx.externalIdentity.findMany({ where: { entityId: target.id, entityType: "organisation" } });
+    for (const srcIdent of sourceIdentities) {
+      if (targetIdentities.some((t) => t.connector === srcIdent.connector && t.externalId === srcIdent.externalId)) {
+        await tx.externalIdentity.delete({ where: { id: srcIdent.id } });
+      } else {
+        await tx.externalIdentity.update({ where: { id: srcIdent.id }, data: { entityId: target.id } });
+      }
+    }
+    const sourceTranslations = await tx.translation.findMany({ where: { entityId: source.id, entityType: "organisation" } });
+    const targetTranslations = await tx.translation.findMany({ where: { entityId: target.id, entityType: "organisation" } });
+    for (const srcTrans of sourceTranslations) {
+      if (targetTranslations.some((t) => t.field === srcTrans.field && t.locale === srcTrans.locale)) {
+        await tx.translation.delete({ where: { id: srcTrans.id } });
+      } else {
+        await tx.translation.update({ where: { id: srcTrans.id }, data: { entityId: target.id } });
+      }
+    }
+
     await tx.organisationRelationship.deleteMany({ where: { OR: [{ sourceId: source.id, targetId: target.id }, { sourceId: target.id, targetId: source.id }, { sourceId: source.id, targetId: source.id }] } });
     const fromSource = await tx.organisationRelationship.findMany({ where: { sourceId: source.id } });
     for (const rel of fromSource) {

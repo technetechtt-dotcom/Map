@@ -8,7 +8,8 @@ const KEY = "ict_map_favourites";
 
 function read(): Fav[] {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "[]") as Fav[];
+    const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
