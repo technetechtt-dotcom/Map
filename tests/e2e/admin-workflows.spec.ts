@@ -104,7 +104,7 @@ test("admin can create and archive a funding record", async ({ page }, testInfo)
     await page.getByRole("row").filter({ hasText: title }).getByRole("button", { name: /^archive$/i }).click();
     const archiveRes = await archived;
     expect(archiveRes.ok(), await archiveRes.text()).toBeTruthy();
-    await expect(page.getByRole("row").filter({ hasText: title }).getByText("ARCHIVED")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("row").filter({ hasText: title }).getByText("ARCHIVED", { exact: true })).toBeVisible({ timeout: 15_000 });
   } finally {
     await prisma.fundingCall.deleteMany({ where: { title } }).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);

@@ -273,7 +273,7 @@ export default function AdminEcosystemPage() {
                 </td>
                 <td>
                   <span className="chip">{String(item.status)}</span>
-                  {item.freshness && (
+                  {item.freshness && item.freshness !== "Archived" && item.status !== "ARCHIVED" && (
                     <span
                       className={`ml-1 chip text-xs ${
                         item.freshness === "Closing soon"
