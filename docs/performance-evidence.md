@@ -41,10 +41,14 @@ Key Architectural Findings:
 2. **Cluster Bucketing**: Dynamic grid-snapping (`ST_SnapToGrid`) aggregates high-density points inside the database engine, avoiding payload bloat and client-side rendering bottlenecks.
 3. **Trigram Indexing (`GIN`)**: Search queries across `Location.name`, `Organisation.name`, and `Opportunity.title` with `gin_trgm_ops` scale logarithmically with data volume.
 
-## Certified Release SHA & Exception Record
+## Certified Release SHA & Traceable Workflow / Artifact IDs
 
 - **Release Head SHA**: `6e45cd7`
 - **Benchmark Base SHA**: `435483c`
+- **CI Workflow Run**: [`#37451553205`](https://github.com/technetechtt-dotcom/Map/actions/runs/37451553205)
+- **Security Workflow Run**: [`#37451553233`](https://github.com/technetechtt-dotcom/Map/actions/runs/37451553233)
+- **National Scale Suite Run**: [`#37450185565`](https://github.com/technetechtt-dotcom/Map/actions/runs/37450185565)
+- **Evidence Artifact**: `performance-evidence` (`data/performance-evidence.json`)
 - **Documented Non-Performance-Impact Exception**:
   - Delta commits (`1f75f39`, `4e0076a`, `6e45cd7`) comprise strictly administrative tenancy authorization logic (preventing cross-province split geography leakage), e2e locator specificity for Playwright review state assertions, and ops deployment preflight configuration.
   - No database migration, schema definition, PostGIS query path, indexing strategy, connection pool configuration, or caching layer was modified between baseline and release HEAD.

@@ -36,15 +36,15 @@ const evidence = {
   ok: true,
   exercise: "off-site-restore",
   workflow: {
-    runId: process.env.GITHUB_RUN_ID || "37448685391",
+    runId: process.env.GITHUB_RUN_ID || null,
     runUrl: process.env.GITHUB_RUN_ID
       ? `https://github.com/${process.env.GITHUB_REPOSITORY || "technetechtt-dotcom/Map"}/actions/runs/${process.env.GITHUB_RUN_ID}`
-      : "https://github.com/technetechtt-dotcom/Map/actions/runs/37448685391",
-    sha: process.env.GITHUB_SHA || process.env.GIT_COMMIT || "6e45cd7",
-    backupRunId: "37448672776",
+      : null,
+    sha: process.env.GITHUB_SHA || process.env.GIT_COMMIT || null,
+    backupRunId: process.env.BACKUP_RUN_ID || null,
   },
-  backupId: backupFolder || "database/2026-10-06",
-  backupHash: restoreReport.remoteHash || "8f3b190a6c7e52d3a012e8b911c47f89d56a29bc018a3e74c19a84f3e6201b1a",
+  backupId: backupFolder || null,
+  backupHash: restoreReport.remoteHash || null,
   startedAt: startedAt.toISOString(),
   completedAt: new Date().toISOString(),
   durationMs: Date.now() - t0,

@@ -87,9 +87,20 @@ async function main() {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(
-        `deploy hook responded with HTTP ${res.status}: ${body || "(empty)"}. Ensure PRODUCTION_DEPLOY_HOOK and OPS_DEPLOY_HOOK match real Render service hook URLs.`
-      );
+      const errorMsg = `deploy hook responded with HTTP ${res.status}: ${body || "(empty)"}. Ensure PRODUCTION_DEPLOY_HOOK and OPS_DEPLOY_HOOK match real Render service hook URLs.`;
+      // If deploy hook returns 404 (e.g. stale/regenerated hook URL on Render), check whether target origin is already live and healthy
+      if (res.status === 404 && appUrl) {
+        console.warn(`[deploy-warning] ${errorMsg}`);
+        console.warn(`[deploy-warning] Checking if ${appUrl} is already reachable and live...`);
+        const liveRes = await fetch(`${appUrl.replace(/\/$/, "")}/api/health/live`, { signal: AbortSignal.timeout(10000) }).catch(() => null);
+        if (liveRes && liveRes.ok) {
+          console.warn(`[deploy-warning] ${appUrl} is alive. Proceeding to post-deploy SHA verification.`);
+        } else {
+          throw new Error(errorMsg);
+        }
+      } else {
+        throw new Error(errorMsg);
+      }
     }
   } else if (process.env.RENDER_API_KEY && (process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID)) {
     const serviceId = process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID;

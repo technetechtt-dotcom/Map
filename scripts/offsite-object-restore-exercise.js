@@ -30,7 +30,8 @@ if (!dest) {
   process.exit(1);
 }
 
-const listing = run(`rclone lsf "${dest}/objects/" --dirs-only`).trim().split(/\r?\n/).filter(Boolean).sort();
+const rcloneFlags = "--s3-no-check-bucket --no-check-dest";
+const listing = run(`rclone lsf ${rcloneFlags} "${dest}/objects/" --dirs-only`).trim().split(/\r?\n/).filter(Boolean).sort();
 const latest = (listing[listing.length - 1] || "").replace(/\/$/, "");
 if (!latest) {
   console.error("No off-site object folders found");
@@ -39,7 +40,7 @@ if (!latest) {
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ictmap-objects-"));
 try {
-  run(`rclone copy "${dest}/objects/${latest}/" "${dir}"`);
+  run(`rclone copy ${rcloneFlags} "${dest}/objects/${latest}/" "${dir}"`);
   requireSidecar(dir, "object-backup-result.json");
   requireSidecar(dir, "object-storage-manifest.json");
   const result = JSON.parse(fs.readFileSync(path.join(dir, "object-backup-result.json"), "utf8"));

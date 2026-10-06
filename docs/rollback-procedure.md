@@ -35,7 +35,7 @@ If a newly deployed certified SHA exhibits critical regressions, high error rate
 
 ## 2. Database Migration Rollback
 
-Because Prisma employs forward-only migrations (`prisma migrate deploy`), rolling back a schema change must be handled with precision to preserve relational integrity.
+Because Prisma employs forward-only migrations (`prisma migrate deploy`), rolling back a schema change must be handled with precision to preserve relational integrity. The platform enforces an **Expand/Contract migration policy** (see `docs/migrations.md`): migrations execute prior to application promotion and must remain backwards-compatible with the currently running application.
 
 ### Pre-migration Safeguards (Automated in CI)
 - A full database backup is taken automatically before migrations run:

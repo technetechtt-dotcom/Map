@@ -4,6 +4,15 @@
   "profile": "1000",
   "datasetSize": 184,
   "recordedAt": "2026-10-06T10:15:00.000Z",
+  "workflow": {
+    "ciWorkflowRunId": "37451553205",
+    "ciWorkflowRunUrl": "https://github.com/technetechtt-dotcom/Map/actions/runs/37451553205",
+    "securityWorkflowRunId": "37451553233",
+    "securityWorkflowRunUrl": "https://github.com/technetechtt-dotcom/Map/actions/runs/37451553233",
+    "scaleSuiteRunId": "37450185565",
+    "scaleSuiteRunUrl": "https://github.com/technetechtt-dotcom/Map/actions/runs/37450185565",
+    "artifactName": "performance-evidence"
+  },
   "nonPerformanceImpactException": {
     "applicable": true,
     "deltaShas": ["1f75f39", "4e0076a", "6e45cd7"],

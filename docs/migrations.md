@@ -27,9 +27,25 @@ npx prisma migrate deploy
 2. If a migration failed mid-way: `npx prisma migrate resolve --rolled-back MIGRATION_NAME` then restore the database.
 3. Forward-fix with a new migration rather than editing applied SQL.
 
-## Compatibility between releases
+## Compatibility between releases & Expand/Contract Migration Policy
 
-CI runs `prisma migrate deploy` against an empty PostGIS database on every push. Before a release, also run deploy against a copy of staging.
+Because database migrations (`npx prisma migrate deploy`) execute **before** application promotion in the production deployment pipeline, zero-downtime availability requires an explicit **Expand/Contract (Two-Phase) Migration Policy**:
+
+1. **Every migration must be backwards-compatible**:
+   - Schema changes run while the *previous* version of the application is still actively serving user traffic.
+   - Any migration that drops a column, renames a column/table, adds a non-null column without a default value, or modifies column data types will immediately crash the running application.
+
+2. **Phase 1: Expand**:
+   - Add new columns as **nullable** or with safe **default values**.
+   - If renaming a column or changing a relationship, add the *new* column/table alongside the old one.
+   - Update application code to dual-write or read from both old and new columns.
+   - Deploy migration and promote the new application code.
+
+3. **Phase 2: Contract**:
+   - Once all application instances (public and ops) are running the new release and the old columns/tables are no longer referenced anywhere, deploy a subsequent migration to drop or finalize constraints on the old columns/tables.
+
+4. **Rollback Safety**:
+   - Under Expand/Contract, rolling back an application deployment to the previous green commit SHA requires no emergency database schema rollback, because the previous application version ignores new additive columns.
 
 ## PostGIS
 

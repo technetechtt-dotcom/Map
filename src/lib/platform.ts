@@ -61,6 +61,8 @@ export function isSharedAuthRoute(pathname: string): boolean {
 
 export function isOpsRoute(pathname: string): boolean {
   if (isInfraRoute(pathname)) return false;
+  // Ops alerts webhook is shared so background jobs and GitHub Actions can send alerts to either host
+  if (pathname === "/api/admin/ops/alerts" || pathname.startsWith("/api/admin/ops/alerts/")) return false;
   if (OPS_UI_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return true;
   }
@@ -75,6 +77,7 @@ export function isAllowedOnPublicPlatform(pathname: string): boolean {
   if (isInfraRoute(pathname)) return true;
   if (pathname.startsWith("/api/csp-report")) return true;
   if (pathname.startsWith("/api/auth")) return true;
+  if (pathname === "/api/admin/ops/alerts" || pathname.startsWith("/api/admin/ops/alerts/")) return true;
   if (isSharedAuthRoute(pathname)) return true;
   if (pathname.startsWith("/api/")) {
     return !pathname.startsWith("/api/admin");

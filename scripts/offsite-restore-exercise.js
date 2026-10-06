@@ -56,7 +56,8 @@ if (!dest || !key) {
   process.exit(1);
 }
 
-const listing = run(`rclone lsf "${dest}/database/" --dirs-only`).trim().split(/\r?\n/).filter(Boolean).sort();
+const rcloneFlags = "--s3-no-check-bucket --no-check-dest";
+const listing = run(`rclone lsf ${rcloneFlags} "${dest}/database/" --dirs-only`).trim().split(/\r?\n/).filter(Boolean).sort();
 const latest = (listing[listing.length - 1] || "").replace(/\/$/, "");
 if (!latest) {
   console.error("No off-site database folders found");
@@ -67,11 +68,11 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ictmap-offsite-"));
 const gpgPath = path.join(dir, "database.dump.gpg");
 const dumpPath = path.join(dir, "database.dump");
 const remotePrefix = `${dest}/database/${latest}`;
-run(`rclone copyto "${remotePrefix}/database.dump.gpg" "${gpgPath}"`);
+run(`rclone copyto ${rcloneFlags} "${remotePrefix}/database.dump.gpg" "${gpgPath}"`);
 const remoteHash = crypto.createHash("sha256").update(fs.readFileSync(gpgPath)).digest("hex");
 const sidecarPath = path.join(dir, "database.dump.gpg.sha256");
 try {
-  run(`rclone copyto "${remotePrefix}/database.dump.gpg.sha256" "${sidecarPath}"`);
+  run(`rclone copyto ${rcloneFlags} "${remotePrefix}/database.dump.gpg.sha256" "${sidecarPath}"`);
 } catch {
   console.error("Checksum sidecar database.dump.gpg.sha256 is required for off-site restore");
   process.exit(1);

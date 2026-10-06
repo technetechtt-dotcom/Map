@@ -30,8 +30,8 @@ Sync secrets: `npm run ops:sync-secrets .env.production.secrets`
 
 ### Gate 3 — Off-site restore & RPO/RTO evidence
 
-- [x] Off-site encrypted production restore drill into isolated Postgres/PostGIS verified
-- [x] Archive `data/dr-rpo-rto-evidence.json` (RPO: 527 min ≤ 1440 min, RTO: 12 min ≤ 120 min)
+- [ ] Off-site encrypted production restore drill into isolated Postgres/PostGIS verified
+- [ ] Archive `data/dr-rpo-rto-evidence.json` (Target: RPO ≤ 1440 min, RTO ≤ 120 min) with live workflow and backup IDs
 
 ### Gate 4 — ExternalIdentity migration (Neon production)
 

@@ -101,18 +101,19 @@ jobs:
         run: |
           DATE=$(date -u +%Y-%m-%d)
           printf '%s' "$RCLONE_CONFIG" > "$HOME/.rclone.conf"
-          rclone copy database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/"
-          rclone copy database.dump.gpg.sha256 "$BACKUP_DESTINATION/database/$DATE/"
-          rclone copy data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
-          rclone copy data/object-storage-manifest.json.sha256 "$BACKUP_DESTINATION/objects/$DATE/"
-          rclone copy data/object-backup-result.json "$BACKUP_DESTINATION/objects/$DATE/"
-          rclone copy data/object-backup-result.json.sha256 "$BACKUP_DESTINATION/objects/$DATE/"
-          rclone copyto "$BACKUP_DESTINATION/database/$DATE/database.dump.gpg" remote-database.dump.gpg
+          RCLONE_S3_FLAGS="--s3-no-check-bucket --no-check-dest"
+          rclone copy $RCLONE_S3_FLAGS database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/"
+          rclone copy $RCLONE_S3_FLAGS database.dump.gpg.sha256 "$BACKUP_DESTINATION/database/$DATE/"
+          rclone copy $RCLONE_S3_FLAGS data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
+          rclone copy $RCLONE_S3_FLAGS data/object-storage-manifest.json.sha256 "$BACKUP_DESTINATION/objects/$DATE/"
+          rclone copy $RCLONE_S3_FLAGS data/object-backup-result.json "$BACKUP_DESTINATION/objects/$DATE/"
+          rclone copy $RCLONE_S3_FLAGS data/object-backup-result.json.sha256 "$BACKUP_DESTINATION/objects/$DATE/"
+          rclone copyto $RCLONE_S3_FLAGS "$BACKUP_DESTINATION/database/$DATE/database.dump.gpg" remote-database.dump.gpg
           sha256sum remote-database.dump.gpg | tee remote-database.dump.gpg.sha256
           LOCAL=$(cut -d' ' -f1 database.dump.gpg.sha256)
           REMOTE_BYTES=$(cut -d' ' -f1 remote-database.dump.gpg.sha256)
           test "$LOCAL" = "$REMOTE_BYTES"
-          rclone check database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/" --one-way
+          rclone check $RCLONE_S3_FLAGS database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/" --one-way
       - name: Record verified backup health
         env:
           APP_URL: ${{ secrets.PRODUCTION_APP_URL }}

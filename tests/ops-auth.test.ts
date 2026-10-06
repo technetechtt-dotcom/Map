@@ -69,6 +69,15 @@ describe("nearby query validation", () => {
   });
 });
 
+describe("ops alerts routing and ingestion", () => {
+  it("allows /api/admin/ops/alerts on both public and ops platforms without redirects", async () => {
+    const { isAllowedOnPublicPlatform, isAllowedOnOpsPlatform, isOpsRoute } = await import("@/lib/platform");
+    expect(isOpsRoute("/api/admin/ops/alerts")).toBe(false);
+    expect(isAllowedOnPublicPlatform("/api/admin/ops/alerts")).toBe(true);
+    expect(isAllowedOnOpsPlatform("/api/admin/ops/alerts")).toBe(true);
+  });
+});
+
 describe("public health projection", () => {
   it("omits backup checksums and worker ids", () => {
     const publicHealth = publicHealthFromMetrics({

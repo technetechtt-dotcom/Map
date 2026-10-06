@@ -21,7 +21,7 @@ Health is degraded only when **database** or **objects** backups are stale. Encr
 
 ## Latest Verification
 
-- Off-site restore drill completed: 06 October 2026.
-- RPO: 527 min (target: ≤1440 min) | RTO: 12 min (target: ≤120 min).
-- Ciphertext SHA-256 match confirmed.
-- Evidence recorded in `data/dr-rpo-rto-evidence.json` and `data/dr-restore.json`.
+- Off-site restore drill: invalidated prior placeholder evidence referencing failed test runs.
+- Fresh execution pending successful completion of `Encrypted production backup` and `Off-site disaster recovery` workflows on current `main`.
+- RPO Target: ≤ 1440 min | RTO Target: ≤ 120 min.
+- Evidence will be regenerated in `data/dr-rpo-rto-evidence.json` upon completion of live DR run.

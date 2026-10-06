@@ -11,7 +11,7 @@
 
 | Control | Behaviour |
 |---------|-----------|
-| Public pages | Only `PUBLISHED` / `VERIFIED` locations; only `PUBLISHED` orgs |
+| Public pages | Only `PUBLISHED` locations (`PUBLIC_STATUSES = ["PUBLISHED"]`); only `PUBLISHED` orgs. `VERIFIED` records remain in the verified editorial tier until published |
 | `ENFORCE_COORD_QUALITY=1` | Blocks publish unless coordQuality is `verified` or `estimated` |
 | `verificationExpiresAt` | Dashboard counts `expiredVerify`; flag “review due” on profiles |
 | Evidence | `evidenceJson` + `SourceRecord` required procedurally (enforce in admin UI) |
