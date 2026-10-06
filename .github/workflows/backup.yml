@@ -58,6 +58,10 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y || true
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-18 || sudo apt-get install -y -qq postgresql-client
+          if [ -d /usr/lib/postgresql/18/bin ]; then
+            echo "/usr/lib/postgresql/18/bin" >> $GITHUB_PATH
+            export PATH="/usr/lib/postgresql/18/bin:$PATH"
+          fi
           curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
           sudo unzip -o /tmp/rclone.zip -d /tmp
           sudo cp /tmp/rclone-*-linux-amd64/rclone /usr/local/bin/rclone
