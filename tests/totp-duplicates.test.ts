@@ -79,8 +79,9 @@ describe("duplicate matching", () => {
 });
 
 describe("public surface policy", () => {
-  it("only published and verified are public statuses", () => {
-    expect(PUBLIC_LOCATION_STATUSES).toEqual(["PUBLISHED", "VERIFIED"]);
+  it("only published is public status", () => {
+    expect(PUBLIC_LOCATION_STATUSES).toEqual(["PUBLISHED"]);
     expect(PUBLIC_LOCATION_STATUSES).not.toContain("DRAFT");
+    expect(PUBLIC_LOCATION_STATUSES).not.toContain("VERIFIED");
   });
 });

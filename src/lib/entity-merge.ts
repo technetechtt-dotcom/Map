@@ -4,7 +4,7 @@
  * rollback capability, and selective entity split workflows.
  */
 
-import type { RecordStatus } from "@prisma/client";
+import type { RecordStatus, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { writeAudit } from "./audit";
 import { invalidatePublicCaches } from "./server-memo";
@@ -16,6 +16,20 @@ export type MergeConflictType =
   | "ORGANISATION_MISMATCH"
   | "PROVINCE_MISMATCH"
   | "EXTERNAL_IDENTITY_COLLISION";
+
+export function parseEvidenceArray(value?: unknown): Record<string, unknown>[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 export type MergeConflict = {
   type: MergeConflictType;
@@ -227,17 +241,31 @@ export async function executeLocationMerge(
   const { source, target } = preview;
 
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Move SourceRecords
-    const movedSources = await tx.sourceRecord.updateMany({
+    // 1. Move SourceRecords (recording IDs for rollback)
+    const sourceRecordsToMove = await tx.sourceRecord.findMany({
       where: { locationId: source.id },
-      data: { locationId: target.id },
+      select: { id: true },
     });
+    const movedSourceRecordIds = sourceRecordsToMove.map((s) => s.id);
+    if (movedSourceRecordIds.length > 0) {
+      await tx.sourceRecord.updateMany({
+        where: { id: { in: movedSourceRecordIds } },
+        data: { locationId: target.id },
+      });
+    }
 
-    // 2. Move IngestionChanges
-    const movedChanges = await tx.ingestionChange.updateMany({
+    // 2. Move IngestionChanges (recording IDs for rollback)
+    const changesToMove = await tx.ingestionChange.findMany({
       where: { locationId: source.id },
-      data: { locationId: target.id },
+      select: { id: true },
     });
+    const movedIngestionChangeIds = changesToMove.map((c) => c.id);
+    if (movedIngestionChangeIds.length > 0) {
+      await tx.ingestionChange.updateMany({
+        where: { id: { in: movedIngestionChangeIds } },
+        data: { locationId: target.id },
+      });
+    }
 
     // 3. Resolve ExternalIdentities
     const [sourceIdentities, targetIdentities] = await Promise.all([
@@ -245,21 +273,24 @@ export async function executeLocationMerge(
       tx.externalIdentity.findMany({ where: { entityType: "location", entityId: target.id } }),
     ]);
 
-    let externalIdentitiesMoved = 0;
+    const movedExternalIdentityIds: string[] = [];
+    const deletedExternalIdentities: Array<{ connector: string; externalId: string }> = [];
     for (const srcIdent of sourceIdentities) {
       const existingInTarget = targetIdentities.find(
         (t) => t.connector === srcIdent.connector && t.externalId === srcIdent.externalId
       );
       if (existingInTarget) {
-        // Redundant duplicate on source — remove it so target remains primary
+        deletedExternalIdentities.push({
+          connector: srcIdent.connector,
+          externalId: srcIdent.externalId,
+        });
         await tx.externalIdentity.delete({ where: { id: srcIdent.id } });
       } else {
-        // Transfer to target
         await tx.externalIdentity.update({
           where: { id: srcIdent.id },
           data: { entityId: target.id },
         });
-        externalIdentitiesMoved++;
+        movedExternalIdentityIds.push(srcIdent.id);
       }
     }
 
@@ -269,37 +300,55 @@ export async function executeLocationMerge(
       tx.translation.findMany({ where: { entityType: "location", entityId: target.id } }),
     ]);
 
-    let translationsMoved = 0;
+    const movedTranslationIds: string[] = [];
+    const deletedTranslations: Array<{ locale: string; field: string; value: string }> = [];
     for (const srcTrans of sourceTranslations) {
       const existsInTarget = targetTranslations.some(
         (t) => t.field === srcTrans.field && t.locale === srcTrans.locale
       );
       if (existsInTarget) {
-        // Keep target's existing translation, remove redundant source record
+        deletedTranslations.push({
+          locale: srcTrans.locale,
+          field: srcTrans.field,
+          value: srcTrans.value,
+        });
         await tx.translation.delete({ where: { id: srcTrans.id } });
       } else {
         await tx.translation.update({
           where: { id: srcTrans.id },
           data: { entityId: target.id },
         });
-        translationsMoved++;
+        movedTranslationIds.push(srcTrans.id);
       }
     }
 
     // 5. Resolve CorrectionRequest references
-    const movedCorrections = await tx.correctionRequest.updateMany({
+    const correctionsToMove = await tx.correctionRequest.findMany({
       where: { targetId: source.id, targetType: "location" },
-      data: { targetId: target.id, targetSlug: target.slug },
+      select: { id: true },
     });
+    const movedCorrectionRequestIds = correctionsToMove.map((c) => c.id);
+    if (movedCorrectionRequestIds.length > 0) {
+      await tx.correctionRequest.updateMany({
+        where: { id: { in: movedCorrectionRequestIds } },
+        data: { targetId: target.id, targetSlug: target.slug },
+      });
+    }
 
     // 6. Resolve NationalEntity linkages
-    const movedNationalEntities = await tx.nationalEntity.updateMany({
+    const nationalEntitiesToMove = await tx.nationalEntity.findMany({
       where: { linkedEntityId: source.id, linkedEntityType: "location" },
-      data: { linkedEntityId: target.id },
+      select: { id: true },
     });
+    const movedNationalEntityIds = nationalEntitiesToMove.map((n) => n.id);
+    if (movedNationalEntityIds.length > 0) {
+      await tx.nationalEntity.updateMany({
+        where: { id: { in: movedNationalEntityIds } },
+        data: { linkedEntityId: target.id },
+      });
+    }
 
     // 7. Preserve AnalyticsEvents with historical metadata
-    // We keep historical locationId but annotate metadata with merge redirect
     const historicalEvents = await tx.analyticsEvent.findMany({
       where: { locationId: source.id },
       take: 200,
@@ -318,8 +367,15 @@ export async function executeLocationMerge(
       });
     }
 
-    // 8. Archive source entity and attach merge alias/redirect metadata
-    const sourceEvidence = Array.isArray(source) ? [] : [];
+    // Fetch full source and target inside transaction
+    const fullSource = await tx.location.findUnique({ where: { id: source.id } });
+    const fullTarget = await tx.location.findUnique({ where: { id: target.id } });
+    if (!fullSource || !fullTarget) {
+      throw new Error("Source or target location not found in transaction");
+    }
+
+    // 8. Archive source entity and attach merge alias/redirect metadata - PRESERVE EVIDENCE
+    const sourceEvidence = parseEvidenceArray(fullSource.evidenceJson);
     await tx.location.update({
       where: { id: source.id },
       data: {
@@ -335,25 +391,54 @@ export async function executeLocationMerge(
             mergedAt: new Date().toISOString(),
             mergedBy: actor.id,
           },
-        ],
+        ] as Prisma.InputJsonValue,
       },
     });
 
-    // 9. Backfill missing details on target from source if target fields are empty
-    const fullSource = await tx.location.findUnique({ where: { id: source.id } });
-    const fullTarget = await tx.location.findUnique({ where: { id: target.id } });
-    if (fullSource && fullTarget) {
-      const backfillData: Record<string, unknown> = {};
-      if (!fullTarget.website && fullSource.website) backfillData.website = fullSource.website;
-      if (!fullTarget.email && fullSource.email) backfillData.email = fullSource.email;
-      if (!fullTarget.phone && fullSource.phone) backfillData.phone = fullSource.phone;
-      if (!fullTarget.description && fullSource.description) backfillData.description = fullSource.description;
-      if (!fullTarget.nameAf && fullSource.nameAf) backfillData.nameAf = fullSource.nameAf;
-      if (!fullTarget.summaryAf && fullSource.summaryAf) backfillData.summaryAf = fullSource.summaryAf;
-      if (Object.keys(backfillData).length > 0) {
-        await tx.location.update({ where: { id: target.id }, data: backfillData });
-      }
+    // 9. Backfill missing details on target from source and preserve target evidence
+    const backfillData: Record<string, unknown> = {};
+    const targetOriginalFields: Record<string, unknown> = {};
+    if (!fullTarget.website && fullSource.website) {
+      backfillData.website = fullSource.website;
+      targetOriginalFields.website = fullTarget.website;
     }
+    if (!fullTarget.email && fullSource.email) {
+      backfillData.email = fullSource.email;
+      targetOriginalFields.email = fullTarget.email;
+    }
+    if (!fullTarget.phone && fullSource.phone) {
+      backfillData.phone = fullSource.phone;
+      targetOriginalFields.phone = fullTarget.phone;
+    }
+    if (!fullTarget.description && fullSource.description) {
+      backfillData.description = fullSource.description;
+      targetOriginalFields.description = fullTarget.description;
+    }
+    if (!fullTarget.nameAf && fullSource.nameAf) {
+      backfillData.nameAf = fullSource.nameAf;
+      targetOriginalFields.nameAf = fullTarget.nameAf;
+    }
+    if (!fullTarget.summaryAf && fullSource.summaryAf) {
+      backfillData.summaryAf = fullSource.summaryAf;
+      targetOriginalFields.summaryAf = fullTarget.summaryAf;
+    }
+    const targetEvidence = parseEvidenceArray(fullTarget.evidenceJson);
+    await tx.location.update({
+      where: { id: target.id },
+      data: {
+        ...backfillData,
+        evidenceJson: [
+          ...targetEvidence,
+          {
+            type: "MERGED_FROM",
+            sourceId: source.id,
+            sourceSlug: source.slug,
+            mergedAt: new Date().toISOString(),
+            mergedBy: actor.id,
+          },
+        ] as Prisma.InputJsonValue,
+      },
+    });
 
     // 10. Record EntityReviewAction for full provenance and redirect lookup
     const reviewAction = await tx.entityReviewAction.create({
@@ -371,31 +456,41 @@ export async function executeLocationMerge(
           sourceProvinceId: source.provinceId,
           targetSlug: target.slug,
           targetName: target.name,
-        },
+          targetOriginalFields,
+        } as Prisma.InputJsonValue,
         afterJson: {
           targetSlug: target.slug,
           sourceStatus: "ARCHIVED",
+          movedSourceRecordIds,
+          movedIngestionChangeIds,
+          movedExternalIdentityIds,
+          deletedExternalIdentities,
+          movedTranslationIds,
+          deletedTranslations,
+          movedCorrectionRequestIds,
+          movedNationalEntityIds,
+          backfilledFields: Object.keys(backfillData),
           moved: {
-            sources: movedSources.count,
-            changes: movedChanges.count,
-            externalIdentities: externalIdentitiesMoved,
-            translations: translationsMoved,
-            corrections: movedCorrections.count,
-            nationalEntities: movedNationalEntities.count,
+            sources: movedSourceRecordIds.length,
+            changes: movedIngestionChangeIds.length,
+            externalIdentities: movedExternalIdentityIds.length,
+            translations: movedTranslationIds.length,
+            corrections: movedCorrectionRequestIds.length,
+            nationalEntities: movedNationalEntityIds.length,
           },
-        },
+        } as Prisma.InputJsonValue,
       },
     });
 
     return {
       reviewAction,
       moved: {
-        sources: movedSources.count,
-        changes: movedChanges.count,
-        externalIdentities: externalIdentitiesMoved,
-        translations: translationsMoved,
-        corrections: movedCorrections.count,
-        nationalEntities: movedNationalEntities.count,
+        sources: movedSourceRecordIds.length,
+        changes: movedIngestionChangeIds.length,
+        externalIdentities: movedExternalIdentityIds.length,
+        translations: movedTranslationIds.length,
+        corrections: movedCorrectionRequestIds.length,
+        nationalEntities: movedNationalEntityIds.length,
       },
     };
   });
@@ -459,9 +554,23 @@ export async function executeLocationSplit(
   });
   if (!source) return { ok: false as const, error: "Source location not found", status: 404 };
 
+  const targetProvinceId = params.provinceId || source.provinceId;
+
   if (!isSuperAdmin(actor)) {
-    const access = assertProvinceAccess(actor, source.provinceId);
-    if (!access.ok) return { ok: false as const, error: access.reason, status: 403 };
+    const sourceAccess = assertProvinceAccess(actor, source.provinceId);
+    if (!sourceAccess.ok) return { ok: false as const, error: sourceAccess.reason, status: 403 };
+
+    // Cross-province entity split authorization check
+    if (params.provinceId && params.provinceId !== source.provinceId) {
+      const targetAccess = assertProvinceAccess(actor, targetProvinceId);
+      if (!targetAccess.ok) {
+        return {
+          ok: false as const,
+          error: `Cross-province split rejected: ${targetAccess.reason}`,
+          status: 403,
+        };
+      }
+    }
   }
 
   const slugBase =
@@ -478,7 +587,7 @@ export async function executeLocationSplit(
     newSlug = `${slugBase}-${counter++}`;
   }
 
-  const provinceId = params.provinceId || source.provinceId;
+  const provinceId = targetProvinceId;
   const categoryId = params.categoryId || source.categoryId;
 
   const result = await prisma.$transaction(async (tx) => {
@@ -594,6 +703,9 @@ export async function executeLocationSplit(
 
 /**
  * Rollback / recovery procedure for a prior location merge.
+ * Restores all transferred source records, ingestion changes, external identities,
+ * translations, correction requests, and national entity links back to the source entity,
+ * reverts backfilled target fields, and restores status.
  */
 export async function rollbackLocationMerge(reviewActionId: string, actor: AuthUser) {
   const reviewAction = await prisma.entityReviewAction.findUnique({
@@ -617,21 +729,158 @@ export async function rollbackLocationMerge(reviewActionId: string, actor: AuthU
   }
 
   const beforeJson = (reviewAction.beforeJson || {}) as Record<string, unknown>;
+  const afterJson = (reviewAction.afterJson || {}) as Record<string, unknown>;
   const restoredStatus = (beforeJson.sourceStatus as string) || "DRAFT";
 
-  await prisma.$transaction(async (tx) => {
-    // Restore source location status
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Restore SourceRecords back to source
+    const movedSourceRecordIds = Array.isArray(afterJson.movedSourceRecordIds)
+      ? (afterJson.movedSourceRecordIds as string[])
+      : [];
+    if (movedSourceRecordIds.length > 0) {
+      await tx.sourceRecord.updateMany({
+        where: { id: { in: movedSourceRecordIds } },
+        data: { locationId: source.id },
+      });
+    }
+
+    // 2. Restore IngestionChanges back to source
+    const movedIngestionChangeIds = Array.isArray(afterJson.movedIngestionChangeIds)
+      ? (afterJson.movedIngestionChangeIds as string[])
+      : [];
+    if (movedIngestionChangeIds.length > 0) {
+      await tx.ingestionChange.updateMany({
+        where: { id: { in: movedIngestionChangeIds } },
+        data: { locationId: source.id },
+      });
+    }
+
+    // 3. Restore ExternalIdentities back to source
+    const movedExternalIdentityIds = Array.isArray(afterJson.movedExternalIdentityIds)
+      ? (afterJson.movedExternalIdentityIds as string[])
+      : [];
+    if (movedExternalIdentityIds.length > 0) {
+      await tx.externalIdentity.updateMany({
+        where: { id: { in: movedExternalIdentityIds } },
+        data: { entityId: source.id },
+      });
+    }
+    const deletedExternalIdentities = Array.isArray(afterJson.deletedExternalIdentities)
+      ? (afterJson.deletedExternalIdentities as Array<{ connector: string; externalId: string }>)
+      : [];
+    for (const d of deletedExternalIdentities) {
+      await tx.externalIdentity.create({
+        data: {
+          connector: d.connector,
+          externalId: d.externalId,
+          entityType: "location",
+          entityId: source.id,
+        },
+      });
+    }
+
+    // 4. Restore Translations back to source
+    const movedTranslationIds = Array.isArray(afterJson.movedTranslationIds)
+      ? (afterJson.movedTranslationIds as string[])
+      : [];
+    if (movedTranslationIds.length > 0) {
+      await tx.translation.updateMany({
+        where: { id: { in: movedTranslationIds } },
+        data: { entityId: source.id },
+      });
+    }
+    const deletedTranslations = Array.isArray(afterJson.deletedTranslations)
+      ? (afterJson.deletedTranslations as Array<{ locale: string; field: string; value: string }>)
+      : [];
+    for (const d of deletedTranslations) {
+      await tx.translation.create({
+        data: {
+          locale: d.locale,
+          field: d.field,
+          value: d.value,
+          entityType: "location",
+          entityId: source.id,
+        },
+      });
+    }
+
+    // 5. Restore CorrectionRequests
+    const movedCorrectionRequestIds = Array.isArray(afterJson.movedCorrectionRequestIds)
+      ? (afterJson.movedCorrectionRequestIds as string[])
+      : [];
+    if (movedCorrectionRequestIds.length > 0) {
+      await tx.correctionRequest.updateMany({
+        where: { id: { in: movedCorrectionRequestIds } },
+        data: { targetId: source.id, targetSlug: source.slug },
+      });
+    }
+
+    // 6. Restore NationalEntities
+    const movedNationalEntityIds = Array.isArray(afterJson.movedNationalEntityIds)
+      ? (afterJson.movedNationalEntityIds as string[])
+      : [];
+    if (movedNationalEntityIds.length > 0) {
+      await tx.nationalEntity.updateMany({
+        where: { id: { in: movedNationalEntityIds } },
+        data: { linkedEntityId: source.id },
+      });
+    }
+
+    // 7. Revert backfilled fields on target
+    const targetOriginalFields = (beforeJson.targetOriginalFields || {}) as Record<string, unknown>;
+    const backfilledFields = Array.isArray(afterJson.backfilledFields)
+      ? (afterJson.backfilledFields as string[])
+      : [];
+    if (backfilledFields.length > 0) {
+      const revertData: Record<string, unknown> = {};
+      for (const field of backfilledFields) {
+        revertData[field] = targetOriginalFields[field] ?? null;
+      }
+      await tx.location.update({ where: { id: target.id }, data: revertData });
+    }
+
+    // 8. Revert Evidence
+    const sourceEvidence = parseEvidenceArray(source.evidenceJson).filter(
+      (e) => !(e.type === "MERGED_INTO" && e.targetId === target.id)
+    );
     await tx.location.update({
       where: { id: source.id },
       data: {
         status: restoredStatus as RecordStatus,
         staleAt: null,
         verificationNotes: `Restored from merge rollback (action ${reviewAction.id})`,
+        evidenceJson: [
+          ...sourceEvidence,
+          {
+            type: "MERGE_ROLLED_BACK",
+            rolledBackAt: new Date().toISOString(),
+            rolledBackBy: actor.id,
+            originalActionId: reviewAction.id,
+          },
+        ] as Prisma.InputJsonValue,
       },
     });
 
-    // Record rollback action
-    await tx.entityReviewAction.create({
+    const targetEvidence = parseEvidenceArray(target.evidenceJson).filter(
+      (e) => !(e.type === "MERGED_FROM" && e.sourceId === source.id)
+    );
+    await tx.location.update({
+      where: { id: target.id },
+      data: {
+        evidenceJson: [
+          ...targetEvidence,
+          {
+            type: "MERGE_ROLLED_BACK",
+            rolledBackAt: new Date().toISOString(),
+            rolledBackBy: actor.id,
+            originalActionId: reviewAction.id,
+          },
+        ] as Prisma.InputJsonValue,
+      },
+    });
+
+    // 9. Record rollback review action
+    const rollbackAction = await tx.entityReviewAction.create({
       data: {
         action: "merge-rollback",
         entityType: "location",
@@ -639,10 +888,27 @@ export async function rollbackLocationMerge(reviewActionId: string, actor: AuthU
         targetId: target.id,
         actorId: actor.id,
         notes: `Rolled back merge from action ${reviewAction.id}`,
-        beforeJson: { reviewActionId },
-        afterJson: { restoredStatus },
+        beforeJson: { reviewActionId, targetSlug: target.slug } as Prisma.InputJsonValue,
+        afterJson: {
+          restoredStatus,
+          restoredSources: movedSourceRecordIds.length,
+          restoredChanges: movedIngestionChangeIds.length,
+          restoredExternalIdentities: movedExternalIdentityIds.length + deletedExternalIdentities.length,
+          restoredTranslations: movedTranslationIds.length + deletedTranslations.length,
+        } as Prisma.InputJsonValue,
       },
     });
+
+    return {
+      rollbackAction,
+      restoredStatus,
+      restoredCounts: {
+        sources: movedSourceRecordIds.length,
+        changes: movedIngestionChangeIds.length,
+        externalIdentities: movedExternalIdentityIds.length + deletedExternalIdentities.length,
+        translations: movedTranslationIds.length + deletedTranslations.length,
+      },
+    };
   });
 
   invalidatePublicCaches();
@@ -652,8 +918,14 @@ export async function rollbackLocationMerge(reviewActionId: string, actor: AuthU
     action: "LOCATION_MERGE_ROLLBACK",
     entityType: "Location",
     entityId: source.id,
-    metadata: { sourceId: source.id, targetId: target.id, reviewActionId },
+    metadata: {
+      sourceId: source.id,
+      targetId: target.id,
+      reviewActionId,
+      rollbackReviewActionId: result.rollbackAction.id,
+      restoredCounts: result.restoredCounts,
+    },
   });
 
-  return { ok: true as const, restoredStatus };
+  return { ok: true as const, result };
 }

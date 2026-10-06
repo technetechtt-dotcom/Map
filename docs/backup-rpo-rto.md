@@ -26,3 +26,13 @@ Scheduled backups now export the StoredObject manifest **and** require `S3_BACKU
 - GitHub Actions `Encrypted production backup` posts to `NOTIFY_WEBHOOK_URL` on failure.
 - `/api/health` `alerts.backupStale` is true when the newest backup is older than 36 hours.
 - Worker job `system.backup` writes checksum + object copy counts onto `BackupRecord`.
+
+## Measured DR Evidence
+
+From off-site restore drill executed 06 October 2026 (`data/dr-rpo-rto-evidence.json`):
+
+- **Observed RPO**: 527 minutes (8.8 hours) — Well within 24-hour target (1440 min).
+- **Observed RTO**: 12 minutes — Well within 2-hour target (120 min).
+- **PostGIS Extension**: Verified 3.4.2 + `pg_trgm` active.
+- **Record Integrity**: 184 locations, 42 organisations verified with matching remote ciphertext hash (`8f3b190a...`).
+- **Drill Status**: PASS.

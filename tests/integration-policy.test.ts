@@ -10,8 +10,8 @@ import {
 import { locationCreateSchema, submissionSchema } from "@/lib/validation";
 
 describe("public exposure policy constants", () => {
-  it("does not include draft statuses in public set", () => {
-    expect(PUBLIC_LOCATION_STATUSES).toEqual(["PUBLISHED", "VERIFIED"]);
+  it("does not include draft or unapproved statuses in public set (only PUBLISHED)", () => {
+    expect(PUBLIC_LOCATION_STATUSES).toEqual(["PUBLISHED"]);
   });
 
   it("defines strict submission enum", () => {

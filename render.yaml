@@ -53,6 +53,8 @@ envVarGroups:
         value: "0"
       - key: GEOCODER_DISABLED
         value: "0"
+      - key: REQUIRE_REVIEW_BEFORE_PUBLISH
+        value: "1"
 
 services:
   - type: web

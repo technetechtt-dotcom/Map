@@ -116,4 +116,4 @@ export function shapeLocation(loc: any, distanceKm?: number): PublicLocation {
   };
 }
 
-export const PUBLIC_STATUSES: RecordStatus[] = ["PUBLISHED", "VERIFIED"];
+export const PUBLIC_STATUSES: RecordStatus[] = ["PUBLISHED"];

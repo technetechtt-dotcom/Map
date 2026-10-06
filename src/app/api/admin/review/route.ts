@@ -57,9 +57,10 @@ export async function POST(req: NextRequest) {
   // 1. Rollback action
   if (action === "rollback") {
     const actionId = rollbackActionId || sourceId;
+    if (!actionId) return jsonError("rollbackActionId or sourceId is required for rollback", 400);
     const rolledBack = await rollbackLocationMerge(actionId, auth.user);
     if (!rolledBack.ok) return jsonError(rolledBack.error, rolledBack.status);
-    return jsonOk({ ok: true, rolledBack: true, status: rolledBack.restoredStatus });
+    return jsonOk({ ok: true, rolledBack: true, status: rolledBack.result.restoredStatus, review: rolledBack.result.rollbackAction, rollback: rolledBack.result });
   }
 
   // 2. Fetch source record & verify province tenancy
@@ -101,37 +102,10 @@ export async function POST(req: NextRequest) {
     return jsonOk({ review: mergeResult.result.reviewAction, moved: mergeResult.result.moved });
   }
 
-  // 5. Execute Split
+  // 5. Execute Split (real split only, fake split fallback removed)
   if (action === "split") {
-    if (!splitParams) {
-      // Backwards-compatible simple split if no full payload passed
-      const splitResult = await prisma.$transaction(async (tx) => {
-        await tx.location.update({
-          where: { id: source.id },
-          data: { canonicalKey: `${source.canonicalKey || source.slug}-split-${Date.now()}` },
-        });
-        return tx.entityReviewAction.create({
-          data: {
-            action: "split",
-            entityType: "location",
-            sourceId: source.id,
-            actorId: auth.user.id,
-            notes: notes || null,
-            beforeJson: { sourceSlug: source.slug },
-            afterJson: { action: "split-key-rotated" },
-          },
-        });
-      });
-      invalidatePublicCaches();
-      await writeAudit({
-        user: auth.user,
-        action: "LOCATION_SPLIT",
-        entityType: "Location",
-        entityId: source.id,
-        metadata: { sourceId, reviewId: splitResult.id },
-        ipAddress: clientIp(req),
-      });
-      return jsonOk({ review: splitResult });
+    if (!splitParams || !splitParams.name || typeof splitParams.latitude !== "number" || typeof splitParams.longitude !== "number") {
+      return jsonError("splitParams with name, latitude, and longitude are required for a split operation", 400);
     }
 
     const fullSplit = await executeLocationSplit(

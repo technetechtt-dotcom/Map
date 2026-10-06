@@ -116,6 +116,7 @@ describe("role / publish gates", () => {
     expect(coerceCreateStatus(orgAdmin, "PUBLISHED")).toBe("DRAFT");
   });
   it("public statuses exclude drafts", () => {
+    expect(PUBLIC_LOCATION_STATUSES).toEqual(["PUBLISHED"]);
     expect(PUBLIC_LOCATION_STATUSES).not.toContain("DRAFT");
     expect(PUBLIC_LOCATION_STATUSES).not.toContain("ARCHIVED");
   });

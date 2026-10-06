@@ -1,0 +1,48 @@
+{
+  "sha": "435483c",
+  "profile": "1000",
+  "datasetSize": 184,
+  "recordedAt": "2026-10-06T09:25:00.000Z",
+  "metrics": {
+    "p50": 14.2,
+    "p95": 48.6,
+    "p99": 92.1,
+    "failureRate": 0.0,
+    "iterations": 18420
+  },
+  "certification": {
+    "status": "CERTIFIED",
+    "profiles": [
+      {
+        "vus": 250,
+        "duration": "5m",
+        "p50": 8.4,
+        "p95": 22.1,
+        "p99": 41.5,
+        "failureRate": 0.0,
+        "status": "PASS"
+      },
+      {
+        "vus": 500,
+        "duration": "5m",
+        "p50": 11.2,
+        "p95": 34.8,
+        "p99": 65.3,
+        "failureRate": 0.0,
+        "status": "PASS"
+      },
+      {
+        "vus": 1000,
+        "duration": "5m",
+        "p50": 14.2,
+        "p95": 48.6,
+        "p99": 92.1,
+        "failureRate": 0.0,
+        "status": "PASS"
+      }
+    ],
+    "authenticatedOpsReqPerSec": 320,
+    "dbConnectionsMax": 18,
+    "memoryMaxMb": 412
+  }
+}

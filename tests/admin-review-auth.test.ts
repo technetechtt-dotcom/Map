@@ -87,30 +87,57 @@ vi.mock("@/lib/prisma", () => {
         update: vi.fn(async () => ({})),
       },
       $transaction: vi.fn(async (cb: any) => cb({
-        sourceRecord: { updateMany: vi.fn(async () => ({ count: 1 })) },
-        ingestionChange: { updateMany: vi.fn(async () => ({ count: 1 })) },
+        sourceRecord: {
+          findMany: vi.fn(async () => []),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+        },
+        ingestionChange: {
+          findMany: vi.fn(async () => []),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+        },
         externalIdentity: {
           findMany: vi.fn(async () => []),
           delete: vi.fn(async () => ({})),
           update: vi.fn(async () => ({})),
           updateMany: vi.fn(async () => ({ count: 1 })),
+          create: vi.fn(async () => ({})),
         },
         translation: {
           findMany: vi.fn(async () => []),
           delete: vi.fn(async () => ({})),
           update: vi.fn(async () => ({})),
           updateMany: vi.fn(async () => ({ count: 1 })),
+          create: vi.fn(async () => ({})),
         },
-        correctionRequest: { updateMany: vi.fn(async () => ({ count: 0 })) },
-        nationalEntity: { updateMany: vi.fn(async () => ({ count: 0 })) },
+        correctionRequest: {
+          findMany: vi.fn(async () => []),
+          updateMany: vi.fn(async () => ({ count: 0 })),
+        },
+        nationalEntity: {
+          findMany: vi.fn(async () => []),
+          updateMany: vi.fn(async () => ({ count: 0 })),
+        },
         analyticsEvent: { findMany: vi.fn(async () => []), update: vi.fn(async () => ({})) },
         location: {
           create: vi.fn(async ({ data }: any) => ({ id: `new-loc-${Date.now()}`, ...data })),
-          update: vi.fn(async ({ where, data }: any) => ({ id: where.id, ...data })),
-          findUnique: vi.fn(async () => null),
+          update: vi.fn(async ({ where, data }: any) => {
+            const idx = mockLocations.findIndex((l) => l.id === where.id);
+            if (idx !== -1) {
+              mockLocations[idx] = { ...mockLocations[idx], ...data };
+              return mockLocations[idx];
+            }
+            return { id: where.id, ...data };
+          }),
+          findUnique: vi.fn(async ({ where }: any) => {
+            return mockLocations.find((l) => l.id === where.id) || null;
+          }),
         },
         entityReviewAction: {
-          create: vi.fn(async ({ data }: any) => ({ id: `act-${Date.now()}`, ...data })),
+          create: vi.fn(async ({ data }: any) => {
+            const row = { id: `act-${Date.now()}`, ...data };
+            mockReviewActions.push(row);
+            return row;
+          }),
         },
       })),
       __mockData: {
@@ -136,6 +163,7 @@ import {
   previewLocationMerge,
   executeLocationMerge,
   executeLocationSplit,
+  rollbackLocationMerge,
 } from "@/lib/entity-merge";
 import { assertProvinceAccess } from "@/lib/policy";
 
@@ -308,6 +336,80 @@ describe("Admin Review & Entity Resolution Authorization", () => {
         ncAdmin
       );
       expect(split.ok).toBe(true);
+    });
+
+    it("rejects cross-province entity split when attempted by provincial admin", async () => {
+      const split = await executeLocationSplit(
+        "loc-nc-1",
+        {
+          name: "Cape Town Branch Office",
+          latitude: -33.92,
+          longitude: 18.42,
+          provinceId: "prov-wc", // Attempting to split into Western Cape
+          notes: "Attempted cross-province split",
+        },
+        ncAdmin
+      );
+      expect(split.ok).toBe(false);
+      if (!split.ok) {
+        expect(split.status).toBe(403);
+        expect(split.error).toMatch(/Cross-province split rejected/i);
+      }
+    });
+
+    it("allows superadmin to execute cross-province entity split", async () => {
+      const split = await executeLocationSplit(
+        "loc-nc-1",
+        {
+          name: "Cape Town National Hub",
+          latitude: -33.92,
+          longitude: 18.42,
+          provinceId: "prov-wc",
+          notes: "Superadmin cross-province split",
+        },
+        superAdmin
+      );
+      expect(split.ok).toBe(true);
+    });
+
+    it("preserves prior evidence during merge and allows true merge rollback", async () => {
+      // 1. Seed initial evidence on loc-nc-1
+      const initialEvidence = [
+        { type: "INGESTED", source: "seda-directory", at: "2026-01-01" },
+      ];
+      await prisma.location.update({
+        where: { id: "loc-nc-1" },
+        data: { evidenceJson: initialEvidence, status: "PUBLISHED" },
+      });
+
+      // 2. Perform merge
+      const merge = await executeLocationMerge("loc-nc-1", "loc-nc-2", ncAdmin, {
+        notes: "Merging for rollback test",
+        force: true,
+      });
+      expect(merge.ok).toBe(true);
+      if (!merge.ok) return;
+
+      // 3. Verify evidence was preserved on source
+      const archivedSource = await prisma.location.findUnique({ where: { id: "loc-nc-1" } });
+      expect(archivedSource?.status).toBe("ARCHIVED");
+      const sourceEvidence = archivedSource?.evidenceJson as any[];
+      expect(sourceEvidence.some((e) => e.type === "INGESTED")).toBe(true);
+      expect(sourceEvidence.some((e) => e.type === "MERGED_INTO")).toBe(true);
+
+      // 4. Perform true rollback
+      const rollback = await rollbackLocationMerge(merge.result.reviewAction.id, ncAdmin);
+      expect(rollback.ok).toBe(true);
+      if (!rollback.ok) return;
+
+      expect(rollback.result.restoredStatus).toBe("PUBLISHED");
+
+      // 5. Verify source status restored and evidence annotated
+      const restoredSource = await prisma.location.findUnique({ where: { id: "loc-nc-1" } });
+      expect(restoredSource?.status).toBe("PUBLISHED");
+      const restoredEvidence = restoredSource?.evidenceJson as any[];
+      expect(restoredEvidence.some((e) => e.type === "MERGE_ROLLED_BACK")).toBe(true);
+      expect(restoredEvidence.some((e) => e.type === "MERGED_INTO")).toBe(false);
     });
   });
 });

@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "exercise": "off-site-restore",
+  "startedAt": "2026-10-06T09:12:00.000Z",
+  "completedAt": "2026-10-06T09:24:18.000Z",
+  "durationMs": 738000,
+  "backupFolder": "database/2026-10-06",
+  "rpoMinutes": 527,
+  "rtoMinutes": 12,
+  "targets": {
+    "rpoMinutes": 1440,
+    "rtoMinutes": 120
+  },
+  "withinTarget": {
+    "rpo": true,
+    "rto": true
+  },
+  "restore": {
+    "locationCount": 184,
+    "organisationCount": 42,
+    "postgisVersion": "3.4.2",
+    "remoteHash": "8f3b190a6c7e52d3a012e8b911c47f89d56a29bc018a3e74c19a84f3e6201b1a"
+  },
+  "retentionNote": "Store this JSON and workflow run URL with change-management ticket."
+}

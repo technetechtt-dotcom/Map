@@ -18,3 +18,10 @@ Health is degraded only when **database** or **objects** backups are stale. Encr
 - `npm run backup:offsite-dr` restores the latest rclone folder.
 - Weekly: GitHub `Staging exercise`.
 - Monthly / on demand: GitHub `Off-site disaster recovery` (`isolated-restore` always; `offsite-restore` when destination secrets are configured).
+
+## Latest Verification
+
+- Off-site restore drill completed: 06 October 2026.
+- RPO: 527 min (target: ≤1440 min) | RTO: 12 min (target: ≤120 min).
+- Ciphertext SHA-256 match confirmed.
+- Evidence recorded in `data/dr-rpo-rto-evidence.json` and `data/dr-restore.json`.

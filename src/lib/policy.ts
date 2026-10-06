@@ -28,7 +28,7 @@ export type AuthUser = {
   active?: boolean;
 };
 
-export const PUBLIC_LOCATION_STATUSES: RecordStatus[] = ["PUBLISHED", "VERIFIED"];
+export const PUBLIC_LOCATION_STATUSES: RecordStatus[] = ["PUBLISHED"];
 export const PUBLIC_ORG_STATUSES: RecordStatus[] = ["PUBLISHED"];
 
 export const PUBLISHABLE_STATUSES: RecordStatus[] = [
