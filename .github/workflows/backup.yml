@@ -42,6 +42,7 @@ jobs:
       S3_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET_ACCESS_KEY }}
       PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
