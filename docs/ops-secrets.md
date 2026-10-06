@@ -34,20 +34,19 @@ Optional: `NEON_API_KEY` + `NEON_PROJECT_ID` (creates a daily Neon PITR branch e
 
 One of:
 
-- `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, or
-- `PRODUCTION_DEPLOY_HOOK`
+- `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (Vercel production deployments)
+- `PRODUCTION_DEPLOY_HOOK` and `OPS_DEPLOY_HOOK` (Render triggered deploy hooks)
+- `RENDER_API_KEY`, `RENDER_PRODUCTION_SERVICE_ID`, and `RENDER_OPS_SERVICE_ID` (Render authenticated API deployments)
 
 Always:
 
 - `PRODUCTION_APP_URL`
 - `OPS_APP_URL`
-- `METRICS_TOKEN` or `CRON_SECRET` (must match Vercel runtime)
+- `METRICS_TOKEN` or `CRON_SECRET` (must match runtime tokens)
 
-For the existing Render services, set `RENDER_AUTO_DEPLOY=1`. A push deploys both
-services through Render; Production Gate then waits for and verifies the exact SHA
-on both origins. This mode never reports that the workflow itself triggered a deploy.
+Automatic deployments (`autoDeploy: true` or `RENDER_AUTO_DEPLOY=1`) are disabled to ensure all production deployments are coordinated by GitHub Production Gate after database migrations succeed.
 
-`CRON_SECRET` on GitHub and Vercel must be identical so backup health recording and post-deploy SHA proof both work.
+`CRON_SECRET` on GitHub and production services must be identical so backup health recording and post-deploy SHA proof both work.
 
 For the current Render deployment, `.env.render` is the local source sheet for
 the runtime tokens. Synchronise only those two values without copying placeholder

@@ -2,7 +2,7 @@
 
 ## Live dataset reality
 
-- Primary published locations are **9** Northern Cape presentation towns (desktop-verified) plus **30** national directory pins.
+- Primary published locations are **9** Northern Cape presentation towns (desktop-verified) plus **94** national directory pins (30 core directory scaffold + 64 connector pins).
 - **49** PDF organisations sit in the directory.
 - `data/NC_ICT_Locations_Full.csv` is **candidate** inventory — not automatic live truth. Do not claim 100+ locations.
 - Many organisations use **town-centre** coordinates until field/official verification.

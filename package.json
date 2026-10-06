@@ -56,6 +56,7 @@
     "ops:launch-cert": "node scripts/run-launch-certification.js",
     "ops:migrate-prod": "node scripts/production-migrate-smoke.js",
     "connectors:run": "node scripts/connectors/run.js",
+    "catalogue:check": "node scripts/reconcile-catalogue-counts.js",
     "i18n:audit": "node scripts/i18n-audit.js",
     "staging:load-cert": "node scripts/staging-load-certification.js",
     "neon:verify": "node scripts/neon-verify.js",
@@ -124,6 +125,6 @@
     "js-yaml": "^4.3.2",
     "source-map-js": "^1.2.2",
     "tinypool": "^2.2.0",
-    "braces": "github:scastillo-jp/braces-fork#main"
+    "braces": "github:scastillo-jp/braces-fork#2834dadbad8a79487a79eeb0aeaefb08c439893f"
   }
 }

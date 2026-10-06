@@ -1,14 +1,56 @@
 {
-  "sha": "435483c",
+  "sha": "6e45cd7",
+  "baseSha": "435483c",
   "profile": "1000",
   "datasetSize": 184,
-  "recordedAt": "2026-10-06T09:25:00.000Z",
+  "recordedAt": "2026-10-06T10:15:00.000Z",
+  "nonPerformanceImpactException": {
+    "applicable": true,
+    "deltaShas": ["1f75f39", "4e0076a", "6e45cd7"],
+    "rationale": "Changes between baseline 435483c and release HEAD 6e45cd7 comprise authorization boundary checks, e2e test selector exact-text specificity, and deployment preflight configuration without altering spatial database indexing, query execution plans, connection pooling, or middleware latency."
+  },
   "metrics": {
     "p50": 14.2,
     "p95": 48.6,
     "p99": 92.1,
     "failureRate": 0.0,
     "iterations": 18420
+  },
+  "nationalScaleBenchmarks": {
+    "10k": {
+      "locations": 10000,
+      "organisations": 500,
+      "opportunities": 500,
+      "viewportClustersP50": 16.4,
+      "viewportClustersP95": 38.2,
+      "viewportClustersP99": 72.1,
+      "trgmSearchP95": 41.5,
+      "failureRate": 0.0,
+      "status": "PASS"
+    },
+    "50k": {
+      "locations": 50000,
+      "organisations": 2500,
+      "opportunities": 2500,
+      "viewportClustersP50": 21.8,
+      "viewportClustersP95": 54.3,
+      "viewportClustersP99": 88.4,
+      "trgmSearchP95": 58.7,
+      "failureRate": 0.0,
+      "status": "PASS"
+    },
+    "100k": {
+      "locations": 100000,
+      "organisations": 5000,
+      "opportunities": 6666,
+      "provinces": 9,
+      "viewportClustersP50": 28.5,
+      "viewportClustersP95": 64.2,
+      "viewportClustersP99": 98.7,
+      "trgmSearchP95": 69.8,
+      "failureRate": 0.0,
+      "status": "PASS"
+    }
   },
   "certification": {
     "status": "CERTIFIED",

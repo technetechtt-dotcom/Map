@@ -96,10 +96,13 @@ jobs:
           PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
           OPS_APP_URL: ${{ secrets.OPS_APP_URL }}
           PRODUCTION_DEPLOY_HOOK: ${{ secrets.PRODUCTION_DEPLOY_HOOK }}
+          OPS_DEPLOY_HOOK: ${{ secrets.OPS_DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_PRODUCTION_SERVICE_ID: ${{ secrets.RENDER_PRODUCTION_SERVICE_ID }}
+          RENDER_OPS_SERVICE_ID: ${{ secrets.RENDER_OPS_SERVICE_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          RENDER_AUTO_DEPLOY: ${{ secrets.RENDER_AUTO_DEPLOY }}
           METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: node scripts/ops-preflight.js deploy
@@ -110,11 +113,13 @@ jobs:
           GITHUB_SHA: ${{ needs.certify.outputs.sha }}
           PRODUCTION_DEPLOY_HOOK: ${{ secrets.PRODUCTION_DEPLOY_HOOK }}
           OPS_DEPLOY_HOOK: ${{ secrets.OPS_DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_PRODUCTION_SERVICE_ID: ${{ secrets.RENDER_PRODUCTION_SERVICE_ID }}
+          RENDER_OPS_SERVICE_ID: ${{ secrets.RENDER_OPS_SERVICE_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_OPS_PROJECT_ID: ${{ secrets.VERCEL_OPS_PROJECT_ID }}
-          RENDER_AUTO_DEPLOY: ${{ secrets.RENDER_AUTO_DEPLOY }}
           PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
           OPS_APP_URL: ${{ secrets.OPS_APP_URL }}
           METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
@@ -122,7 +127,7 @@ jobs:
         run: node scripts/deploy-both-platforms.js
 
       - name: Verify live public SHA
-        if: always()
+        if: success()
         env:
           PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
@@ -131,7 +136,7 @@ jobs:
         run: node scripts/post-deploy-verify.js
 
       - name: Verify live ops SHA
-        if: always()
+        if: success()
         env:
           PRODUCTION_APP_URL: ${{ secrets.OPS_APP_URL }}
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}

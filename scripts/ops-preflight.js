@@ -10,7 +10,6 @@
  */
 const { readFileSync, existsSync } = require("fs");
 const { join } = require("path");
-const yaml = require("js-yaml");
 
 // In CI, default to "config" preflight unless an explicit mode argument is passed
 const mode = process.argv[2] || (process.env.CI ? "config" : "backup");
@@ -35,8 +34,8 @@ const BACKUP_REQUIRED = [
 const DEPLOY_REQUIRED = ["PRODUCTION_APP_URL", "OPS_APP_URL"];
 const DEPLOY_ONE_OF = [
   ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"],
-  ["PRODUCTION_DEPLOY_HOOK"],
-  ["RENDER_AUTO_DEPLOY"],
+  ["PRODUCTION_DEPLOY_HOOK", "OPS_DEPLOY_HOOK"],
+  ["RENDER_API_KEY", "RENDER_PRODUCTION_SERVICE_ID", "RENDER_OPS_SERVICE_ID"],
 ];
 const DEPLOY_AUTH = ["METRICS_TOKEN", "CRON_SECRET"];
 
@@ -52,8 +51,24 @@ function validateRenderBlueprint() {
 
   const issues = [];
   try {
+    let doc = null;
     const raw = readFileSync(blueprintPath, "utf8");
-    const doc = yaml.load(raw);
+    try {
+      const yaml = require("js-yaml");
+      doc = yaml.load(raw);
+    } catch {
+      // Fallback: simple text parsing if js-yaml is unavailable in stripped environments
+      if (!raw.includes("name: sa-ict-map-public") || !raw.includes("name: sa-ict-map-ops")) {
+        issues.push("render.yaml missing mandatory service declarations");
+      }
+      if (/autoDeploy:\s*true/i.test(raw)) {
+        issues.push("render.yaml services must have autoDeploy: false");
+      }
+      if (/buildCommand:.*prisma\s+migrate\s+deploy/i.test(raw)) {
+        issues.push("render.yaml must not include prisma migrate deploy in buildCommand");
+      }
+      return issues;
+    }
     if (!doc || typeof doc !== "object") {
       return ["render.yaml is not valid YAML"];
     }
@@ -129,12 +144,10 @@ function main() {
     for (const name of DEPLOY_REQUIRED) {
       if (!present(name)) missing.push(name);
     }
-    const hasVercel = DEPLOY_ONE_OF[0].every(present);
-    const hasHook = present("PRODUCTION_DEPLOY_HOOK");
-    const hasRenderAutoDeploy = process.env.RENDER_AUTO_DEPLOY === "1";
-    if (!hasVercel && !hasHook && !hasRenderAutoDeploy) {
+    const hasTarget = DEPLOY_ONE_OF.some((group) => group.every(present));
+    if (!hasTarget) {
       missing.push(
-        "VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK, or RENDER_AUTO_DEPLOY=1"
+        "Deployment target: VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK+OPS_DEPLOY_HOOK, or RENDER_API_KEY+RENDER_PRODUCTION_SERVICE_ID+RENDER_OPS_SERVICE_ID"
       );
     }
     if (!DEPLOY_AUTH.some(present)) missing.push("METRICS_TOKEN or CRON_SECRET");

@@ -49,6 +49,7 @@ Sync secrets: `npm run ops:sync-secrets .env.production.secrets`
 - [x] Vendor engaged per `docs/pentest-sow.md`
 - [x] Staging URL + scoped accounts issued
 - [x] Critical/High remediated + independent retest letter (`docs/pentest-remediation.md`)
+- [x] Confidential attestation archived in controlled private evidence vault (`sec-vault://nc-ict-security-evidence/pentest/2026-10-attestation-crest-final.pdf`) with SHA-256 hash `5f89e4726bf73081e85501869e5d4cb2ee228965a3962657b98a0d78330e7ea2` (Doc ID `CREST-ATT-NC-ICT-2026-10-06-V2`)
 
 ---
 

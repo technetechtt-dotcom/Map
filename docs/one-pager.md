@@ -20,7 +20,7 @@ Programme leads and provincial desks cannot see a single current picture of who 
 |-----------|------:|---------|
 | Curated Northern Cape towns | 9 | Desktop-verified, town-centre coordinates |
 | PDF organisations / contacts | 49 | Sourced from the mLab NC presentation |
-| National public-directory pins | 30 | Scaffold across nine provinces, not field-verified |
+| National public-directory pins | 94 | Scaffold across nine provinces, not field-verified |
 
 A larger candidate spreadsheet exists for research. It is **not** loaded. Do not claim 100+ verified locations.
 

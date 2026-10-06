@@ -230,12 +230,29 @@ export async function executeLocationMerge(
   if (!preview.ok) {
     return { ok: false as const, error: preview.error, status: preview.status };
   }
-  if (!preview.canMerge && !options?.force) {
-    const errorMessages = preview.conflicts
-      .filter((c) => c.severity === "error")
-      .map((c) => c.message)
-      .join("; ");
-    return { ok: false as const, error: `Merge blocked by conflicts: ${errorMessages}`, status: 400 };
+
+  // Structural hard errors (e.g. PROVINCE_MISMATCH, cross-tenant boundary violations)
+  // are non-overridable even when force: true is provided.
+  const blockingErrors = preview.conflicts.filter((c) => c.severity === "error");
+  if (blockingErrors.length > 0) {
+    const errorMessages = blockingErrors.map((c) => c.message).join("; ");
+    return {
+      ok: false as const,
+      error: `Merge blocked by non-overridable structural errors: ${errorMessages}`,
+      status: 400,
+    };
+  }
+
+  // Warnings (e.g. distinct canonical keys, distinct organisation assignments, or connector collisions)
+  // require explicit force: true confirmation to proceed.
+  const warnings = preview.conflicts.filter((c) => c.severity === "warning");
+  if (warnings.length > 0 && !options?.force) {
+    const warningMessages = warnings.map((c) => c.message).join("; ");
+    return {
+      ok: false as const,
+      error: `Merge requires explicit confirmation to override warnings: ${warningMessages}`,
+      status: 400,
+    };
   }
 
   const { source, target } = preview;
@@ -348,24 +365,10 @@ export async function executeLocationMerge(
       });
     }
 
-    // 7. Preserve AnalyticsEvents with historical metadata
-    const historicalEvents = await tx.analyticsEvent.findMany({
-      where: { locationId: source.id },
-      take: 200,
-    });
-    for (const evt of historicalEvents) {
-      const currentMeta = (evt.metadataJson && typeof evt.metadataJson === "object" ? evt.metadataJson : {}) as Record<string, unknown>;
-      await tx.analyticsEvent.update({
-        where: { id: evt.id },
-        data: {
-          metadataJson: {
-            ...currentMeta,
-            mergedIntoLocationId: target.id,
-            mergedIntoSlug: target.slug,
-          },
-        },
-      });
-    }
+    // 7. Analytics provenance:
+    // Historical AnalyticsEvents remain immutable and completely untouched to prevent OLTP lock escalation.
+    // Downstream analytics reporting and dashboard aggregation resolve location aliases and redirects
+    // dynamically via EntityReviewAction provenance and Location evidenceJson records.
 
     // Fetch full source and target inside transaction
     const fullSource = await tx.location.findUnique({ where: { id: source.id } });
@@ -528,6 +531,7 @@ export type LocationSplitParams = {
   provinceId?: string;
   districtId?: string | null;
   municipalityId?: string | null;
+  coordQuality?: string;
   sourceRecordIds?: string[];
   externalIdentityIds?: string[];
   translationIds?: string[];
@@ -590,8 +594,49 @@ export async function executeLocationSplit(
   const provinceId = targetProvinceId;
   const categoryId = params.categoryId || source.categoryId;
 
+  // Validate lower-level geography (province -> district -> municipality)
+  // When splitting across provincial boundaries or supplying new geography,
+  // automatically clear incompatible lower-level geography to prevent cross-province mismatches.
+  let resolvedDistrictId: string | null =
+    params.districtId !== undefined
+      ? params.districtId
+      : params.provinceId && params.provinceId !== source.provinceId
+      ? null
+      : source.districtId;
+
+  if (resolvedDistrictId) {
+    const districtRecord = await prisma.district.findUnique({
+      where: { id: resolvedDistrictId },
+      select: { id: true, provinceId: true },
+    });
+    if (!districtRecord || districtRecord.provinceId !== targetProvinceId) {
+      resolvedDistrictId = null;
+    }
+  }
+
+  let resolvedMunicipalityId: string | null =
+    params.municipalityId !== undefined
+      ? params.municipalityId
+      : params.provinceId && params.provinceId !== source.provinceId
+      ? null
+      : source.municipalityId;
+
+  if (resolvedMunicipalityId) {
+    const municipalityRecord = await prisma.municipality.findUnique({
+      where: { id: resolvedMunicipalityId },
+      select: { id: true, districtId: true, district: { select: { provinceId: true } } },
+    });
+    if (
+      !municipalityRecord ||
+      municipalityRecord.district?.provinceId !== targetProvinceId ||
+      (resolvedDistrictId && municipalityRecord.districtId !== resolvedDistrictId)
+    ) {
+      resolvedMunicipalityId = null;
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Create the newly split location entity
+    // 1. Create the newly split location entity (defaulting to estimated coordinates until verified)
     const newLocation = await tx.location.create({
       data: {
         slug: newSlug,
@@ -602,10 +647,10 @@ export async function executeLocationSplit(
         longitude: params.longitude,
         categoryId,
         provinceId,
-        districtId: params.districtId !== undefined ? params.districtId : source.districtId,
-        municipalityId: params.municipalityId !== undefined ? params.municipalityId : source.municipalityId,
+        districtId: resolvedDistrictId,
+        municipalityId: resolvedMunicipalityId,
         status: "DRAFT",
-        coordQuality: "verified",
+        coordQuality: params.coordQuality || "estimated",
         canonicalKey: `${newSlug}-split-${Date.now()}`,
         evidenceJson: [
           {

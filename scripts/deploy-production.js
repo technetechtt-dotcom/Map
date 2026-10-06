@@ -81,17 +81,21 @@ async function main() {
       signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) throw new Error(`deploy hook ${res.status}`);
-  } else if (process.env.RENDER_AUTO_DEPLOY === "1") {
-    console.log(
-      JSON.stringify({
-        deployment: "render-auto-deploy",
-        action: "verify-existing-commit-triggered-deployment",
-        sha,
-      })
-    );
+  } else if (process.env.RENDER_API_KEY && (process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID)) {
+    const serviceId = process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID;
+    const res = await fetch(`https://api.render.com/v1/services/${serviceId}/deploys`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RENDER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ clearCache: "do_not_clear" }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`Render API deploy failed with status ${res.status}`);
   } else {
     console.error(
-      "Set Vercel deploy tokens, PRODUCTION_DEPLOY_HOOK, or RENDER_AUTO_DEPLOY=1"
+      "Set Vercel deploy tokens, deploy hooks (PRODUCTION_DEPLOY_HOOK + OPS_DEPLOY_HOOK), or Render API credentials (RENDER_API_KEY + service IDs)"
     );
     process.exit(1);
   }

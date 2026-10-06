@@ -73,6 +73,18 @@ vi.mock("@/lib/prisma", () => {
         delete: vi.fn(async () => ({})),
         update: vi.fn(async () => ({})),
       },
+      district: {
+        findUnique: vi.fn(async ({ where }: any) => {
+          if (where.id === "dist-nc-1") return { id: "dist-nc-1", provinceId: "prov-nc" };
+          return null;
+        }),
+      },
+      municipality: {
+        findUnique: vi.fn(async ({ where }: any) => {
+          if (where.id === "mun-nc-1") return { id: "mun-nc-1", districtId: "dist-nc-1", district: { provinceId: "prov-nc" } };
+          return null;
+        }),
+      },
       correctionRequest: {
         count: vi.fn(async () => 0),
         updateMany: vi.fn(async () => ({ count: 0 })),
@@ -210,6 +222,8 @@ describe("Admin Review & Entity Resolution Authorization", () => {
         name: "Upington Hub",
         status: "DRAFT",
         provinceId: "prov-nc",
+        districtId: "dist-nc-1",
+        municipalityId: "mun-nc-1",
         organisationId: "org-1",
         canonicalKey: "nc-upington-1",
         sources: [],
@@ -370,6 +384,38 @@ describe("Admin Review & Entity Resolution Authorization", () => {
         superAdmin
       );
       expect(split.ok).toBe(true);
+    });
+
+    it("automatically clears incompatible lower-level geography and defaults coordQuality to estimated on split", async () => {
+      const split = await executeLocationSplit(
+        "loc-nc-1",
+        {
+          name: "Free State Branch Office",
+          latitude: -29.12,
+          longitude: 26.22,
+          provinceId: "prov-fs", // cross-province split without explicit district/mun
+          notes: "Superadmin cross-province split to Free State",
+        },
+        superAdmin
+      );
+      expect(split.ok).toBe(true);
+      if (split.ok) {
+        expect(split.result.newLocation.coordQuality).toBe("estimated");
+        expect(split.result.newLocation.districtId).toBeNull();
+        expect(split.result.newLocation.municipalityId).toBeNull();
+      }
+    });
+
+    it("blocks merge with PROVINCE_MISMATCH even if force: true is passed", async () => {
+      const merge = await executeLocationMerge("loc-nc-1", "loc-wc-1", superAdmin, {
+        notes: "Attempted cross-province merge override",
+        force: true,
+      });
+      expect(merge.ok).toBe(false);
+      if (!merge.ok) {
+        expect(merge.status).toBe(400);
+        expect(merge.error).toMatch(/non-overridable structural errors/i);
+      }
     });
 
     it("preserves prior evidence during merge and allows true merge rollback", async () => {
