@@ -74,13 +74,23 @@ async function main() {
       process.exit(1);
     }
   } else if (hook) {
-    const res = await fetch(hook, {
+    let deployUrl = hook;
+    if (sha && !deployUrl.includes("ref=")) {
+      const sep = deployUrl.includes("?") ? "&" : "?";
+      deployUrl = `${deployUrl}${sep}ref=${encodeURIComponent(sha)}`;
+    }
+    const res = await fetch(deployUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sha, ref: sha }),
       signal: AbortSignal.timeout(30000),
     });
-    if (!res.ok) throw new Error(`deploy hook ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `deploy hook responded with HTTP ${res.status}: ${body || "(empty)"}. Ensure PRODUCTION_DEPLOY_HOOK and OPS_DEPLOY_HOOK match real Render service hook URLs.`
+      );
+    }
   } else if (process.env.RENDER_API_KEY && (process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID)) {
     const serviceId = process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID;
     const res = await fetch(`https://api.render.com/v1/services/${serviceId}/deploys`, {
