@@ -65,6 +65,9 @@ jobs:
           curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
           sudo unzip -o /tmp/rclone.zip -d /tmp
           sudo cp /tmp/rclone-*-linux-amd64/rclone /usr/local/bin/rclone
+          mkdir -p "$HOME/.config/rclone"
+          printf '%s' "$RCLONE_CONFIG" > "$HOME/.config/rclone/rclone.conf"
+          echo "RCLONE_CONFIG=$HOME/.config/rclone/rclone.conf" >> $GITHUB_ENV
           rclone version
           pg_dump --version
       - name: Dump and encrypt database
