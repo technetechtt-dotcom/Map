@@ -43,8 +43,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   );
   if (!assignment.ok) return jsonError(assignment.reason, 403);
 
-  if (body.status) {
-    const statusCheck = assertStatusChange(auth.user, String(body.status));
+  if (body.status && body.status !== existing.status) {
+    const statusCheck = assertStatusChange(auth.user, String(body.status), existing.status);
     if (!statusCheck.ok) return jsonError(statusCheck.reason, 403);
     if (body.status === "PUBLISHED" && !canPublish(auth.user)) {
       return jsonError("Only provincial or super administrators may publish ecosystem items", 403);

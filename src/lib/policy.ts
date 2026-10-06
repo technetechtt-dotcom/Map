@@ -401,6 +401,7 @@ export function assertStatusChange(
   previousStatus?: string
 ): PolicyResult & { status?: string } {
   if (!nextStatus || nextStatus === previousStatus) return { ok: true, status: nextStatus };
+  if (!previousStatus && nextStatus === "DRAFT") return { ok: true, status: nextStatus };
   if (!PUBLISHABLE_STATUSES.includes(nextStatus as LocationStatus)) {
     return { ok: false, reason: "Invalid status" };
   }

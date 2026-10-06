@@ -67,8 +67,10 @@ export async function POST(req: NextRequest) {
   }
 
   const status = coerceCreateStatus(auth.user, body.status as string | undefined);
-  const statusCheck = assertStatusChange(auth.user, status);
-  if (!statusCheck.ok) return jsonError(statusCheck.reason, 403);
+  if (status !== "DRAFT") {
+    const statusCheck = assertStatusChange(auth.user, status, "DRAFT");
+    if (!statusCheck.ok) return jsonError(statusCheck.reason, 403);
+  }
 
   const provinceId = (body.provinceId as string) || auth.user.provinceId || null;
   const organisationId = (body.organisationId as string) || auth.user.organisationId || null;
