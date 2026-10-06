@@ -54,7 +54,10 @@ jobs:
       - name: Install dump and rclone tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client unzip
+          sudo apt-get install -y postgresql-common ca-certificates unzip
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y || true
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18 || sudo apt-get install -y -qq postgresql-client
           curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
           sudo unzip -o /tmp/rclone.zip -d /tmp
           sudo cp /tmp/rclone-*-linux-amd64/rclone /usr/local/bin/rclone

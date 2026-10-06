@@ -151,7 +151,14 @@ jobs:
           exit 1
       - name: PostgreSQL client
         if: steps.offsite.outputs.configured == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y || true
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18 || sudo apt-get install -y -qq postgresql-client
+          psql --version
+          pg_restore --version
       - name: Restore latest off-site dump and record RPO/RTO
         if: steps.offsite.outputs.configured == 'true'
         run: node scripts/record-dr-rpo-rto.js
