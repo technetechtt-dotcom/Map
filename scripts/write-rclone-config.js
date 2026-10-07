@@ -61,25 +61,27 @@ async function probe(built) {
   try {
     await client.send(new HeadBucketCommand({ Bucket: built.bucket }));
   } catch (error) {
-    const name = error?.name || error?.Code || "";
+    const name = error?.name || "";
+    const code = error?.Code || error?.code || "";
     const message = error instanceof Error ? error.message : String(error);
-    const blob = `${name} ${message}`;
+    const http = error?.$metadata?.httpStatusCode;
+    const blob = `${name} ${code} ${message} ${http || ""}`;
     if (/NotFound|NoSuchBucket|404/i.test(blob)) {
       await client.send(new CreateBucketCommand({ Bucket: built.bucket }));
       return;
     }
-    if (/InvalidAccessKeyId|SignatureDoesNotMatch|InvalidClientTokenId|UnrecognizedClientException/i.test(blob)) {
-      console.error(
-        JSON.stringify({
-          ok: false,
-          error: "S3 backup credentials are invalid",
-          code: name || "Unknown",
-          hint: "Replace S3_BACKUP_ACCESS_KEY_ID / S3_BACKUP_SECRET_ACCESS_KEY with a live IAM user that can PutObject on S3_BACKUP_BUCKET. Do not reuse RCLONE_CONFIG blobs that previously returned InvalidAccessKeyId.",
-        })
-      );
-      process.exit(1);
-    }
-    console.warn(JSON.stringify({ ok: true, warn: "HeadBucket skipped", code: name || "Unknown" }));
+    console.error(
+      JSON.stringify({
+        ok: false,
+        error: "S3 backup credentials failed HeadBucket",
+        name: name || "Unknown",
+        code: code || "Unknown",
+        http: http || null,
+        message: message.slice(0, 240),
+        hint: "Replace S3_BACKUP_ACCESS_KEY_ID / S3_BACKUP_SECRET_ACCESS_KEY with a live IAM user that can PutObject on S3_BACKUP_BUCKET. If the keys are for R2/MinIO, set S3_BACKUP_ENDPOINT too.",
+      })
+    );
+    process.exit(1);
   }
 }
 
