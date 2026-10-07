@@ -3,7 +3,8 @@
 const { spawnSync } = require("child_process");
 const { join } = require("path");
 
-const profiles = ["250", "500", "1000"];
+const profiles =
+  process.env.STAGING_FULL_LADDER === "1" ? ["250", "500", "1000"] : ["250"];
 const base = process.env.STAGING_BASE_URL || process.env.BASE_URL || "http://127.0.0.1:3000";
 const ops = process.env.OPS_APP_URL || "http://127.0.0.1:3001";
 

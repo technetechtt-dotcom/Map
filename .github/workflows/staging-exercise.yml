@@ -102,7 +102,7 @@ jobs:
           BASE_URL: ${{ env.STAGING_BASE_URL }}
           LOAD_PROFILE: ci
         run: npm run load:national
-      - name: Certified staging load (250/500/1000 VUs + authenticated)
+      - name: Certified staging load (250 VUs + authenticated; set STAGING_FULL_LADDER=1 for 500/1000)
         env:
           STAGING_BASE_URL: ${{ env.STAGING_BASE_URL }}
           OPS_APP_URL: ${{ env.OPS_STAGING_BASE_URL }}
