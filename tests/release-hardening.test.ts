@@ -141,6 +141,35 @@ describe("security scanners", () => {
     expect(src).toMatch(/Do not allowlist framework packages/);
   });
 
+  it("fails closed on missing live SHA and never treats deploy-hook 404 as success", () => {
+    const verify = readFileSync(path.join(process.cwd(), "scripts/post-deploy-verify.js"), "utf8");
+    const deploy = readFileSync(path.join(process.cwd(), "scripts/deploy-production.js"), "utf8");
+    const live = readFileSync(path.join(process.cwd(), "src/app/api/health/live/route.ts"), "utf8");
+    expect(verify).toContain("deployed SHA is missing");
+    expect(verify).toContain("deployed sha ${deployedSha} != certified ${expectedSha}");
+    expect(deploy).toContain("Live origin health is not a substitute");
+    expect(deploy).not.toMatch(/res\.status === 404[\s\S]*continue/);
+    expect(live).toContain("sha: deployedSha()");
+  });
+
+  it("rebuilds rclone.conf from S3 backup keys instead of printf of a stale blob", () => {
+    const backup = readFileSync(path.join(process.cwd(), ".github/workflows/backup.yml"), "utf8");
+    const dr = readFileSync(path.join(process.cwd(), ".github/workflows/offsite-dr.yml"), "utf8");
+    expect(backup).toContain("node scripts/write-rclone-config.js");
+    expect(dr).toContain("node scripts/write-rclone-config.js");
+    expect(dr).not.toMatch(/printf '%s' "\$RCLONE_CONFIG"/);
+  });
+
+  it("secures ops alerts and fails launch-cert when any step including env audit fails", () => {
+    const alerts = readFileSync(path.join(process.cwd(), "src/app/api/admin/ops/alerts/route.ts"), "utf8");
+    const cert = readFileSync(path.join(process.cwd(), "scripts/run-launch-certification.js"), "utf8");
+    const notify = readFileSync(path.join(process.cwd(), ".github/workflows/backup.yml"), "utf8");
+    expect(alerts).toContain("authorizeAlertRequest");
+    expect(cert).toContain("process.exit(ok ? 0 : 1)");
+    expect(cert).toContain('run("audit-production-env"');
+    expect(notify).toContain("x-cron-secret: $CRON_SECRET");
+  });
+
   it("does not pass backup keys on the gpg argv", () => {
     const dr = readFileSync(path.join(process.cwd(), "scripts/disaster-recovery-smoke.js"), "utf8");
     const offsite = readFileSync(path.join(process.cwd(), "scripts/offsite-restore-exercise.js"), "utf8");

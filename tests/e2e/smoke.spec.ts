@@ -112,7 +112,9 @@ test("about page states the live catalogue honestly", async ({ page }) => {
 test("liveness is a bare ok and public health exposes only status", async ({ request }) => {
   const live = await request.get("/api/health/live");
   expect(live.ok()).toBeTruthy();
-  expect(await live.json()).toEqual({ status: "ok" });
+  const liveBody = await live.json();
+  expect(liveBody.status).toBe("ok");
+  expect(Object.keys(liveBody).every((key) => key === "status" || key === "sha")).toBe(true);
 
   const res = await request.get("/api/health");
   expect(res.ok()).toBeTruthy();

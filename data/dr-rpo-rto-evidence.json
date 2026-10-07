@@ -1,33 +1,12 @@
 {
-  "ok": true,
+  "ok": false,
+  "invalidated": true,
   "exercise": "off-site-restore",
+  "reason": "Prior committed evidence cited failed workflow runs 37448685391 and 37448672776. This file is a placeholder until Off-site disaster recovery completes successfully on current main.",
   "workflow": {
-    "runId": "37448685391",
-    "runUrl": "https://github.com/technetechtt-dotcom/Map/actions/runs/37448685391",
-    "sha": "6e45cd7",
-    "backupRunId": "37448672776"
-  },
-  "backupId": "database/2026-10-06",
-  "backupHash": "8f3b190a6c7e52d3a012e8b911c47f89d56a29bc018a3e74c19a84f3e6201b1a",
-  "startedAt": "2026-10-06T09:12:00.000Z",
-  "completedAt": "2026-10-06T09:24:18.000Z",
-  "durationMs": 738000,
-  "backupFolder": "database/2026-10-06",
-  "rpoMinutes": 527,
-  "rtoMinutes": 12,
-  "targets": {
-    "rpoMinutes": 1440,
-    "rtoMinutes": 120
-  },
-  "withinTarget": {
-    "rpo": true,
-    "rto": true
-  },
-  "restore": {
-    "locationCount": 184,
-    "organisationCount": 42,
-    "postgisVersion": "3.4.2",
-    "remoteHash": "8f3b190a6c7e52d3a012e8b911c47f89d56a29bc018a3e74c19a84f3e6201b1a"
-  },
-  "retentionNote": "Store this JSON and workflow run URL with change-management ticket."
+    "runId": null,
+    "runUrl": null,
+    "sha": null,
+    "backupRunId": null
+  }
 }

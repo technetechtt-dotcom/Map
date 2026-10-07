@@ -40,6 +40,10 @@ jobs:
       S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       S3_BACKUP_ACCESS_KEY_ID: ${{ secrets.S3_BACKUP_ACCESS_KEY_ID }}
       S3_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET_ACCESS_KEY }}
+      S3_REGION: ${{ secrets.S3_REGION }}
+      S3_BACKUP_REGION: ${{ secrets.S3_BACKUP_REGION }}
+      S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      S3_BACKUP_ENDPOINT: ${{ secrets.S3_BACKUP_ENDPOINT }}
       PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
@@ -65,9 +69,6 @@ jobs:
           curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
           sudo unzip -o /tmp/rclone.zip -d /tmp
           sudo cp /tmp/rclone-*-linux-amd64/rclone /usr/local/bin/rclone
-          mkdir -p "$HOME/.config/rclone"
-          printf '%s' "$RCLONE_CONFIG" > "$HOME/.config/rclone/rclone.conf"
-          echo "RCLONE_CONFIG=$HOME/.config/rclone/rclone.conf" >> $GITHUB_ENV
           rclone version
           pg_dump --version
       - name: Dump and encrypt database
@@ -97,11 +98,12 @@ jobs:
           node -e 'const m=JSON.parse(require("fs").readFileSync("data/object-storage-manifest.json","utf8")); const rows=Array.isArray(m)?m:(m.objects||[]); if(!rows.every(r=>r&&r.backupKey)) process.exit(1);'
           sha256sum data/object-backup-result.json | tee data/object-backup-result.json.sha256
           sha256sum data/object-storage-manifest.json | tee data/object-storage-manifest.json.sha256
+      - name: Write rclone config from S3 backup credentials
+        run: node scripts/write-rclone-config.js
       - name: Upload and verify off-site copies
         run: |
           DATE=$(date -u +%Y-%m-%d)
-          printf '%s' "$RCLONE_CONFIG" > "$HOME/.rclone.conf"
-          RCLONE_S3_FLAGS="--s3-no-check-bucket --no-check-dest"
+          RCLONE_S3_FLAGS="--s3-no-check-bucket --no-check-dest --s3-no-head-object"
           rclone copy $RCLONE_S3_FLAGS database.dump.gpg "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy $RCLONE_S3_FLAGS database.dump.gpg.sha256 "$BACKUP_DESTINATION/database/$DATE/"
           rclone copy $RCLONE_S3_FLAGS data/object-storage-manifest.json "$BACKUP_DESTINATION/objects/$DATE/"
@@ -121,10 +123,9 @@ jobs:
           CHECKSUM=$(cut -d' ' -f1 database.dump.gpg.sha256)
           SIZE=$(stat -c%s database.dump.gpg)
           RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
-          curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
-            -H "x-cron-secret: $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -d "{\"kind\":\"database\",\"filename\":\"database.dump.gpg\",\"path\":\"offsite\",\"sizeBytes\":$SIZE,\"checksumSha256\":\"$CHECKSUM\",\"status\":\"SUCCESS\",\"backupRunId\":\"db-$RUN_ID\"}"
+          CHECKSUM="$CHECKSUM" SIZE="$SIZE" RUN_ID="$RUN_ID" node -e 'const fs=require("fs"); fs.writeFileSync("data/database-backup-record.json", JSON.stringify({kind:"database",filename:"database.dump.gpg",path:"offsite",sizeBytes:Number(process.env.SIZE),checksumSha256:process.env.CHECKSUM,status:"SUCCESS",backupRunId:"db-"+process.env.RUN_ID}))'
+          npx prisma generate
+          node scripts/record-backup-health.js data/database-backup-record.json
           node -e '
             const fs = require("fs");
             const result = JSON.parse(fs.readFileSync("data/object-backup-result.json", "utf8"));
@@ -150,22 +151,18 @@ jobs:
             };
             fs.writeFileSync("data/object-backup-record.json", JSON.stringify(payload));
           '
-          curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
-            -H "x-cron-secret: $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            --data-binary @data/object-backup-record.json
-          # Also record an app-export channel so the health endpoint sees all three channels.
-          curl -fsS -X POST "$APP_URL/api/admin/backups/record" \
-            -H "x-cron-secret: $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -d "{\"kind\":\"appExport\",\"filename\":\"app-export-$RUN_ID.json\",\"path\":\"offsite\",\"sizeBytes\":0,\"checksumSha256\":\"\",\"status\":\"SUCCESS\",\"backupRunId\":\"app-$RUN_ID\"}"
+          node scripts/record-backup-health.js data/object-backup-record.json
+          RUN_ID="$RUN_ID" node -e 'const fs=require("fs"); fs.writeFileSync("data/app-export-backup-record.json", JSON.stringify({kind:"app-export",filename:"app-export-"+process.env.RUN_ID+".json",path:"offsite",sizeBytes:0,checksumSha256:"",status:"SUCCESS",backupRunId:"app-"+process.env.RUN_ID}))'
+          node scripts/record-backup-health.js data/app-export-backup-record.json
       - name: Alert on backup failure
         if: failure()
         env:
           NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
         run: |
           if [ -n "$NOTIFY_WEBHOOK_URL" ]; then
-            curl -sS -X POST "$NOTIFY_WEBHOOK_URL" -H 'Content-Type: application/json' \
+            curl -fsS -X POST "$NOTIFY_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -H "x-cron-secret: $CRON_SECRET" \
               -d '{"type":"backup.failed","subject":"Production backup failed","body":"The scheduled encrypted backup workflow failed. Investigate immediately."}'
           fi
           echo "Backup failed — paging operators"

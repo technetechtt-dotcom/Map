@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jsonError } from "@/lib/api";
 import { log } from "@/lib/logger";
 import { writeAudit } from "@/lib/audit";
+import { authorizeAlertRequest } from "@/lib/ops-auth";
 
 /**
- * Public and Ops ingest endpoint for system alerts (e.g. GitHub Actions backup failure,
- * monitoring webhooks, external alert triggers).
- * Returns HTTP 200 JSON { ok: true } on valid ingest.
+ * Authenticated ingest for system alerts (GitHub Actions backup failure, monitoring).
+ * Requires CRON_SECRET (x-cron-secret / Bearer) or METRICS_TOKEN (x-metrics-token / Bearer).
  */
 export async function POST(req: NextRequest) {
+  const auth = authorizeAlertRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
   try {
     const body = await req.json().catch(() => ({}));
     const type = typeof body?.type === "string" ? body.type : "alert.generic";
@@ -38,7 +41,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = authorizeAlertRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
   return NextResponse.json(
     { ok: true, status: "listening", endpoint: "/api/admin/ops/alerts" },
     { status: 200 }

@@ -30,6 +30,9 @@ const DEPLOY = [
   "VERCEL_ORG_ID",
   "VERCEL_PROJECT_ID",
   "PRODUCTION_DEPLOY_HOOK",
+  "OPS_DEPLOY_HOOK",
+  "RENDER_PRODUCTION_SERVICE_ID",
+  "RENDER_OPS_SERVICE_ID",
   "RENDER_AUTO_DEPLOY",
 ];
 const OPTIONAL = ["NEON_API_KEY", "NEON_PROJECT_ID", "RESEND_API_KEY"];
@@ -58,11 +61,12 @@ function main() {
   if (!present.has("PRODUCTION_APP_URL")) deployMissing.push("PRODUCTION_APP_URL");
   if (!present.has("OPS_APP_URL")) deployMissing.push("OPS_APP_URL");
   const hasVercel = ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"].every((n) => present.has(n));
-  const hasHook = present.has("PRODUCTION_DEPLOY_HOOK");
+  const hasHook = present.has("PRODUCTION_DEPLOY_HOOK") && present.has("OPS_DEPLOY_HOOK");
+  const hasRenderServices = present.has("RENDER_PRODUCTION_SERVICE_ID") && present.has("RENDER_OPS_SERVICE_ID");
   const hasRenderAutoDeploy = present.has("RENDER_AUTO_DEPLOY");
-  if (!hasVercel && !hasHook && !hasRenderAutoDeploy) {
+  if (!hasVercel && !hasHook && !hasRenderServices && !hasRenderAutoDeploy) {
     deployMissing.push(
-      "VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK, or RENDER_AUTO_DEPLOY=1"
+      "VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK+OPS_DEPLOY_HOOK, or RENDER_PRODUCTION_SERVICE_ID+RENDER_OPS_SERVICE_ID"
     );
   }
   if (!present.has("METRICS_TOKEN") && !present.has("CRON_SECRET")) deployMissing.push("METRICS_TOKEN or CRON_SECRET");
@@ -86,7 +90,7 @@ function main() {
     report.nextSteps.push("See docs/ops-secrets.md");
   }
   if (!report.deployReady) {
-    report.nextSteps.push("Configure VERCEL_* or PRODUCTION_DEPLOY_HOOK plus METRICS_TOKEN/CRON_SECRET");
+    report.nextSteps.push("Configure VERCEL_*, deploy hooks, or RENDER_PRODUCTION_SERVICE_ID+RENDER_OPS_SERVICE_ID plus METRICS_TOKEN/CRON_SECRET");
     report.nextSteps.push("Dispatch Production deploy workflow after CI green on target SHA");
   }
   if (report.backupReady) {

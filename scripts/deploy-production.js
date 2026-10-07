@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Deploy the certified SHA and prove the live origin matches it.
+ * Invalid deploy-hook HTTP status (including 404) is fatal — never continue because origin health is 200.
  */
 const { spawnSync } = require("child_process");
 const path = require("path");
@@ -11,7 +12,7 @@ const preflight = spawnSync(process.execPath, [path.join(__dirname, "ops-preflig
 if (preflight.status !== 0) process.exit(preflight.status || 1);
 
 const sha = process.env.CERTIFIED_SHA || process.env.GITHUB_SHA || "";
-const hook = process.env.PRODUCTION_DEPLOY_HOOK || "";
+const hook = (process.env.PRODUCTION_DEPLOY_HOOK || "").trim();
 const vercelToken = process.env.VERCEL_TOKEN || "";
 const vercelOrg = process.env.VERCEL_ORG_ID || "";
 const vercelProject = process.env.VERCEL_PROJECT_ID || "";
@@ -20,6 +21,61 @@ const appUrl = (process.env.PRODUCTION_APP_URL || "").replace(/\/$/, "");
 if (!sha) {
   console.error("CERTIFIED_SHA is required");
   process.exit(1);
+}
+
+function githubHeaders() {
+  return {
+    Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+function platformNeedle() {
+  return (process.env.APP_PLATFORM || "public") === "ops" ? "sa-ict-map-ops" : "sa-ict-map-public";
+}
+
+function expectedServiceId() {
+  return (
+    process.env.RENDER_SERVICE_ID ||
+    ((process.env.APP_PLATFORM || "public") === "ops"
+      ? process.env.RENDER_OPS_SERVICE_ID
+      : process.env.RENDER_PRODUCTION_SERVICE_ID) ||
+    ""
+  );
+}
+
+async function waitForGithubRenderDeploy(certifiedSha) {
+  const repo = process.env.GITHUB_REPOSITORY;
+  const token = process.env.GITHUB_TOKEN;
+  if (!repo || !token || !certifiedSha) return false;
+  const needle = platformNeedle();
+  const serviceId = expectedServiceId();
+  for (let i = 0; i < 40; i += 1) {
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/deployments?sha=${encodeURIComponent(certifiedSha)}&per_page=30`,
+      { headers: githubHeaders(), signal: AbortSignal.timeout(15000) }
+    );
+    if (res.ok) {
+      const rows = await res.json();
+      const match = (Array.isArray(rows) ? rows : []).find((row) => String(row.environment || "").includes(needle));
+      if (match?.statuses_url) {
+        const st = await fetch(match.statuses_url, { headers: githubHeaders(), signal: AbortSignal.timeout(15000) });
+        if (st.ok) {
+          const statuses = await st.json();
+          const latest = Array.isArray(statuses) ? statuses[0] : null;
+          const blob = JSON.stringify(statuses);
+          const serviceOk = !serviceId || blob.includes(serviceId);
+          if (latest?.state === "success" && serviceOk) return true;
+          if (latest?.state === "failure" || latest?.state === "error") {
+            throw new Error(`Render GitHub deployment ${match.environment} failed for ${certifiedSha}`);
+          }
+        }
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 15000));
+  }
+  return false;
 }
 
 async function vercelMeta() {
@@ -53,6 +109,39 @@ async function rollback() {
   }
 }
 
+async function triggerRenderApi() {
+  const serviceId = expectedServiceId();
+  if (!process.env.RENDER_API_KEY || !serviceId) return false;
+  const res = await fetch(`https://api.render.com/v1/services/${serviceId}/deploys`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RENDER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ clearCache: "do_not_clear" }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) throw new Error(`Render API deploy failed with status ${res.status}`);
+  return true;
+}
+
+async function triggerHook() {
+  if (!hook) return false;
+  const res = await fetch(hook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ clearCache: false }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `deploy hook responded with HTTP ${res.status}: ${body || "(empty)"}. Replace PRODUCTION_DEPLOY_HOOK and OPS_DEPLOY_HOOK with current Render Settings → Deploy Hook URLs (https://api.render.com/deploy/srv-…?key=…). Live origin health is not a substitute.`
+    );
+  }
+  return true;
+}
+
 async function main() {
   if (vercelToken && vercelOrg && vercelProject) {
     const deploy = spawnSync("npx", ["vercel", "deploy", "--prod", "--yes", "--token", vercelToken], {
@@ -73,52 +162,14 @@ async function main() {
       await rollback();
       process.exit(1);
     }
-  } else if (hook) {
-    let deployUrl = hook;
-    if (sha && !deployUrl.includes("ref=")) {
-      const sep = deployUrl.includes("?") ? "&" : "?";
-      deployUrl = `${deployUrl}${sep}ref=${encodeURIComponent(sha)}`;
-    }
-    const res = await fetch(deployUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sha, ref: sha }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      const errorMsg = `deploy hook responded with HTTP ${res.status}: ${body || "(empty)"}. Ensure PRODUCTION_DEPLOY_HOOK and OPS_DEPLOY_HOOK match real Render service hook URLs.`;
-      // If deploy hook returns 404 (e.g. stale/regenerated hook URL on Render), check whether target origin is already live and healthy
-      if (res.status === 404 && appUrl) {
-        console.warn(`[deploy-warning] ${errorMsg}`);
-        console.warn(`[deploy-warning] Checking if ${appUrl} is already reachable and live...`);
-        const liveRes = await fetch(`${appUrl.replace(/\/$/, "")}/api/health/live`, { signal: AbortSignal.timeout(10000) }).catch(() => null);
-        if (liveRes && liveRes.ok) {
-          console.warn(`[deploy-warning] ${appUrl} is alive. Proceeding to post-deploy SHA verification.`);
-        } else {
-          throw new Error(errorMsg);
-        }
-      } else {
-        throw new Error(errorMsg);
-      }
-    }
-  } else if (process.env.RENDER_API_KEY && (process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID)) {
-    const serviceId = process.env.RENDER_SERVICE_ID || process.env.RENDER_PRODUCTION_SERVICE_ID;
-    const res = await fetch(`https://api.render.com/v1/services/${serviceId}/deploys`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RENDER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ clearCache: "do_not_clear" }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) throw new Error(`Render API deploy failed with status ${res.status}`);
   } else {
-    console.error(
-      "Set Vercel deploy tokens, deploy hooks (PRODUCTION_DEPLOY_HOOK + OPS_DEPLOY_HOOK), or Render API credentials (RENDER_API_KEY + service IDs)"
-    );
-    process.exit(1);
+    const triggered = (await triggerHook()) || (await triggerRenderApi());
+    const waited = await waitForGithubRenderDeploy(sha);
+    if (!triggered && !waited) {
+      throw new Error(
+        "No valid deploy hook, Render API key, or GitHub Render deployment of the certified SHA was observed. Set PRODUCTION_DEPLOY_HOOK/OPS_DEPLOY_HOOK or RENDER_API_KEY plus service IDs."
+      );
+    }
   }
 
   if (!appUrl) {
@@ -128,7 +179,7 @@ async function main() {
 
   for (let i = 0; i < 18; i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 10000));
-    const verify = spawnSync(process.execPath, [require("path").join(__dirname, "post-deploy-verify.js")], {
+    const verify = spawnSync(process.execPath, [path.join(__dirname, "post-deploy-verify.js")], {
       stdio: "inherit",
       env: { ...process.env, PRODUCTION_APP_URL: appUrl, CERTIFIED_SHA: sha },
     });

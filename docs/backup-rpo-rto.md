@@ -29,10 +29,4 @@ Scheduled backups now export the StoredObject manifest **and** require `S3_BACKU
 
 ## Measured DR Evidence
 
-From off-site restore drill executed 06 October 2026 (`data/dr-rpo-rto-evidence.json`):
-
-- **Observed RPO**: 527 minutes (8.8 hours) — Well within 24-hour target (1440 min).
-- **Observed RTO**: 12 minutes — Well within 2-hour target (120 min).
-- **PostGIS Extension**: Verified 3.4.2 + `pg_trgm` active.
-- **Record Integrity**: 184 locations, 42 organisations verified with matching remote ciphertext hash (`8f3b190a...`).
-- **Drill Status**: PASS.
+The previously committed `data/dr-rpo-rto-evidence.json` cited failed workflow runs `37448685391` / `37448672776` and is invalidated. Replace it from the `dr-rpo-rto-evidence` artifact of a successful `Off-site disaster recovery` run after a green encrypted backup.

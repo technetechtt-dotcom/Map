@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Post-deploy smoke: live → privileged readiness SHA → search/map.
- * Exits 1 when the deployed origin is not the certified commit.
+ * Post-deploy smoke: live SHA (public) → optional privileged readiness → search/map.
+ * Missing or mismatched deployed SHA is fatal.
  */
 const base = (process.env.PRODUCTION_APP_URL || process.env.STAGING_BASE_URL || "").replace(/\/$/, "");
 const expectedSha = process.env.CERTIFIED_SHA || process.env.GITHUB_SHA || "";
@@ -28,26 +28,25 @@ async function main() {
     console.error("CERTIFIED_SHA is required and must be non-null");
     process.exit(1);
   }
-  if (!token) {
-    console.error("METRICS_TOKEN or CRON_SECRET is required to read the deployed SHA");
-    process.exit(1);
-  }
   const live = await get("/api/health/live");
   if (!live.res.ok || live.json?.status !== "ok") throw new Error(`health live ${live.res.status}`);
 
-  const headers = { "x-metrics-token": token, authorization: `Bearer ${token}` };
-  const ready = await get("/api/health", headers);
-  if (!ready.res.ok) throw new Error(`health ${ready.res.status}`);
-  if (!ready.json?.sha) {
-    if (ready.json?.status === "ok") {
-      console.log(JSON.stringify({ note: "Deployed endpoint healthy; SHA property omitted by unprivileged runtime response" }));
-    } else {
-      throw new Error("deployed SHA is missing");
-    }
-  } else if (ready.json.sha !== expectedSha) {
-    throw new Error(`deployed sha ${ready.json.sha} != certified ${expectedSha}`);
+  let deployedSha = live.json?.sha || null;
+  let db = "public";
+  if (token) {
+    const headers = { "x-metrics-token": token, authorization: `Bearer ${token}` };
+    const ready = await get("/api/health", headers);
+    if (!ready.res.ok) throw new Error(`health ${ready.res.status}`);
+    deployedSha = ready.json?.sha || deployedSha;
+    if (ready.json?.db === "error") throw new Error("database not ready");
+    if (ready.json?.db) db = ready.json.db;
   }
-  if (ready.json?.db === "error") throw new Error("database not ready");
+  if (!deployedSha) {
+    throw new Error("deployed SHA is missing");
+  }
+  if (deployedSha !== expectedSha) {
+    throw new Error(`deployed sha ${deployedSha} != certified ${expectedSha}`);
+  }
 
   const search = await get("/api/search?q=digital%20skills&limit=5");
   if (!search.res.ok) throw new Error(`search ${search.res.status}`);
@@ -57,9 +56,9 @@ async function main() {
   console.log(JSON.stringify({
     ok: true,
     origin: base,
-    sha: ready.json?.sha || null,
-    certified: expectedSha || null,
-    db: ready.json?.db || "public",
+    sha: deployedSha,
+    certified: expectedSha,
+    db,
   }));
 }
 

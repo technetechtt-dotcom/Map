@@ -64,6 +64,16 @@ export function authorizeCronSecret(req: { headers: { get(name: string): string 
   return { ok: false, status: 401, error: "Unauthorized" };
 }
 
+export function authorizeAlertRequest(
+  req: { headers: { get(name: string): string | null } }
+): TokenAuthResult & { via?: "cron" | "metrics" } {
+  const cron = authorizeCronSecret(req);
+  if (cron.ok) return cron;
+  const metrics = authorizeMetricsRequest(req);
+  if (metrics.ok) return { ok: true, via: "metrics" };
+  return cron;
+}
+
 export function authorizeJobRole(user: AuthUser | null | undefined, job: string): { ok: true; provinceId?: string } | { ok: false; reason: string } {
   if (!user?.id) return { ok: false, reason: "Unauthorized" };
   if (isSuperAdmin(user) || canManageBackups(user)) return { ok: true };

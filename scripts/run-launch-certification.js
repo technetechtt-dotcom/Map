@@ -64,10 +64,11 @@ run("adversarial-auth", "npm test -- tests/adversarial-auth.test.ts tests/ecosys
 run("audit-production-env", "node scripts/audit-production-env.js");
 
 const audit = steps.find((s) => s.name === "audit-production-env");
+const ok = steps.every((s) => s.status === "pass");
 console.log(
   JSON.stringify(
     {
-      ok: steps.every((s) => s.status === "pass" || s.name === "audit-production-env"),
+      ok,
       steps,
       operatorNext: [
         "node scripts/sync-production-secrets.js .env.production.secrets",
@@ -85,4 +86,4 @@ console.log(
   )
 );
 
-process.exit(steps.some((s) => s.status === "fail" && s.name !== "audit-production-env") ? 1 : 0);
+process.exit(ok ? 0 : 1);

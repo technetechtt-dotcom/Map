@@ -6,11 +6,20 @@ const summaryPath = process.argv[2] || process.env.K6_SUMMARY || "";
 const profile = process.env.LOAD_PROFILE || "ci";
 const sha = process.env.GITHUB_SHA || process.env.GIT_COMMIT || "";
 const locations = Number(process.env.SCALE_LOCATIONS || 0);
+const repo = process.env.GITHUB_REPOSITORY || "technetechtt-dotcom/Map";
+const runId = process.env.GITHUB_RUN_ID || "";
 const payload = {
   sha,
   profile,
   datasetSize: locations,
   recordedAt: new Date().toISOString(),
+  workflow: {
+    name: process.env.GITHUB_WORKFLOW || null,
+    runId: runId || null,
+    runUrl: runId ? `https://github.com/${repo}/actions/runs/${runId}` : null,
+    job: process.env.GITHUB_JOB || null,
+    artifactName: "performance-evidence",
+  },
   metrics: null,
 };
 if (summaryPath && fs.existsSync(summaryPath)) {

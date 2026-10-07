@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorizeBearerOrHeader, authorizeJobRole } from "@/lib/ops-auth";
+import { authorizeAlertRequest, authorizeBearerOrHeader, authorizeJobRole } from "@/lib/ops-auth";
 import { parseNearbyQuery } from "@/lib/validation";
 import { isWorkerHealthy, publicHealthFromMetrics } from "@/lib/metrics";
 
@@ -75,6 +75,29 @@ describe("ops alerts routing and ingestion", () => {
     expect(isOpsRoute("/api/admin/ops/alerts")).toBe(false);
     expect(isAllowedOnPublicPlatform("/api/admin/ops/alerts")).toBe(true);
     expect(isAllowedOnOpsPlatform("/api/admin/ops/alerts")).toBe(true);
+  });
+
+  it("rejects unauthenticated alert ingest", () => {
+    const prev = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = "cron-secret";
+    const req = { headers: { get: () => null } };
+    const result = authorizeAlertRequest(req);
+    process.env.CRON_SECRET = prev;
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(401);
+  });
+
+  it("accepts cron or metrics tokens for alert ingest", () => {
+    const prevCron = process.env.CRON_SECRET;
+    const prevMetrics = process.env.METRICS_TOKEN;
+    process.env.CRON_SECRET = "cron-secret";
+    process.env.METRICS_TOKEN = "metrics-token";
+    const cronReq = { headers: { get: (name: string) => (name === "x-cron-secret" ? "cron-secret" : null) } };
+    const metricsReq = { headers: { get: (name: string) => (name === "x-metrics-token" ? "metrics-token" : null) } };
+    expect(authorizeAlertRequest(cronReq).ok).toBe(true);
+    expect(authorizeAlertRequest(metricsReq).ok).toBe(true);
+    process.env.CRON_SECRET = prevCron;
+    process.env.METRICS_TOKEN = prevMetrics;
   });
 });
 

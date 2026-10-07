@@ -11,6 +11,7 @@ permissions:
   actions: read
   contents: read
   checks: read
+  deployments: read
 
 concurrency:
   group: production-deploy-${{ github.event.workflow_run.head_sha || github.sha }}
@@ -111,6 +112,8 @@ jobs:
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
           GIT_COMMIT: ${{ needs.certify.outputs.sha }}
           GITHUB_SHA: ${{ needs.certify.outputs.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           PRODUCTION_DEPLOY_HOOK: ${{ secrets.PRODUCTION_DEPLOY_HOOK }}
           OPS_DEPLOY_HOOK: ${{ secrets.OPS_DEPLOY_HOOK }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -149,18 +152,21 @@ jobs:
         env:
           CERTIFIED_SHA: ${{ needs.certify.outputs.sha }}
           NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           echo "Production release of $CERTIFIED_SHA failed verification."
           node -e "
             const url = process.env.NOTIFY_WEBHOOK_URL;
+            const secret = process.env.CRON_SECRET || '';
             if (url) {
               fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-cron-secret': secret },
                 body: JSON.stringify({
-                  text: 'CRITICAL: Production deploy verification failed for certified SHA ' + process.env.CERTIFIED_SHA,
-                  sha: process.env.CERTIFIED_SHA,
-                  timestamp: new Date().toISOString()
+                  type: 'deploy.failed',
+                  subject: 'Production deploy failed',
+                  body: 'Production deploy verification failed for certified SHA ' + process.env.CERTIFIED_SHA,
+                  meta: { sha: process.env.CERTIFIED_SHA, timestamp: new Date().toISOString() }
                 })
               }).catch(() => {});
             }
