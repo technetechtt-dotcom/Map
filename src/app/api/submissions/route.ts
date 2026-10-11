@@ -28,13 +28,80 @@ export async function GET() {
   if (!canModerateSubmissions(auth.user)) return jsonError("Forbidden", 403);
 
   const where = submissionTenantWhere(auth.user);
-  const rows = await prisma.submission.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  const reviewerWhere = auth.user.role === "SUPER_ADMIN"
+    ? { active: true, role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] as const } }
+    : { active: true, role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] as const }, provinceId: auth.user.provinceId || "__none__" };
+  const [rows, reviewers] = await Promise.all([
+    prisma.submission.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.user.findMany({
+      where: reviewerWhere,
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: "asc" },
+      take: 100,
+    }),
+  ]);
 
-  // Provincial: hide submitter PII for other use — only show for scoped province rows
+  const duplicateCandidates = await Promise.all(
+    rows
+      .filter((s) => s.status === "DUPLICATE_SUSPECTED" || s.status === "SUBMITTED" || s.status === "UNDER_REVIEW")
+      .slice(0, 40)
+      .map(async (s) => {
+        const payload = (s.payloadJson || {}) as Record<string, unknown>;
+        const title = String(payload.title || payload.name || "").trim();
+        if (title.length < 3) return { submissionId: s.id, matches: [] as Array<{ id: string; slug: string; title: string; kind: string }> };
+        const q = title.slice(0, 80);
+        const matches: Array<{ id: string; slug: string; title: string; kind: string }> = [];
+        if (s.type === "organisation") {
+          const orgs = await prisma.organisation.findMany({
+            where: { name: { contains: q, mode: "insensitive" }, mergedIntoId: null },
+            select: { id: true, slug: true, name: true },
+            take: 5,
+          });
+          matches.push(...orgs.map((o) => ({ id: o.id, slug: o.slug, title: o.name, kind: "organisation" })));
+        } else if (s.type === "funding") {
+          const items = await prisma.fundingCall.findMany({
+            where: { title: { contains: q, mode: "insensitive" } },
+            select: { id: true, slug: true, title: true },
+            take: 5,
+          });
+          matches.push(...items.map((i) => ({ id: i.id, slug: i.slug, title: i.title, kind: "funding" })));
+        } else if (s.type === "events") {
+          const items = await prisma.ecosystemEvent.findMany({
+            where: { title: { contains: q, mode: "insensitive" } },
+            select: { id: true, slug: true, title: true },
+            take: 5,
+          });
+          matches.push(...items.map((i) => ({ id: i.id, slug: i.slug, title: i.title, kind: "event" })));
+        } else if (s.type === "programmes") {
+          const items = await prisma.programme.findMany({
+            where: { title: { contains: q, mode: "insensitive" } },
+            select: { id: true, slug: true, title: true },
+            take: 5,
+          });
+          matches.push(...items.map((i) => ({ id: i.id, slug: i.slug, title: i.title, kind: "programme" })));
+        } else if (s.type === "procurement") {
+          const items = await prisma.procurement.findMany({
+            where: { title: { contains: q, mode: "insensitive" } },
+            select: { id: true, slug: true, title: true },
+            take: 5,
+          });
+          matches.push(...items.map((i) => ({ id: i.id, slug: i.slug, title: i.title, kind: "procurement" })));
+        } else {
+          const items = await prisma.location.findMany({
+            where: { name: { contains: q, mode: "insensitive" } },
+            select: { id: true, slug: true, name: true },
+            take: 5,
+          });
+          matches.push(...items.map((i) => ({ id: i.id, slug: i.slug, title: i.name, kind: "location" })));
+        }
+        return { submissionId: s.id, matches };
+      })
+  );
+
   return jsonOk({
     submissions: rows.map((s) => ({
       id: s.id,
@@ -56,7 +123,9 @@ export async function GET() {
       reviewedAt: s.reviewedAt,
       createdAt: s.createdAt,
       payload: s.payloadJson,
+      duplicates: duplicateCandidates.find((d) => d.submissionId === s.id)?.matches || [],
     })),
+    reviewers,
   });
 }
 
@@ -203,6 +272,10 @@ export async function PATCH(req: NextRequest) {
     return jsonError("Submission has no province — cannot moderate until assigned", 403);
   }
 
+  if (body.status === "ASSIGNED" && !body.assignedToId && !existing.assignedToId) {
+    return jsonError("assignedToId required when assigning a reviewer", 400);
+  }
+
   // Idempotent approval
   if (body.status === "APPROVED" && (existing.createdLocationId || existing.createdEntityId)) {
     return jsonOk({
@@ -221,8 +294,13 @@ export async function PATCH(req: NextRequest) {
       let createdLocationId = existing.createdLocationId;
       let createdEntityType = existing.createdEntityType;
       let createdEntityId = existing.createdEntityId;
+      const mergeTargetId = body.mergeTargetId || existing.mergeTargetId;
 
-      if (body.status === "APPROVED" || body.status === "PUBLISHED") {
+      if ((body.status === "APPROVED" || body.status === "PUBLISHED") && mergeTargetId) {
+        createdLocationId = existing.type === "location" ? mergeTargetId : null;
+        createdEntityType = existing.type;
+        createdEntityId = mergeTargetId;
+      } else if (body.status === "APPROVED" || body.status === "PUBLISHED") {
         const applied = await applyApprovedSubmission(tx, existing, auth.user.id);
         createdLocationId = applied.createdLocationId;
         createdEntityType = applied.createdEntityType;
@@ -232,14 +310,18 @@ export async function PATCH(req: NextRequest) {
         }
       }
 
+      const assignedToId =
+        body.assignedToId ||
+        (body.status === "ASSIGNED" ? auth.user.id : existing.assignedToId);
+
       const updated = await tx.submission.update({
         where: { id: existing.id },
         data: {
           status: body.status as SubmissionStatus,
           reviewedNotes: body.reviewedNotes || null,
           reviewedById: auth.user.id,
-          assignedToId: body.assignedToId || existing.assignedToId,
-          mergeTargetId: body.mergeTargetId || existing.mergeTargetId,
+          assignedToId,
+          mergeTargetId: mergeTargetId || null,
           reviewedAt: new Date(),
           createdLocationId,
           createdEntityType,

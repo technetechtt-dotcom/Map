@@ -215,11 +215,17 @@ export function slugFromTitle(title: string) {
 }
 
 export function ecosystemCreateData(type: EcosystemType, body: Record<string, unknown>, status: string, provinceId: string | null, organisationId: string | null) {
-  const tagsJson = Array.isArray(body.tags) ? body.tags : [];
+  const tagsJson = Array.isArray(body.tags)
+    ? body.tags
+    : Array.isArray(body.sectors)
+      ? body.sectors
+      : typeof body.tags === "string"
+        ? String(body.tags).split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
   const slug = String(body.slug || `${slugFromTitle(String(body.title || body.name || "item"))}-${Date.now().toString(36)}`);
   const title = String(body.title || body.name || "");
   const summary = String(body.summary || "");
-  const description = body.description ? String(body.description) : null;
+  const description = body.description ? String(body.description) : body.eligibility ? String(body.eligibility) : null;
   const base = { slug, title, summary, description, status, provinceId, organisationId, tagsJson };
   if (type === "events") {
     return {
@@ -227,7 +233,12 @@ export function ecosystemCreateData(type: EcosystemType, body: Record<string, un
       startsAt: new Date(String(body.startsAt || Date.now())),
       endsAt: body.endsAt ? new Date(String(body.endsAt)) : null,
       venue: body.venue ? String(body.venue) : null,
-      onlineUrl: body.onlineUrl ? String(body.onlineUrl) : null,
+      onlineUrl: body.onlineUrl || body.registrationUrl ? String(body.onlineUrl || body.registrationUrl) : null,
+      town: body.town ? String(body.town) : body.venue ? String(body.venue) : null,
+      category: body.category ? String(body.category) : null,
+      cost: body.cost ? String(body.cost) : null,
+      capacity: body.capacity != null && body.capacity !== "" ? Number(body.capacity) : null,
+      attendanceFormat: body.attendanceFormat ? String(body.attendanceFormat) : null,
       latitude: body.latitude != null ? Number(body.latitude) : null,
       longitude: body.longitude != null ? Number(body.longitude) : null,
     };
@@ -237,6 +248,15 @@ export function ecosystemCreateData(type: EcosystemType, body: Record<string, un
       ...base,
       startDate: body.startDate ? new Date(String(body.startDate)) : null,
       endDate: body.endDate ? new Date(String(body.endDate)) : null,
+      audience: body.audience ? String(body.audience) : null,
+      ageGroup: body.ageGroup ? String(body.ageGroup) : null,
+      skillsCategory: body.skillsCategory || body.skills ? String(body.skillsCategory || body.skills) : null,
+      deliveryMethod: body.deliveryMethod ? String(body.deliveryMethod) : null,
+      providerName: body.provider || body.providerName ? String(body.provider || body.providerName) : null,
+      applicationStatus: body.applicationStatus ? String(body.applicationStatus) : null,
+      eligibility: body.eligibility ? String(body.eligibility) : null,
+      capacity: body.capacity != null && body.capacity !== "" ? Number(body.capacity) : null,
+      applicationUrl: body.applicationUrl || body.url ? String(body.applicationUrl || body.url) : null,
     };
   }
   if (type === "procurement") {
@@ -247,13 +267,32 @@ export function ecosystemCreateData(type: EcosystemType, body: Record<string, un
       url: body.url ? String(body.url) : null,
       referenceNumber: body.referenceNumber ? String(body.referenceNumber) : null,
       issuingAuthority: body.issuingAuthority ? String(body.issuingAuthority) : null,
+      procurementCategory: body.procurementCategory || body.category ? String(body.procurementCategory || body.category) : null,
+      briefingAt: body.briefingAt ? new Date(String(body.briefingAt)) : null,
+      closingTime: body.closingTime ? String(body.closingTime) : null,
+      valueRange: body.valueRange || body.budget ? String(body.valueRange || body.budget) : null,
+      documentsJson: Array.isArray(body.documents)
+        ? body.documents
+        : typeof body.documents === "string"
+          ? String(body.documents).split(",").map((s) => s.trim()).filter(Boolean)
+          : [],
     };
   }
   return {
     ...base,
     amount: body.amount ? String(body.amount) : null,
+    minAmount: body.minAmount ? String(body.minAmount) : null,
+    maxAmount: body.maxAmount ? String(body.maxAmount) : null,
+    fundingType: body.fundingType ? String(body.fundingType) : null,
+    businessStage: body.businessStage ? String(body.businessStage) : null,
+    targetAudience: body.targetAudience || body.audience ? String(body.targetAudience || body.audience) : null,
+    applicationProcess: body.applicationProcess ? String(body.applicationProcess) : null,
+    applicationUrl: body.applicationUrl ? String(body.applicationUrl) : null,
+    applicationRequirements: body.eligibility || body.applicationRequirements ? String(body.eligibility || body.applicationRequirements) : null,
+    eligibleSectorsJson: Array.isArray(body.sectors) ? body.sectors : Array.isArray(body.eligibleSectors) ? body.eligibleSectors : [],
+    geography: Array.isArray(body.targetProvinces) ? body.targetProvinces.join(", ") : body.geography ? String(body.geography) : null,
     deadline: body.deadline ? new Date(String(body.deadline)) : null,
-    url: body.url ? String(body.url) : null,
+    url: body.applicationUrl || body.url ? String(body.applicationUrl || body.url) : null,
     publishedAt: status === "PUBLISHED" ? new Date() : null,
   };
 }

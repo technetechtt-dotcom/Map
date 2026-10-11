@@ -69,4 +69,4 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Check dependency licenses
-        run: npx --yes license-checker --production --onlyAllow "MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;MPL-2.0;0BSD;CC0-1.0;CC-BY-4.0;Python-2.0;Hippocratic-2.1;LGPL-3.0-or-later;MIT AND ISC;Apache-2.0 AND LGPL-3.0-or-later;UNLICENSED"
+        run: npx --yes license-checker --production --onlyAllow "MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;MPL-2.0;0BSD;CC0-1.0;CC-BY-4.0;Python-2.0;Hippocratic-2.1;LGPL-3.0-or-later;MIT AND ISC;Apache-2.0 AND LGPL-3.0-or-later;BlueOak-1.0.0;UNLICENSED"

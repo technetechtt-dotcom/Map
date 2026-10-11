@@ -3,16 +3,7 @@ import { prisma } from "./prisma";
 import { log } from "./logger";
 import type { Prisma } from "@prisma/client";
 import { renderEmail, sendViaResend } from "./email";
-
-export const NOTIFICATION_EVENTS = [
-  "funding.deadline",
-  "procurement.closing",
-  "event.reminder",
-  "programme.update",
-  "submission.update",
-  "organisation.claim",
-  "correction.update",
-] as const;
+export { NOTIFICATION_EVENTS } from "./notification-events";
 
 export type NotifyEvent = {
   type: string;

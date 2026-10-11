@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 type Fav = { kind: string; slug: string; title: string };
 
@@ -42,6 +43,23 @@ function readFavourites(): Fav[] {
   }
 }
 
+function mergeFavourites(local: Fav[], remote: Fav[]): Fav[] {
+  const map = new Map<string, Fav>();
+  for (const item of [...remote, ...local]) {
+    map.set(`${item.kind}:${item.slug}`, item);
+  }
+  return Array.from(map.values()).slice(0, MAX_SAVED);
+}
+
+async function syncAccount(items: Fav[], signedIn: boolean) {
+  if (!signedIn) return;
+  await fetch("/api/account/saved", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  }).catch(() => undefined);
+}
+
 function itemHref(f: Fav): string {
   if (f.kind === "funding") return `/funding/${f.slug}`;
   if (f.kind === "events") return `/events/${f.slug}`;
@@ -62,33 +80,45 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export default function SavedPage() {
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
   const [favourites, setFavourites] = useState<Fav[]>([]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setFavourites(readFavourites());
+    const local = readFavourites();
+    setFavourites(local);
     setMounted(true);
+    if (!signedIn) return;
     fetch("/api/account/saved")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.items?.length) {
-          localStorage.setItem(KEY, JSON.stringify(data.items));
-          setFavourites(data.items);
+        const remote: Fav[] = data?.items || [];
+        const merged = mergeFavourites(local, remote);
+        localStorage.setItem(KEY, JSON.stringify(merged));
+        setFavourites(merged);
+        if (JSON.stringify(merged) !== JSON.stringify(remote)) {
+          return syncAccount(merged, true);
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [signedIn]);
 
-  function remove(kind: string, slug: string) {
-    const next = favourites.filter((f) => !(f.kind === kind && f.slug === slug));
+  function persist(next: Fav[]) {
     localStorage.setItem(KEY, JSON.stringify(next));
     setFavourites(next);
+    syncAccount(next, signedIn);
+  }
+
+  function remove(kind: string, slug: string) {
+    persist(favourites.filter((f) => !(f.kind === kind && f.slug === slug)));
   }
 
   function clearAll() {
     if (!confirm("Remove all saved favourites?")) return;
     localStorage.removeItem(KEY);
     setFavourites([]);
+    syncAccount([], signedIn);
   }
 
   return (
@@ -96,9 +126,9 @@ export default function SavedPage() {
       <p className="eyebrow">Personal workspace</p>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1>Saved opportunities &amp; contacts</h1>
+          <h1>Saved opportunities &amp; organisations</h1>
           <p className="text-muted text-sm mt-1">
-            Signed-in accounts sync Saved items. Anonymous visitors keep browser-only favourites.
+            Signed-in accounts merge and sync Saved items. Anonymous visitors keep browser-only favourites.
           </p>
         </div>
         {mounted && favourites.length > 0 && (
@@ -118,21 +148,11 @@ export default function SavedPage() {
             click the <strong>Save</strong> button on its profile to bookmark it here.
           </p>
           <div className="flex flex-wrap justify-center gap-3 text-sm">
-            <Link href="/funding" className="btn">
-              Browse Funding
-            </Link>
-            <Link href="/procurement" className="btn btn-outline">
-              Browse Procurement
-            </Link>
-            <Link href="/events" className="btn btn-outline">
-              Browse Events
-            </Link>
-            <Link href="/programmes" className="btn btn-outline">
-              Browse Programmes
-            </Link>
-            <Link href="/organisations" className="btn btn-outline">
-              Browse Organisations
-            </Link>
+            <Link href="/funding" className="btn">Browse Funding</Link>
+            <Link href="/procurement" className="btn btn-outline">Browse Procurement</Link>
+            <Link href="/events" className="btn btn-outline">Browse Events</Link>
+            <Link href="/programmes" className="btn btn-outline">Browse Programmes</Link>
+            <Link href="/organisations" className="btn btn-outline">Browse Organisations</Link>
           </div>
         </div>
       )}
@@ -140,29 +160,16 @@ export default function SavedPage() {
       {mounted && favourites.length > 0 && (
         <div className="grid gap-3">
           {favourites.map((f) => (
-            <article
-              key={`${f.kind}-${f.slug}`}
-              className="panel-card flex flex-wrap items-center justify-between gap-3"
-            >
+            <article key={`${f.kind}-${f.slug}`} className="panel-card flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <span className="chip text-xs mr-2">{KIND_LABEL[f.kind] || f.kind}</span>
-                <Link
-                  href={itemHref(f)}
-                  className="font-bold text-g700 hover:underline text-base align-middle"
-                >
+                <Link href={itemHref(f)} className="font-bold text-g700 hover:underline text-base align-middle">
                   {f.title || f.slug}
                 </Link>
               </div>
               <div className="flex items-center gap-2">
-                <Link href={itemHref(f)} className="btn btn-outline text-xs">
-                  Open →
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => remove(f.kind, f.slug)}
-                  className="chip text-xs hover:bg-red-50 hover:text-red-700"
-                  title="Remove from saved"
-                >
+                <Link href={itemHref(f)} className="btn btn-outline text-xs">Open →</Link>
+                <button type="button" onClick={() => remove(f.kind, f.slug)} className="chip text-xs hover:bg-red-50 hover:text-red-700" title="Remove from saved">
                   Remove
                 </button>
               </div>

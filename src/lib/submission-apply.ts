@@ -4,6 +4,12 @@ import { ecosystemCreateData, isEcosystemType } from "./ecosystem";
 
 type Tx = Prisma.TransactionClient;
 
+function csvOrArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).map((s) => s.trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
 export async function applyApprovedSubmission(
   tx: Tx,
   existing: { id: string; type: string; payloadJson: unknown; provinceId: string | null; createdLocationId: string | null; createdEntityId?: string | null },
@@ -42,17 +48,22 @@ export async function applyApprovedSubmission(
         slug: `${slugBase}-${Date.now().toString(36)}`,
         name: String(payload.name),
         summary: String(payload.summary || "") || "Community-submitted listing pending full verification.",
+        description: payload.description ? String(payload.description) : null,
         latitude: Number(payload.latitude),
         longitude: Number(payload.longitude),
         categoryId: cat.id,
         provinceId,
-        website: payload.website ? String(payload.website) : null,
-        opportunitiesJson: serializeArray(Array.isArray(payload.opportunities) ? (payload.opportunities as string[]) : []),
-        assetsJson: serializeArray(Array.isArray(payload.assets) ? (payload.assets as string[]) : []),
-        tagsJson: ["community-submission"],
+        website: payload.website ? String(payload.website) : payload.url ? String(payload.url) : null,
+        email: payload.email ? String(payload.email) : null,
+        phone: payload.phone ? String(payload.phone) : null,
+        address: payload.address ? String(payload.address) : null,
+        opportunitiesJson: serializeArray(csvOrArray(payload.opportunities)),
+        assetsJson: serializeArray(csvOrArray(payload.assets)),
+        tagsJson: ["community-submission", ...csvOrArray(payload.tags)],
+        evidenceJson: csvOrArray(payload.evidence).map((url) => ({ title: "Evidence", url })),
         status: "PENDING_REVIEW",
         ownerId: reviewerId,
-        coordQuality: "unknown",
+        coordQuality: payload.address ? "address" : "unknown",
       },
     });
     return { createdLocationId: loc.id, createdEntityType: "location", createdEntityId: loc.id };
@@ -62,17 +73,32 @@ export async function applyApprovedSubmission(
     const name = String(payload.name || payload.title || "");
     if (!name) throw new Error("ORG_PAYLOAD");
     const slugBase = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60);
+    const locationSlugs = csvOrArray(payload.locationSlugs);
     const org = await tx.organisation.create({
       data: {
         slug: `${slugBase}-${Date.now().toString(36)}`,
         name,
-        type: "community-submission",
-        description: String(payload.summary || ""),
+        type: String(payload.organisationType || payload.type || "community-submission"),
+        description: String(payload.summary || payload.description || ""),
         website: payload.website ? String(payload.website) : payload.url ? String(payload.url) : null,
+        email: payload.email || payload.orgEmail ? String(payload.email || payload.orgEmail) : null,
+        phone: payload.phone || payload.orgPhone ? String(payload.phone || payload.orgPhone) : null,
+        address: payload.address ? String(payload.address) : null,
+        logoUrl: payload.logoUrl ? String(payload.logoUrl) : null,
+        latitude: payload.latitude != null ? Number(payload.latitude) : null,
+        longitude: payload.longitude != null ? Number(payload.longitude) : null,
+        servicesJson: csvOrArray(payload.services),
+        skillsJson: csvOrArray(payload.skills),
+        technologiesJson: csvOrArray(payload.technologies),
+        locationSlugsJson: locationSlugs,
+        verificationEvidenceJson: csvOrArray(payload.evidence).map((url) => ({ title: "Evidence", url })),
         status: "PENDING_REVIEW",
         provinceId: existing.provinceId,
       },
     });
+    if (locationSlugs.length) {
+      await tx.location.updateMany({ where: { slug: { in: locationSlugs } }, data: { organisationId: org.id } });
+    }
     return { createdLocationId: null, createdEntityType: "organisation", createdEntityId: org.id };
   }
 

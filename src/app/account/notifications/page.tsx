@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NOTIFICATION_EVENTS } from "@/lib/notify";
+import { NOTIFICATION_EVENTS } from "@/lib/notification-events";
 
 type Preference = { eventType: string; email: boolean; inApp: boolean };
 type Note = { id: string; type: string; subject: string; body: string; status: string; createdAt: string };

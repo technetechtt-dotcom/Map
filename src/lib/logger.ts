@@ -7,12 +7,12 @@ async function sentry() {
   if (!process.env.SENTRY_DSN) return null;
   sentryReady ??= import("@sentry/node")
     .then((sdk) => {
+      // PII is off by default in this SDK; do not send default PII.
       sdk.init({
         dsn: process.env.SENTRY_DSN,
         environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
         release: process.env.SENTRY_RELEASE || process.env.GIT_SHA,
         tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.05),
-        sendDefaultPii: false,
       });
       return sdk;
     })
