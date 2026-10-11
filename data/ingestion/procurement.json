@@ -22,5 +22,53 @@
     "website": "https://www.sita.co.za/",
     "sourceUrl": "https://www.sita.co.za/",
     "address": null
+  },
+  {
+    "externalId": "cidb",
+    "name": "Construction Industry Development Board",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public construction procurement and contractor register.",
+    "website": "https://www.cidb.org.za/",
+    "sourceUrl": "https://www.cidb.org.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "ocpo",
+    "name": "Office of the Chief Procurement Officer",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "National Treasury OCPO — procurement policy and reforms.",
+    "website": "https://www.treasury.gov.za/",
+    "sourceUrl": "https://www.treasury.gov.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "transnet-tenders",
+    "name": "Transnet tender portal",
+    "provinceSlug": "gauteng",
+    "latitude": -26.204,
+    "longitude": 28.047,
+    "categorySlug": "knowledge-hub",
+    "summary": "State-owned logistics group procurement listings.",
+    "website": "https://www.transnet.net/",
+    "sourceUrl": "https://www.transnet.net/",
+    "address": "Johannesburg"
+  },
+  {
+    "externalId": "eskom-tenders",
+    "name": "Eskom tender bulletins",
+    "provinceSlug": "gauteng",
+    "latitude": -25.99,
+    "longitude": 28.128,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public utility procurement notices.",
+    "website": "https://www.eskom.co.za/",
+    "sourceUrl": "https://www.eskom.co.za/",
+    "address": "Megawatt Park"
   }
 ]

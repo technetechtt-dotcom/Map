@@ -46,5 +46,53 @@
     "website": "https://www.sarao.ac.za/",
     "sourceUrl": "https://www.sarao.ac.za/",
     "address": null
+  },
+  {
+    "externalId": "sa-connect",
+    "name": "SA Connect programme",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "National broadband programme coordination (directory listing).",
+    "website": "https://www.dtps.gov.za/",
+    "sourceUrl": "https://www.dtps.gov.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "openserve",
+    "name": "Openserve (Telkom wholesale)",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "National fibre and connectivity wholesale infrastructure (directory pin).",
+    "website": "https://www.openserve.co.za/",
+    "sourceUrl": "https://www.openserve.co.za/",
+    "address": "Centurion"
+  },
+  {
+    "externalId": "liquid-intelligent",
+    "name": "Liquid Intelligent Technologies",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "knowledge-hub",
+    "summary": "Pan-African fibre and data-centre operator (directory pin).",
+    "website": "https://www.liquid.tech/",
+    "sourceUrl": "https://www.liquid.tech/",
+    "address": "Johannesburg"
+  },
+  {
+    "externalId": "teraco",
+    "name": "Teraco Data Environments",
+    "provinceSlug": "gauteng",
+    "latitude": -26.139,
+    "longitude": 28.2,
+    "categorySlug": "knowledge-hub",
+    "summary": "Carrier-neutral data centre campus (Isando).",
+    "website": "https://www.teraco.co.za/",
+    "sourceUrl": "https://www.teraco.co.za/",
+    "address": "Isando"
   }
 ]

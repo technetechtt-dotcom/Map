@@ -140,7 +140,7 @@ export default function AdminSubmissionsPage() {
                     <button className="chip" type="button" onClick={() => review(s.id, "DUPLICATE_SUSPECTED")}>Flag duplicate</button>
                     {(mergeTarget[s.id] || s.mergeTargetId) && (
                       <ConfirmAction
-                        label="Merge to existing"
+                        label="Merge fields into existing"
                         tone="primary"
                         requireReason
                         onConfirm={(reason) => {

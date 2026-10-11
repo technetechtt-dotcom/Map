@@ -1,4 +1,77 @@
 {
-  "records": [],
-  "note": "Company listings require a data-sharing agreement or a community submission. This bucket is intentionally empty of scraped commercial directories."
+  "records": [
+    {
+      "externalId": "csir",
+      "name": "Council for Scientific and Industrial Research (CSIR)",
+      "provinceSlug": "gauteng",
+      "latitude": -25.756,
+      "longitude": 28.279,
+      "categorySlug": "knowledge-hub",
+      "summary": "Public research council with digital and ICT capabilities (directory pin).",
+      "website": "https://www.csir.co.za/",
+      "sourceUrl": "https://www.csir.co.za/",
+      "address": "Pretoria"
+    },
+    {
+      "externalId": "sita-company",
+      "name": "State Information Technology Agency",
+      "provinceSlug": "gauteng",
+      "latitude": -25.746,
+      "longitude": 28.188,
+      "categorySlug": "knowledge-hub",
+      "summary": "Public ICT agency serving government (directory listing).",
+      "website": "https://www.sita.co.za/",
+      "sourceUrl": "https://www.sita.co.za/",
+      "address": "Pretoria"
+    },
+    {
+      "externalId": "usaasa",
+      "name": "Universal Service and Access Agency of South Africa",
+      "provinceSlug": "gauteng",
+      "latitude": -26.107,
+      "longitude": 28.057,
+      "categorySlug": "knowledge-hub",
+      "summary": "Public agency for universal ICT access programmes.",
+      "website": "https://www.usaasa.org.za/",
+      "sourceUrl": "https://www.usaasa.org.za/",
+      "address": "Midrand"
+    },
+    {
+      "externalId": "nemisa",
+      "name": "NEMISA",
+      "provinceSlug": "gauteng",
+      "latitude": -26.192,
+      "longitude": 28.03,
+      "categorySlug": "skills-education",
+      "summary": "National Electronic Media Institute of South Africa — digital skills.",
+      "website": "https://www.nemisa.co.za/",
+      "sourceUrl": "https://www.nemisa.co.za/",
+      "address": "Johannesburg"
+    },
+    {
+      "externalId": "sarao",
+      "name": "South African Radio Astronomy Observatory",
+      "provinceSlug": "western-cape",
+      "latitude": -33.935,
+      "longitude": 18.472,
+      "categorySlug": "ska-data",
+      "summary": "Public radio astronomy organisation (SKA / MeerKAT).",
+      "website": "https://www.sarao.ac.za/",
+      "sourceUrl": "https://www.sarao.ac.za/",
+      "address": "Cape Town"
+    },
+    {
+      "externalId": "saeon",
+      "name": "SAEON",
+      "provinceSlug": "gauteng",
+      "latitude": -25.756,
+      "longitude": 28.279,
+      "categorySlug": "knowledge-hub",
+      "summary": "South African Environmental Observation Network — data infrastructure.",
+      "website": "https://www.saeon.ac.za/",
+      "sourceUrl": "https://www.saeon.ac.za/",
+      "address": "Pretoria"
+    }
+  ],
+  "note": "Public-sector and statutory ICT entities only. Commercial company scraping remains out of scope without a data-sharing agreement."
 }

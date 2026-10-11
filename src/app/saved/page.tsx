@@ -3,64 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import {
+  type Favourite,
+  mergeFavourites,
+  readLocalFavourites,
+  syncFavouritesToAccount,
+  writeLocalFavourites,
+} from "@/lib/favourites";
 
-type Fav = { kind: string; slug: string; title: string };
-
-const KEY = "ict_map_favourites";
-const ALLOWED_KINDS = ["funding", "events", "programmes", "procurement", "location", "organisation"];
-const MAX_SAVED = 100;
-
-function sanitizeString(s: unknown, maxLen = 120): string {
-  if (typeof s !== "string") return "";
-  return s.trim().slice(0, maxLen);
-}
-
-function readFavourites(): Fav[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((item): item is Fav => {
-        return (
-          Boolean(item) &&
-          typeof item === "object" &&
-          ALLOWED_KINDS.includes(item.kind) &&
-          typeof item.slug === "string" &&
-          item.slug.length > 0 &&
-          /^[a-z0-9-_]+$/i.test(item.slug) &&
-          typeof item.title === "string" &&
-          item.title.length > 0
-        );
-      })
-      .slice(0, MAX_SAVED)
-      .map((item) => ({
-        kind: item.kind,
-        slug: sanitizeString(item.slug, 80),
-        title: sanitizeString(item.title, 120),
-      }));
-  } catch {
-    return [];
-  }
-}
-
-function mergeFavourites(local: Fav[], remote: Fav[]): Fav[] {
-  const map = new Map<string, Fav>();
-  for (const item of [...remote, ...local]) {
-    map.set(`${item.kind}:${item.slug}`, item);
-  }
-  return Array.from(map.values()).slice(0, MAX_SAVED);
-}
-
-async function syncAccount(items: Fav[], signedIn: boolean) {
-  if (!signedIn) return;
-  await fetch("/api/account/saved", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
-  }).catch(() => undefined);
-}
-
-function itemHref(f: Fav): string {
+function itemHref(f: Favourite): string {
   if (f.kind === "funding") return `/funding/${f.slug}`;
   if (f.kind === "events") return `/events/${f.slug}`;
   if (f.kind === "programmes") return `/programmes/${f.slug}`;
@@ -82,32 +33,32 @@ const KIND_LABEL: Record<string, string> = {
 export default function SavedPage() {
   const { status } = useSession();
   const signedIn = status === "authenticated";
-  const [favourites, setFavourites] = useState<Fav[]>([]);
+  const [favourites, setFavourites] = useState<Favourite[]>([]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const local = readFavourites();
+    const local = readLocalFavourites();
     setFavourites(local);
     setMounted(true);
     if (!signedIn) return;
     fetch("/api/account/saved")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        const remote: Fav[] = data?.items || [];
+        const remote: Favourite[] = data?.items || [];
         const merged = mergeFavourites(local, remote);
-        localStorage.setItem(KEY, JSON.stringify(merged));
+        writeLocalFavourites(merged);
         setFavourites(merged);
         if (JSON.stringify(merged) !== JSON.stringify(remote)) {
-          return syncAccount(merged, true);
+          return syncFavouritesToAccount(merged, true);
         }
       })
       .catch(() => undefined);
   }, [signedIn]);
 
-  function persist(next: Fav[]) {
-    localStorage.setItem(KEY, JSON.stringify(next));
+  function persist(next: Favourite[]) {
+    writeLocalFavourites(next);
     setFavourites(next);
-    syncAccount(next, signedIn);
+    syncFavouritesToAccount(next, signedIn);
   }
 
   function remove(kind: string, slug: string) {
@@ -116,9 +67,7 @@ export default function SavedPage() {
 
   function clearAll() {
     if (!confirm("Remove all saved favourites?")) return;
-    localStorage.removeItem(KEY);
-    setFavourites([]);
-    syncAccount([], signedIn);
+    persist([]);
   }
 
   return (
@@ -126,9 +75,9 @@ export default function SavedPage() {
       <p className="eyebrow">Personal workspace</p>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1>Saved opportunities &amp; organisations</h1>
+          <h1>Saved opportunities &amp; contacts</h1>
           <p className="text-muted text-sm mt-1">
-            Signed-in accounts merge and sync Saved items. Anonymous visitors keep browser-only favourites.
+            Signed-in accounts sync Saved items. Anonymous visitors keep browser-only favourites.
           </p>
         </div>
         {mounted && favourites.length > 0 && (
@@ -169,7 +118,7 @@ export default function SavedPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Link href={itemHref(f)} className="btn btn-outline text-xs">Open →</Link>
-                <button type="button" onClick={() => remove(f.kind, f.slug)} className="chip text-xs hover:bg-red-50 hover:text-red-700" title="Remove from saved">
+                <button type="button" onClick={() => remove(f.kind, f.slug)} className="chip text-xs hover:bg-red-50 hover:text-red-700">
                   Remove
                 </button>
               </div>

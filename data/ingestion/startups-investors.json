@@ -10,5 +10,77 @@
     "website": "https://www.seda.org.za/",
     "sourceUrl": "https://www.seda.org.za/",
     "address": "Kimberley"
+  },
+  {
+    "externalId": "sefa",
+    "name": "SEFA",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "funding-support",
+    "summary": "Small Enterprise Finance Agency — public SMME finance.",
+    "website": "https://www.sefa.org.za/",
+    "sourceUrl": "https://www.sefa.org.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "nyda",
+    "name": "National Youth Development Agency",
+    "provinceSlug": "gauteng",
+    "latitude": -26.204,
+    "longitude": 28.047,
+    "categorySlug": "funding-support",
+    "summary": "Public youth enterprise and grant support.",
+    "website": "https://www.nyda.gov.za/",
+    "sourceUrl": "https://www.nyda.gov.za/",
+    "address": "Johannesburg"
+  },
+  {
+    "externalId": "bandwidth-barn",
+    "name": "Bandwidth Barn (CITI)",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "innovation-hub",
+    "summary": "Cape Innovation and Technology Initiative incubator campus.",
+    "website": "https://www.citi.org.za/",
+    "sourceUrl": "https://www.citi.org.za/",
+    "address": "Cape Town"
+  },
+  {
+    "externalId": "tshimologong",
+    "name": "Tshimologong Digital Innovation Precinct",
+    "provinceSlug": "gauteng",
+    "latitude": -26.193,
+    "longitude": 28.034,
+    "categorySlug": "innovation-hub",
+    "summary": "Wits-linked digital innovation precinct and incubator.",
+    "website": "https://tshimologong.joburg/",
+    "sourceUrl": "https://tshimologong.joburg/",
+    "address": "Braamfontein"
+  },
+  {
+    "externalId": "workshop17",
+    "name": "Workshop17",
+    "provinceSlug": "western-cape",
+    "latitude": -33.915,
+    "longitude": 18.42,
+    "categorySlug": "innovation-hub",
+    "summary": "Multi-city innovation and coworking network (directory pin).",
+    "website": "https://www.workshop17.co.za/",
+    "sourceUrl": "https://www.workshop17.co.za/",
+    "address": "Cape Town"
+  },
+  {
+    "externalId": "venture-capital-trust-fund",
+    "name": "SA SME Fund",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "funding-support",
+    "summary": "Public-interest SME investment vehicle (directory listing).",
+    "website": "https://www.sasmefund.co.za/",
+    "sourceUrl": "https://www.sasmefund.co.za/",
+    "address": "Johannesburg"
   }
 ]

@@ -10,5 +10,65 @@
     "website": "https://www.dsbd.gov.za/",
     "sourceUrl": "https://www.dsbd.gov.za/",
     "address": "National / Northern Cape"
+  },
+  {
+    "externalId": "sefa-finance",
+    "name": "SEFA finance products",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "funding-support",
+    "summary": "Public SMME loan and blended-finance products.",
+    "website": "https://www.sefa.org.za/",
+    "sourceUrl": "https://www.sefa.org.za/",
+    "address": "National"
+  },
+  {
+    "externalId": "nyda-grant",
+    "name": "NYDA Grant Programme",
+    "provinceSlug": "gauteng",
+    "latitude": -26.204,
+    "longitude": 28.047,
+    "categorySlug": "funding-support",
+    "summary": "Youth grant and business development support.",
+    "website": "https://www.nyda.gov.za/",
+    "sourceUrl": "https://www.nyda.gov.za/",
+    "address": "National"
+  },
+  {
+    "externalId": "tia-seed",
+    "name": "Technology Innovation Agency seed support",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "funding-support",
+    "summary": "Public technology commercialisation support.",
+    "website": "https://www.tia.org.za/",
+    "sourceUrl": "https://www.tia.org.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "nrf-funding",
+    "name": "National Research Foundation funding calls",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public research and postgraduate funding opportunities.",
+    "website": "https://www.nrf.ac.za/",
+    "sourceUrl": "https://www.nrf.ac.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "dtic-incentives",
+    "name": "dtic industrial incentives",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "funding-support",
+    "summary": "National industrial and manufacturing incentive programmes.",
+    "website": "https://www.thedtic.gov.za/",
+    "sourceUrl": "https://www.thedtic.gov.za/",
+    "address": "Pretoria"
   }
 ]

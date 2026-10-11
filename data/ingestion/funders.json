@@ -34,5 +34,53 @@
     "website": "https://www.dsbd.gov.za/",
     "sourceUrl": "https://www.dsbd.gov.za/",
     "address": null
+  },
+  {
+    "externalId": "nrf",
+    "name": "National Research Foundation",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public research funding agency.",
+    "website": "https://www.nrf.ac.za/",
+    "sourceUrl": "https://www.nrf.ac.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "tia",
+    "name": "Technology Innovation Agency",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "funding-support",
+    "summary": "Public technology commercialisation agency.",
+    "website": "https://www.tia.org.za/",
+    "sourceUrl": "https://www.tia.org.za/",
+    "address": "Pretoria"
+  },
+  {
+    "externalId": "idc",
+    "name": "Industrial Development Corporation",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "funding-support",
+    "summary": "Development finance institution for industrial investment.",
+    "website": "https://www.idc.co.za/",
+    "sourceUrl": "https://www.idc.co.za/",
+    "address": "Sandton"
+  },
+  {
+    "externalId": "dbsa",
+    "name": "Development Bank of Southern Africa",
+    "provinceSlug": "gauteng",
+    "latitude": -25.99,
+    "longitude": 28.128,
+    "categorySlug": "funding-support",
+    "summary": "Infrastructure and development finance bank.",
+    "website": "https://www.dbsa.org/",
+    "sourceUrl": "https://www.dbsa.org/",
+    "address": "Midrand"
   }
 ]

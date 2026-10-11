@@ -1,29 +1,34 @@
 /**
- * National connector registry — authoritative sources by province and entity type.
+ * National connector registry — logical runners mapped to CONNECTORS source ids.
  * Each connector is run via: node scripts/connectors/run.js <connector-id>
+ * CONNECTOR_ID passed to ingest:national is always `sourceId` (one catalogue source).
  */
 module.exports = {
   connectors: [
-    { id: "nc-municipalities", province: "NC", entity: "location", authority: "MDB", status: "active" },
-    { id: "nc-universities", province: "NC", entity: "organisation", authority: "DHET", status: "active" },
-    { id: "nc-tvet", province: "NC", entity: "organisation", authority: "DHET-TVET", status: "active" },
-    { id: "nc-seta", province: "NC", entity: "organisation", authority: "SETA", status: "active" },
-    { id: "nc-dsbd-seda", province: "NC", entity: "opportunity", authority: "DSBD/SEDA", status: "active" },
-    { id: "gp-municipalities", province: "GP", entity: "location", authority: "MDB", status: "active" },
-    { id: "gp-universities", province: "GP", entity: "organisation", authority: "DHET", status: "active" },
-    { id: "wc-municipalities", province: "WC", entity: "location", authority: "MDB", status: "active" },
-    { id: "wc-universities", province: "WC", entity: "organisation", authority: "DHET", status: "active" },
-    { id: "kzn-municipalities", province: "KZN", entity: "location", authority: "MDB", status: "active" },
-    { id: "ec-municipalities", province: "EC", entity: "location", authority: "MDB", status: "active" },
-    { id: "fs-municipalities", province: "FS", entity: "location", authority: "MDB", status: "active" },
-    { id: "lp-municipalities", province: "LP", entity: "location", authority: "MDB", status: "active" },
-    { id: "mp-municipalities", province: "MP", entity: "location", authority: "MDB", status: "active" },
-    { id: "nw-municipalities", province: "NW", entity: "location", authority: "MDB", status: "active" },
-    { id: "national-procurement", province: "*", entity: "procurement", authority: "National Treasury", status: "active" },
-    { id: "national-funding", province: "*", entity: "funding", authority: "DSBD/SEFA/SEDA", status: "active" },
-    { id: "national-infrastructure", province: "*", entity: "infrastructure", authority: "ICASA/SA Connect", status: "active" },
-    { id: "national-events", province: "*", entity: "event", authority: "Public programmes", status: "active" },
-    { id: "national-startups", province: "*", entity: "organisation", authority: "DSBD/SEDA", status: "active" },
+    { id: "nc-municipalities", sourceId: "municipalities", province: "NC", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "nc-universities", sourceId: "universities", province: "NC", entity: "organisation", authority: "DHET", health: "SEED" },
+    { id: "nc-tvet", sourceId: "tvet", province: "NC", entity: "organisation", authority: "DHET-TVET", health: "SEED" },
+    { id: "nc-seta", sourceId: "seta-funders", province: "NC", entity: "organisation", authority: "SETA", health: "SEED" },
+    { id: "nc-dsbd-seda", sourceId: "opportunities", province: "NC", entity: "opportunity", authority: "DSBD/SEDA", health: "SEED" },
+    { id: "gp-municipalities", sourceId: "municipalities", province: "GP", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "gp-universities", sourceId: "universities", province: "GP", entity: "organisation", authority: "DHET", health: "SEED" },
+    { id: "wc-municipalities", sourceId: "municipalities", province: "WC", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "wc-universities", sourceId: "universities", province: "WC", entity: "organisation", authority: "DHET", health: "SEED" },
+    { id: "kzn-municipalities", sourceId: "municipalities", province: "KZN", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "ec-municipalities", sourceId: "municipalities", province: "EC", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "fs-municipalities", sourceId: "municipalities", province: "FS", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "lp-municipalities", sourceId: "municipalities", province: "LP", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "mp-municipalities", sourceId: "municipalities", province: "MP", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "nw-municipalities", sourceId: "municipalities", province: "NW", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "national-procurement", sourceId: "procurement", province: "*", entity: "procurement", authority: "National Treasury", health: "SEED" },
+    { id: "national-funding", sourceId: "funders", province: "*", entity: "funding", authority: "DSBD/SEFA/SEDA", health: "SEED" },
+    { id: "national-infrastructure", sourceId: "digital-infrastructure", province: "*", entity: "infrastructure", authority: "ICASA/SA Connect", health: "SEED" },
+    { id: "national-events", sourceId: "events", province: "*", entity: "event", authority: "Public programmes", health: "SEED" },
+    { id: "national-startups", sourceId: "startups-investors", province: "*", entity: "organisation", authority: "DSBD/SEDA", health: "SEED" },
+    { id: "universities", sourceId: "universities", province: "*", entity: "organisation", authority: "DHET", health: "SEED" },
+    { id: "tvet", sourceId: "tvet", province: "*", entity: "organisation", authority: "DHET-TVET", health: "SEED" },
+    { id: "municipalities", sourceId: "municipalities", province: "*", entity: "location", authority: "MDB", health: "SEED" },
+    { id: "programmes", sourceId: "programmes", province: "*", entity: "programme", authority: "Public skills", health: "SEED" },
   ],
   coverageTargets: {
     perProvince: {

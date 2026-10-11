@@ -6,7 +6,7 @@ Dependabot should open a **branch/PR**, wait for CI + Security, and merge only w
 
 This repository’s operator workflow still pushes certified fixes directly to `main` (see `docs/branch-protection.json`). That is not a licence to skip audit, secret-scan, or the production gate.
 
-Sentry packages must stay on the same major (`@sentry/browser` and `@sentry/node`). Application, job, ingestion, and DR failures go through `src/lib/logger.ts`. `src/instrumentation.ts` must not import `@sentry/node` — Next compiles it for Edge and the Node SDK then fails the production build.
+Sentry packages must stay on the same major (`@sentry/browser` and `@sentry/node`). Pin both to **10.x** (currently `10.25.0`). Sentry 11 pulls `@sentry/bundler-plugins` → `sentry@0.45.0` licensed **FSL-1.1-Apache-2.0**, which is not OSI/permissive and must not be allowlisted as `Apache*`. Application, job, ingestion, and DR failures go through `src/lib/logger.ts`. `src/instrumentation.ts` must not import `@sentry/node` — Next compiles it for Edge and the Node SDK then fails the production build.
 
 Signed commits, required PR approvals, and immutable release tags remain **launch policy** (`docs/branch-protection-launch.json`). They are not applied to live `main` while operator push-to-main is required.
 

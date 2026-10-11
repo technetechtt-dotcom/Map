@@ -125,3 +125,178 @@ export async function applyApprovedSubmission(
 
   throw new Error("UNSUPPORTED_TYPE");
 }
+
+function pickSubmitted(existingValue: unknown, submittedValue: unknown) {
+  if (submittedValue == null || submittedValue === "") return { value: existingValue, changed: false };
+  if (existingValue == null || existingValue === "") return { value: submittedValue, changed: true };
+  if (String(existingValue) === String(submittedValue)) return { value: existingValue, changed: false };
+  return { value: submittedValue, changed: true };
+}
+
+function mergeStringArrays(existingJson: unknown, submitted: string[]) {
+  const existing = Array.isArray(existingJson)
+    ? existingJson.map(String)
+    : typeof existingJson === "string"
+      ? (() => {
+          try {
+            const parsed = JSON.parse(existingJson);
+            return Array.isArray(parsed) ? parsed.map(String) : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  if (!submitted.length) return { value: existing, changed: false };
+  const merged = Array.from(new Set([...existing, ...submitted]));
+  const changed = merged.length !== existing.length || merged.some((v, i) => v !== existing[i]);
+  return { value: merged, changed };
+}
+
+/** Apply submitted payload onto an existing catalogue entity (true field merge). */
+export async function mergeSubmissionIntoExisting(
+  tx: Tx,
+  existing: { id: string; type: string; payloadJson: unknown; provinceId: string | null },
+  targetId: string,
+  _reviewerId: string
+) {
+  const payload = (existing.payloadJson || {}) as Record<string, unknown>;
+  const type = existing.type || "location";
+  const changedFields: string[] = [];
+
+  if (type === "organisation") {
+    const current = await tx.organisation.findUnique({ where: { id: targetId } });
+    if (!current) throw new Error("MERGE_TARGET_MISSING");
+    const data: Record<string, unknown> = {};
+    const scalar: Array<[string, unknown]> = [
+      ["description", payload.summary || payload.description],
+      ["website", payload.website || payload.url],
+      ["email", payload.email || payload.orgEmail],
+      ["phone", payload.phone || payload.orgPhone],
+      ["address", payload.address],
+      ["logoUrl", payload.logoUrl],
+      ["type", payload.organisationType || payload.type],
+    ];
+    for (const [key, submitted] of scalar) {
+      const picked = pickSubmitted((current as Record<string, unknown>)[key], submitted ? String(submitted) : null);
+      if (picked.changed) {
+        data[key] = picked.value;
+        changedFields.push(key);
+      }
+    }
+    for (const [key, column] of [
+      ["services", "servicesJson"],
+      ["skills", "skillsJson"],
+      ["technologies", "technologiesJson"],
+    ] as const) {
+      const merged = mergeStringArrays((current as Record<string, unknown>)[column], csvOrArray(payload[key]));
+      if (merged.changed) {
+        data[column] = merged.value;
+        changedFields.push(column);
+      }
+    }
+    const locationSlugs = csvOrArray(payload.locationSlugs);
+    if (locationSlugs.length) {
+      const mergedSlugs = mergeStringArrays(current.locationSlugsJson, locationSlugs);
+      if (mergedSlugs.changed) {
+        data.locationSlugsJson = mergedSlugs.value;
+        changedFields.push("locationSlugsJson");
+      }
+      await tx.location.updateMany({ where: { slug: { in: locationSlugs } }, data: { organisationId: current.id } });
+    }
+    if (Object.keys(data).length) {
+      await tx.organisation.update({ where: { id: targetId }, data });
+    }
+    return { createdLocationId: null, createdEntityType: "organisation", createdEntityId: targetId, changedFields };
+  }
+
+  if (type === "location") {
+    const current = await tx.location.findUnique({ where: { id: targetId } });
+    if (!current) throw new Error("MERGE_TARGET_MISSING");
+    const data: Record<string, unknown> = {};
+    for (const [key, submitted] of [
+      ["summary", payload.summary],
+      ["description", payload.description],
+      ["website", payload.website || payload.url],
+      ["email", payload.email],
+      ["phone", payload.phone],
+      ["address", payload.address],
+    ] as const) {
+      const picked = pickSubmitted((current as Record<string, unknown>)[key], submitted ? String(submitted) : null);
+      if (picked.changed) {
+        data[key] = picked.value;
+        changedFields.push(key);
+      }
+    }
+    for (const [key, column] of [
+      ["opportunities", "opportunitiesJson"],
+      ["assets", "assetsJson"],
+      ["tags", "tagsJson"],
+    ] as const) {
+      const merged = mergeStringArrays((current as Record<string, unknown>)[column], csvOrArray(payload[key]));
+      if (merged.changed) {
+        data[column] = serializeArray(merged.value);
+        changedFields.push(column);
+      }
+    }
+    if (Object.keys(data).length) await tx.location.update({ where: { id: targetId }, data });
+    return { createdLocationId: targetId, createdEntityType: "location", createdEntityId: targetId, changedFields };
+  }
+
+  if (isEcosystemType(type)) {
+    const model =
+      type === "events"
+        ? tx.ecosystemEvent
+        : type === "programmes"
+          ? tx.programme
+          : type === "procurement"
+            ? tx.procurement
+            : tx.fundingCall;
+    const current = await model.findUnique({ where: { id: targetId } });
+    if (!current) throw new Error("MERGE_TARGET_MISSING");
+    const data: Record<string, unknown> = {};
+    for (const [key, submitted] of [
+      ["summary", payload.summary],
+      ["description", payload.description || payload.eligibility],
+      ["url", payload.applicationUrl || payload.url],
+      ["amount", payload.amount],
+      ["budget", payload.budget],
+      ["venue", payload.venue],
+      ["onlineUrl", payload.onlineUrl || payload.registrationUrl],
+      ["referenceNumber", payload.referenceNumber],
+      ["issuingAuthority", payload.issuingAuthority],
+      ["applicationUrl", payload.applicationUrl],
+      ["applicationProcess", payload.applicationProcess],
+      ["targetAudience", payload.targetAudience],
+      ["audience", payload.audience || payload.targetAudience],
+      ["providerName", payload.provider || payload.providerName],
+      ["deliveryMethod", payload.deliveryMethod],
+      ["eligibility", payload.eligibility],
+      ["cost", payload.cost],
+      ["attendanceFormat", payload.attendanceFormat],
+      ["town", payload.town],
+      ["closingTime", payload.closingTime],
+      ["procurementCategory", payload.procurementCategory || payload.category],
+    ] as const) {
+      if (!(key in current)) continue;
+      const picked = pickSubmitted((current as Record<string, unknown>)[key], submitted ? String(submitted) : null);
+      if (picked.changed) {
+        data[key] = picked.value;
+        changedFields.push(key);
+      }
+    }
+    if (Array.isArray(payload.sectors) || Array.isArray(payload.tags)) {
+      const merged = mergeStringArrays((current as { tagsJson?: unknown }).tagsJson, [
+        ...csvOrArray(payload.tags),
+        ...csvOrArray(payload.sectors),
+      ]);
+      if (merged.changed) {
+        data.tagsJson = merged.value;
+        changedFields.push("tagsJson");
+      }
+    }
+    if (Object.keys(data).length) await model.update({ where: { id: targetId }, data });
+    return { createdLocationId: null, createdEntityType: type, createdEntityId: targetId, changedFields };
+  }
+
+  throw new Error("UNSUPPORTED_TYPE");
+}

@@ -10,5 +10,65 @@
     "website": "https://www.northern-cape.gov.za/",
     "sourceUrl": "https://www.northern-cape.gov.za/",
     "address": "Kimberley"
+  },
+  {
+    "externalId": "innovation-summit",
+    "name": "Innovation Summit",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "innovation-hub",
+    "summary": "Public-facing innovation and entrepreneurship summit (Cape Town).",
+    "website": "https://www.innovationsummit.co.za/",
+    "sourceUrl": "https://www.innovationsummit.co.za/",
+    "address": "Cape Town"
+  },
+  {
+    "externalId": "satnac",
+    "name": "SATNAC",
+    "provinceSlug": "western-cape",
+    "latitude": -33.925,
+    "longitude": 18.424,
+    "categorySlug": "knowledge-hub",
+    "summary": "Southern Africa Telecommunication Networks and Applications Conference.",
+    "website": "https://www.satnac.org.za/",
+    "sourceUrl": "https://www.satnac.org.za/",
+    "address": "Rotating / Cape Town"
+  },
+  {
+    "externalId": "africa-tech-festival",
+    "name": "Africa Tech Festival",
+    "provinceSlug": "western-cape",
+    "latitude": -33.915,
+    "longitude": 18.42,
+    "categorySlug": "innovation-hub",
+    "summary": "Major African digital economy conference series.",
+    "website": "https://www.africatechfestival.com/",
+    "sourceUrl": "https://www.africatechfestival.com/",
+    "address": "Cape Town"
+  },
+  {
+    "externalId": "govtech-sa",
+    "name": "GovTech South Africa",
+    "provinceSlug": "gauteng",
+    "latitude": -25.746,
+    "longitude": 28.188,
+    "categorySlug": "knowledge-hub",
+    "summary": "Public-sector digital transformation conference.",
+    "website": "https://www.govtech.co.za/",
+    "sourceUrl": "https://www.govtech.co.za/",
+    "address": "Pretoria / Johannesburg"
+  },
+  {
+    "externalId": "seedstars-jhb",
+    "name": "Seedstars Johannesburg",
+    "provinceSlug": "gauteng",
+    "latitude": -26.204,
+    "longitude": 28.047,
+    "categorySlug": "innovation-hub",
+    "summary": "Startup competition and ecosystem event (public listing).",
+    "website": "https://www.seedstars.com/",
+    "sourceUrl": "https://www.seedstars.com/",
+    "address": "Johannesburg"
   }
 ]

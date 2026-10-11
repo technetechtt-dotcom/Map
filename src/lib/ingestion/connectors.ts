@@ -17,12 +17,18 @@ export type IngestionRecord = ImportSourceRow & {
   contentHash?: string;
 };
 
+/** Operational health — not the same as “active in the registry”. */
+export type ConnectorHealth = "SEED" | "CONFIGURED" | "LIVE" | "DEGRADED" | "DISABLED";
+
 export type Connector = {
   id: string;
   licence: string;
   file: string;
   urlEnv: string;
   class: "government" | "institutional" | "directory";
+  /** Default posture when no live URL is configured. */
+  defaultHealth: ConnectorHealth;
+  authority: string;
   load(): Promise<ConnectorBatch>;
 };
 
@@ -180,7 +186,9 @@ function defineConnector(
   licence: string,
   file: string,
   urlEnv: string,
-  cls: Connector["class"] = "directory"
+  cls: Connector["class"] = "directory",
+  authority = "Bundled public directory",
+  defaultHealth: ConnectorHealth = "SEED"
 ): Connector {
   return {
     id,
@@ -188,32 +196,59 @@ function defineConnector(
     file,
     urlEnv,
     class: cls,
+    authority,
+    defaultHealth,
     load: () => loadConnectorSource({ id, licence, file, urlEnv }),
   };
 }
 
 export const CONNECTORS: Connector[] = [
-  defineConnector("provincial-government", "public-directory", "data/ingestion/provincial-government.json", "INGEST_PROVINCIAL_GOVERNMENT_URL", "government"),
-  defineConnector("municipalities", "public-directory", "data/ingestion/municipalities.json", "INGEST_MUNICIPALITIES_URL", "government"),
-  defineConnector("universities", "public-directory", "data/ingestion/universities.json", "INGEST_UNIVERSITIES_URL", "institutional"),
-  defineConnector("tvet", "public-directory", "data/ingestion/tvet.json", "INGEST_TVET_URL", "institutional"),
-  defineConnector("seta-funders", "public-directory", "data/ingestion/seta-funders.json", "INGEST_SETA_FUNDERS_URL", "institutional"),
-  defineConnector("research-institutions", "public-directory", "data/ingestion/research-institutions.json", "INGEST_RESEARCH_INSTITUTIONS_URL", "institutional"),
-  defineConnector("innovation-hubs", "public-directory", "data/ingestion/innovation-hubs.json", "INGEST_INNOVATION_HUBS_URL", "institutional"),
-  defineConnector("funders", "public-directory", "data/ingestion/funders.json", "INGEST_FUNDERS_URL", "institutional"),
-  defineConnector("programmes", "public-directory", "data/ingestion/programmes.json", "INGEST_PROGRAMMES_URL", "institutional"),
-  defineConnector("procurement", "public-directory", "data/ingestion/procurement.json", "INGEST_PROCUREMENT_URL", "government"),
-  defineConnector("digital-infrastructure", "public-directory", "data/ingestion/digital-infrastructure.json", "INGEST_DIGITAL_INFRASTRUCTURE_URL", "government"),
-  defineConnector("industry-bodies", "public-directory", "data/ingestion/industry-bodies.json", "INGEST_INDUSTRY_BODIES_URL", "institutional"),
-  defineConnector("companies", "public-directory", "data/ingestion/companies.json", "INGEST_COMPANIES_URL", "directory"),
-  defineConnector("events", "public-directory", "data/ingestion/events.json", "INGEST_EVENTS_URL", "institutional"),
-  defineConnector("startups-investors", "public-directory", "data/ingestion/startups-investors.json", "INGEST_STARTUPS_INVESTORS_URL", "institutional"),
-  defineConnector("opportunities", "public-directory", "data/ingestion/opportunities.json", "INGEST_OPPORTUNITIES_URL", "government"),
+  defineConnector("provincial-government", "public-directory", "data/ingestion/provincial-government.json", "INGEST_PROVINCIAL_GOVERNMENT_URL", "government", "Provincial government portals"),
+  defineConnector("municipalities", "public-directory", "data/ingestion/municipalities.json", "INGEST_MUNICIPALITIES_URL", "government", "Municipal Demarcation Board / local directories"),
+  defineConnector("universities", "public-directory", "data/ingestion/universities.json", "INGEST_UNIVERSITIES_URL", "institutional", "DHET public universities"),
+  defineConnector("tvet", "public-directory", "data/ingestion/tvet.json", "INGEST_TVET_URL", "institutional", "DHET TVET colleges"),
+  defineConnector("seta-funders", "public-directory", "data/ingestion/seta-funders.json", "INGEST_SETA_FUNDERS_URL", "institutional", "SETA directories"),
+  defineConnector("research-institutions", "public-directory", "data/ingestion/research-institutions.json", "INGEST_RESEARCH_INSTITUTIONS_URL", "institutional", "Public research institutions"),
+  defineConnector("innovation-hubs", "public-directory", "data/ingestion/innovation-hubs.json", "INGEST_INNOVATION_HUBS_URL", "institutional", "Public innovation hubs"),
+  defineConnector("funders", "public-directory", "data/ingestion/funders.json", "INGEST_FUNDERS_URL", "institutional", "National funders / DSBD / DSTI"),
+  defineConnector("programmes", "public-directory", "data/ingestion/programmes.json", "INGEST_PROGRAMMES_URL", "institutional", "Public skills programmes"),
+  defineConnector("procurement", "public-directory", "data/ingestion/procurement.json", "INGEST_PROCUREMENT_URL", "government", "National Treasury / SITA"),
+  defineConnector("digital-infrastructure", "public-directory", "data/ingestion/digital-infrastructure.json", "INGEST_DIGITAL_INFRASTRUCTURE_URL", "government", "ICASA / SA Connect / SOEs"),
+  defineConnector("industry-bodies", "public-directory", "data/ingestion/industry-bodies.json", "INGEST_INDUSTRY_BODIES_URL", "institutional", "Industry associations"),
+  defineConnector("companies", "public-directory", "data/ingestion/companies.json", "INGEST_COMPANIES_URL", "directory", "Public-sector ICT entities (no commercial scrape)"),
+  defineConnector("events", "public-directory", "data/ingestion/events.json", "INGEST_EVENTS_URL", "institutional", "Public ecosystem events"),
+  defineConnector("startups-investors", "public-directory", "data/ingestion/startups-investors.json", "INGEST_STARTUPS_INVESTORS_URL", "institutional", "SEDA / DSBD startup support"),
+  defineConnector("opportunities", "public-directory", "data/ingestion/opportunities.json", "INGEST_OPPORTUNITIES_URL", "government", "Public opportunity listings"),
 ];
 
-export async function loadNationalCatalog() {
+/** Resolve live health from env + latest connector run. */
+export function resolveConnectorHealth(
+  connector: Connector,
+  latestRun?: { status: string | null; schemaDrift?: boolean | null; sourceUrl?: string | null } | null
+): ConnectorHealth {
+  if (connector.defaultHealth === "DISABLED") return "DISABLED";
+  const urlConfigured = Boolean((process.env[connector.urlEnv] || "").trim());
+  if (!urlConfigured) return connector.defaultHealth;
+  if (!latestRun) return "CONFIGURED";
+  if (latestRun.schemaDrift || latestRun.status === "schema-drift" || latestRun.status === "failed") return "DEGRADED";
+  if (latestRun.sourceUrl || latestRun.status === "fetched" || latestRun.status === "applied") return "LIVE";
+  return "CONFIGURED";
+}
+
+export function selectConnectors(connectorId = process.env.CONNECTOR_ID): Connector[] {
+  const id = (connectorId || "").trim();
+  if (!id) return CONNECTORS.filter((c) => c.defaultHealth !== "DISABLED");
+  const matched = CONNECTORS.filter((c) => c.id === id);
+  if (!matched.length) {
+    throw new Error(`Unknown CONNECTOR_ID: ${id}. Expected one of: ${CONNECTORS.map((c) => c.id).join(", ")}`);
+  }
+  return matched;
+}
+
+export async function loadNationalCatalog(connectorId = process.env.CONNECTOR_ID) {
+  const selected = selectConnectors(connectorId);
   const batches: ConnectorBatch[] = [];
-  for (const connector of CONNECTORS) {
+  for (const connector of selected) {
     try {
       batches.push(await connector.load());
     } catch (error) {

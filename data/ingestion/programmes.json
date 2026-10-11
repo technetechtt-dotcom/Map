@@ -34,5 +34,53 @@
     "website": "https://capaciti.org.za/",
     "sourceUrl": "https://capaciti.org.za/",
     "address": null
+  },
+  {
+    "externalId": "nemisa-skills",
+    "name": "NEMISA digital skills programmes",
+    "provinceSlug": "gauteng",
+    "latitude": -26.192,
+    "longitude": 28.03,
+    "categorySlug": "skills-education",
+    "summary": "National Electronic Media Institute digital skills offerings.",
+    "website": "https://www.nemisa.co.za/",
+    "sourceUrl": "https://www.nemisa.co.za/",
+    "address": "Johannesburg"
+  },
+  {
+    "externalId": "mict-seta",
+    "name": "MICT SETA learnerships",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "skills-education",
+    "summary": "Media, Information and Communication Technologies SETA programmes.",
+    "website": "https://www.mict.org.za/",
+    "sourceUrl": "https://www.mict.org.za/",
+    "address": "Midrand"
+  },
+  {
+    "externalId": "harambee",
+    "name": "Harambee Youth Employment Accelerator",
+    "provinceSlug": "gauteng",
+    "latitude": -26.204,
+    "longitude": 28.047,
+    "categorySlug": "skills-education",
+    "summary": "Youth employment and work-readiness pathways (directory listing).",
+    "website": "https://www.harambee.co.za/",
+    "sourceUrl": "https://www.harambee.co.za/",
+    "address": "Johannesburg"
+  },
+  {
+    "externalId": "yes4youth",
+    "name": "YES 4 Youth",
+    "provinceSlug": "gauteng",
+    "latitude": -26.107,
+    "longitude": 28.057,
+    "categorySlug": "skills-education",
+    "summary": "Youth Employment Service work-experience programmes.",
+    "website": "https://www.yes4youth.co.za/",
+    "sourceUrl": "https://www.yes4youth.co.za/",
+    "address": "National"
   }
 ]

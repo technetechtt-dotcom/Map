@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createHash } from "crypto";
+import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, requireSession, enforceRateLimitAsync } from "@/lib/api";
 import { writeAudit } from "@/lib/audit";
@@ -13,10 +14,12 @@ import {
 import { submissionSchema, locationCreateSchema } from "@/lib/validation";
 import { clientIp, readJsonLimited, verifyCaptcha } from "@/lib/security";
 import { log } from "@/lib/logger";
-import { applyApprovedSubmission } from "@/lib/submission-apply";
+import { applyApprovedSubmission, mergeSubmissionIntoExisting } from "@/lib/submission-apply";
 import { invalidatePublicCaches } from "@/lib/server-memo";
 import { makeTrackingRef } from "@/lib/tracking";
 import { notify } from "@/lib/notify";
+
+const REVIEWER_ROLES: UserRole[] = ["SUPER_ADMIN", "PROVINCIAL_ADMIN"];
 
 function payloadHash(payload: unknown) {
   return createHash("sha256").update(JSON.stringify(payload ?? {})).digest("hex");
@@ -29,8 +32,8 @@ export async function GET() {
 
   const where = submissionTenantWhere(auth.user);
   const reviewerWhere = auth.user.role === "SUPER_ADMIN"
-    ? { active: true, role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] as const } }
-    : { active: true, role: { in: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] as const }, provinceId: auth.user.provinceId || "__none__" };
+    ? { active: true, role: { in: REVIEWER_ROLES } }
+    : { active: true, role: { in: REVIEWER_ROLES }, provinceId: auth.user.provinceId || "__none__" };
   const [rows, reviewers] = await Promise.all([
     prisma.submission.findMany({
       where,
@@ -290,6 +293,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
+    let mergeChangedFields: string[] = [];
     const result = await prisma.$transaction(async (tx) => {
       let createdLocationId = existing.createdLocationId;
       let createdEntityType = existing.createdEntityType;
@@ -297,9 +301,11 @@ export async function PATCH(req: NextRequest) {
       const mergeTargetId = body.mergeTargetId || existing.mergeTargetId;
 
       if ((body.status === "APPROVED" || body.status === "PUBLISHED") && mergeTargetId) {
-        createdLocationId = existing.type === "location" ? mergeTargetId : null;
-        createdEntityType = existing.type;
-        createdEntityId = mergeTargetId;
+        const merged = await mergeSubmissionIntoExisting(tx, existing, mergeTargetId, auth.user.id);
+        createdLocationId = merged.createdLocationId;
+        createdEntityType = merged.createdEntityType;
+        createdEntityId = merged.createdEntityId;
+        mergeChangedFields = merged.changedFields;
       } else if (body.status === "APPROVED" || body.status === "PUBLISHED") {
         const applied = await applyApprovedSubmission(tx, existing, auth.user.id);
         createdLocationId = applied.createdLocationId;
@@ -334,12 +340,17 @@ export async function PATCH(req: NextRequest) {
     await writeAudit({
       user: auth.user,
       userId: auth.user.id,
-      action: body.status!,
+      action: mergeChangedFields.length ? "SUBMISSION_MERGE_FIELDS" : body.status!,
       entityType: "Submission",
       entityId: result.id,
       provinceId: result.provinceId,
       ipAddress: clientIp(req),
-      metadata: { createdLocationId: result.createdLocationId, createdEntityId: result.createdEntityId },
+      metadata: {
+        createdLocationId: result.createdLocationId,
+        createdEntityId: result.createdEntityId,
+        mergeTargetId: result.mergeTargetId,
+        changedFields: mergeChangedFields,
+      },
     });
     invalidatePublicCaches();
     await notify({

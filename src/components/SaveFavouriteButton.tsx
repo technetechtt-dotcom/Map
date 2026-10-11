@@ -2,55 +2,45 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-
-type Fav = { kind: string; slug: string; title: string };
-
-const KEY = "ict_map_favourites";
-
-function read(): Fav[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function syncAccount(items: Fav[]) {
-  await fetch("/api/account/saved", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
-  }).catch(() => undefined);
-}
+import {
+  mergeFavourites,
+  readLocalFavourites,
+  syncFavouritesToAccount,
+  writeLocalFavourites,
+} from "@/lib/favourites";
 
 export default function SaveFavouriteButton({ kind, slug, title }: { kind: string; slug: string; title: string }) {
   const { status } = useSession();
+  const signedIn = status === "authenticated";
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setSaved(read().some((f) => f.kind === kind && f.slug === slug));
-    if (status === "authenticated") {
-      fetch("/api/account/saved")
-        .then((r) => r.json())
-        .then((data) => {
-          const items: Fav[] = data.items || [];
-          if (items.length) {
-            localStorage.setItem(KEY, JSON.stringify(items));
-            setSaved(items.some((f) => f.kind === kind && f.slug === slug));
-          }
-        })
-        .catch(() => undefined);
-    }
-  }, [kind, slug, status]);
+    const local = readLocalFavourites();
+    setSaved(local.some((f) => f.kind === kind && f.slug === slug));
+    if (!signedIn) return;
+    fetch("/api/account/saved")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const remote = data?.items || [];
+        const merged = mergeFavourites(local, remote);
+        writeLocalFavourites(merged);
+        setSaved(merged.some((f) => f.kind === kind && f.slug === slug));
+        if (JSON.stringify(merged) !== JSON.stringify(remote)) {
+          return syncFavouritesToAccount(merged, true);
+        }
+      })
+      .catch(() => undefined);
+  }, [kind, slug, signedIn]);
 
   function toggle() {
-    const current = read();
+    const current = readLocalFavourites();
     const exists = current.some((f) => f.kind === kind && f.slug === slug);
-    const next = exists ? current.filter((f) => !(f.kind === kind && f.slug === slug)) : [...current, { kind, slug, title }];
-    localStorage.setItem(KEY, JSON.stringify(next.slice(-100)));
+    const next = exists
+      ? current.filter((f) => !(f.kind === kind && f.slug === slug))
+      : [...current, { kind, slug, title }];
+    writeLocalFavourites(next);
     setSaved(!exists);
-    if (status === "authenticated") syncAccount(next);
+    syncFavouritesToAccount(next, signedIn);
   }
 
   return (
