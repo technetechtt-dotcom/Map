@@ -7,6 +7,7 @@ import { writeAudit } from "@/lib/audit";
 import { z } from "zod";
 import type { WorkflowStatus } from "@prisma/client";
 import { invalidatePublicCaches } from "@/lib/server-memo";
+import { notify } from "@/lib/notify";
 
 const createSchema = z.object({
   targetType: z.enum(["location", "organisation"]),
@@ -87,6 +88,9 @@ export async function PATCH(req: NextRequest) {
   const bodyResult = z.object({
     id: z.string().min(1),
     status: z.enum(["OPEN", "IN_PROGRESS", "CLOSED", "REJECTED"]),
+    assignedToId: z.string().optional(),
+    investigationNotes: z.string().max(4000).optional(),
+    resolution: z.string().max(4000).optional(),
   }).safeParse(parsed.data);
   if (!bodyResult.success) return jsonError("Validation failed", 400, { issues: bodyResult.error.issues });
   const body = bodyResult.data;
@@ -103,7 +107,12 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await prisma.correctionRequest.update({
     where: { id: body.id },
-    data: { status: body.status as WorkflowStatus },
+    data: {
+      status: body.status as WorkflowStatus,
+      assignedToId: body.assignedToId || undefined,
+      investigationNotes: body.investigationNotes || undefined,
+      resolution: body.resolution || undefined,
+    },
   });
   await writeAudit({
     user: auth.user,
@@ -115,5 +124,11 @@ export async function PATCH(req: NextRequest) {
     ipAddress: clientIp(req),
   });
   if (body.status === "CLOSED") invalidatePublicCaches();
+  await notify({
+    type: "correction.update",
+    to: existing.submitterEmail,
+    subject: `Correction ${body.status.toLowerCase()}`,
+    body: body.resolution || `Your correction request is now ${body.status}.`,
+  });
   return jsonOk({ request: updated });
 }

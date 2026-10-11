@@ -1,0 +1,14 @@
+[
+  {
+    "externalId": "seda-nc",
+    "name": "SEDA Northern Cape",
+    "provinceSlug": "northern-cape",
+    "latitude": -28.738,
+    "longitude": 24.763,
+    "categorySlug": "funding-support",
+    "summary": "Public SMME and startup support office.",
+    "website": "https://www.seda.org.za/",
+    "sourceUrl": "https://www.seda.org.za/",
+    "address": "Kimberley"
+  }
+]

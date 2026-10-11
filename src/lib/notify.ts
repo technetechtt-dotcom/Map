@@ -4,6 +4,16 @@ import { log } from "./logger";
 import type { Prisma } from "@prisma/client";
 import { renderEmail, sendViaResend } from "./email";
 
+export const NOTIFICATION_EVENTS = [
+  "funding.deadline",
+  "procurement.closing",
+  "event.reminder",
+  "programme.update",
+  "submission.update",
+  "organisation.claim",
+  "correction.update",
+] as const;
+
 export type NotifyEvent = {
   type: string;
   to?: string;
@@ -43,6 +53,8 @@ export async function notify(event: NotifyEvent): Promise<{ id: string } | null>
     return null;
   }
 }
+
+export const notifyUser = notify;
 
 export async function deliverNotification(id: string): Promise<void> {
   // Conditional claim makes delivery at-most-once per attempt when multiple

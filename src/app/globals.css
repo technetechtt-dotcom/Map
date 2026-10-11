@@ -64,6 +64,47 @@ body {
   color: #ecfdf5;
 }
 
+.hamburger-button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--g950);
+  background: #fff;
+  font-weight: 800;
+}
+
+.mobile-nav-drawer {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 14px;
+}
+
+.mobile-nav-link {
+  display: block;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 10px 12px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.mobile-nav-link.is-active {
+  background: #fff;
+  color: var(--g950);
+}
+
+.map-pane-switch {
+  position: sticky;
+  bottom: 12px;
+  z-index: 40;
+  display: flex;
+  gap: 8px;
+  margin: 12px;
+}
+
 .secondary-button {
   min-height: 38px;
   padding: 8px 14px;

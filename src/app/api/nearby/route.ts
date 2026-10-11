@@ -17,6 +17,25 @@ export async function GET(req: NextRequest) {
   const { lat, lng, radiusKm } = parsed;
   const kind = req.nextUrl.searchParams.get("kind") || "organisation";
   const metres = radiusKm * 1000;
+  if (kind === "event") {
+    const rows = await prisma.$queryRaw<Array<{ id: string; slug: string; name: string; type: string; metres: number }>>`
+      SELECT id, slug, title AS name, 'event' AS type,
+             ST_Distance(
+               ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+               ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+             )::float8 AS metres
+      FROM "EcosystemEvent"
+      WHERE status = 'PUBLISHED' AND latitude IS NOT NULL AND longitude IS NOT NULL
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+          ${metres}
+        )
+      ORDER BY metres ASC
+      LIMIT 25
+    `;
+    return NextResponse.json({ results: rows, radiusKm });
+  }
   if (kind === "location") {
     const rows = await prisma.$queryRaw<Array<{ id: string; slug: string; name: string; type: string; metres: number }>>`
       SELECT id, slug, name, 'location' AS type,

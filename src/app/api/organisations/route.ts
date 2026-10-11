@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     });
     const towns = await prisma.location.findMany({
       where: {
-        status: { in: ["PUBLISHED", "VERIFIED"] },
+        status: manage ? { in: ["PUBLISHED", "VERIFIED", "DRAFT", "PENDING_REVIEW", "ARCHIVED"] } : "PUBLISHED",
         ...(province
           ? {
               province: {
@@ -333,6 +333,9 @@ export async function POST(req: NextRequest) {
       email: body.email ? String(body.email) : null,
       phone: body.phone ? String(body.phone) : null,
       provinceId, status,
+      address: body.address ? String(body.address) : null,
+      logoUrl: body.logoUrl ? String(body.logoUrl) : null,
+      locationSlugsJson: Array.isArray(body.locationSlugs) ? body.locationSlugs : [],
       servicesJson: Array.isArray(body.services) ? body.services : [],
       skillsJson: Array.isArray(body.skills) ? body.skills : [],
       technologiesJson: Array.isArray(body.technologies) ? body.technologies : [],
@@ -371,12 +374,13 @@ export async function PATCH(req: NextRequest) {
   ) {
     return jsonError("Only provincial or super administrators may verify, publish or archive", 403);
   }
-  const allowed = ["name", "type", "description", "website", "email", "phone", "companySize", "cipcNumber", "beeLevel", "status"] as const;
+  const allowed = ["name", "type", "description", "website", "email", "phone", "address", "logoUrl", "companySize", "cipcNumber", "beeLevel", "status", "latitude", "longitude"] as const;
   const data: Record<string, unknown> = {};
   for (const key of allowed) if (body[key] !== undefined) data[key] = body[key];
   for (const [input, column] of [["services", "servicesJson"], ["skills", "skillsJson"], ["technologies", "technologiesJson"], ["certifications", "certificationsJson"], ["serviceAreas", "serviceAreasJson"], ["industrySectors", "industrySectorsJson"], ["portfolio", "portfolioJson"]] as const) {
     if (Array.isArray(body[input])) data[column] = body[input];
   }
+  if (Array.isArray(body.locationSlugs)) data.locationSlugsJson = body.locationSlugs;
   if (canVerify(auth.user) && (body.status === "VERIFIED" || body.status === "PUBLISHED")) {
     Object.assign(
       data,
@@ -393,6 +397,13 @@ export async function PATCH(req: NextRequest) {
     data.verificationTier = body.verificationTier;
   }
   const organisation = await prisma.organisation.update({ where: { id }, data });
+  if (Array.isArray(body.locationSlugs)) {
+    const slugs = body.locationSlugs.map(String);
+    await prisma.location.updateMany({ where: { organisationId: id, slug: { notIn: slugs } }, data: { organisationId: null } });
+    if (slugs.length) {
+      await prisma.location.updateMany({ where: { slug: { in: slugs } }, data: { organisationId: id } });
+    }
+  }
   invalidatePublicCaches(["orgs-public", "locations-public"]);
   await writeAudit({ user: auth.user, action: "UPDATE_ORGANISATION", entityType: "Organisation", entityId: id, metadata: { fields: Object.keys(data) }, provinceId: current.provinceId, ipAddress: clientIp(req) });
   return jsonOk({ organisation });

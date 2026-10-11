@@ -43,6 +43,11 @@ export type LocationStatus = RecordStatus;
 export const SUBMISSION_STATUSES: SubmissionStatus[] = [
   "SUBMITTED",
   "UNDER_REVIEW",
+  "ASSIGNED",
+  "NEEDS_INFORMATION",
+  "DUPLICATE_SUSPECTED",
+  "VERIFIED",
+  "PUBLISHED",
   "APPROVED",
   "REJECTED",
   "WITHDRAWN",

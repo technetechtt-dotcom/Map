@@ -11,12 +11,34 @@ const publicRoutes = [
   "/programmes",
   "/procurement",
   "/submit",
+  "/search",
+  "/help",
+  "/faq",
+  "/contact",
+  "/developers",
+  "/data-sources",
+  "/nearby",
+  "/matching",
+  "/track",
+  "/saved",
   "/rights",
   "/privacy",
   "/terms",
 ];
 
-const opsRoutes = ["/login", "/admin", "/admin/ops", "/admin/data-quality", "/admin/review"];
+const opsRoutes = [
+  "/login",
+  "/admin",
+  "/admin/ops",
+  "/admin/data-quality",
+  "/admin/review",
+  "/admin/organisations",
+  "/admin/claims",
+  "/admin/data-requests",
+  "/admin/corrections",
+  "/admin/intelligence",
+  "/admin/translations",
+];
 
 for (const path of publicRoutes) {
   test(`public route smoke ${path}`, async ({ page }) => {

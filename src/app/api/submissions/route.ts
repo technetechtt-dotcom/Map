@@ -15,6 +15,8 @@ import { clientIp, readJsonLimited, verifyCaptcha } from "@/lib/security";
 import { log } from "@/lib/logger";
 import { applyApprovedSubmission } from "@/lib/submission-apply";
 import { invalidatePublicCaches } from "@/lib/server-memo";
+import { makeTrackingRef } from "@/lib/tracking";
+import { notify } from "@/lib/notify";
 
 function payloadHash(payload: unknown) {
   return createHash("sha256").update(JSON.stringify(payload ?? {})).digest("hex");
@@ -48,6 +50,9 @@ export async function GET() {
       createdEntityType: s.createdEntityType,
       createdEntityId: s.createdEntityId,
       reviewedById: s.reviewedById,
+      assignedToId: s.assignedToId,
+      mergeTargetId: s.mergeTargetId,
+      trackingRef: s.trackingRef,
       reviewedAt: s.reviewedAt,
       createdAt: s.createdAt,
       payload: s.payloadJson,
@@ -137,6 +142,7 @@ export async function POST(req: NextRequest) {
       submitterEmail: body.submitterEmail.toLowerCase(),
       notes: body.notes || null,
       status: "SUBMITTED",
+      trackingRef: makeTrackingRef(crypto.randomUUID()),
       provinceId,
       organisationId: body.organisationId || null,
     },
@@ -151,8 +157,18 @@ export async function POST(req: NextRequest) {
     provinceId,
   });
 
+  const trackingRef = created.trackingRef || makeTrackingRef(created.id, created.createdAt);
+  if (!created.trackingRef) {
+    await prisma.submission.update({ where: { id: created.id }, data: { trackingRef } });
+  }
   log.info("submission.created", { id: created.id });
-  return jsonOk({ id: created.id, status: created.status }, 201);
+  await notify({
+    type: "submission.update",
+    to: created.submitterEmail,
+    subject: `Submission received ${trackingRef}`,
+    body: `Your listing is under review. Track progress with ${trackingRef}.`,
+  });
+  return jsonOk({ id: created.id, status: created.status, trackingRef }, 201);
 }
 
 export async function PATCH(req: NextRequest) {
@@ -168,6 +184,8 @@ export async function PATCH(req: NextRequest) {
     id?: string;
     status?: string;
     reviewedNotes?: string;
+    assignedToId?: string;
+    mergeTargetId?: string;
   };
   if (!body.id || !body.status) return jsonError("id and status required");
   if (!SUBMISSION_STATUSES.includes(body.status as SubmissionStatus)) {
@@ -204,7 +222,7 @@ export async function PATCH(req: NextRequest) {
       let createdEntityType = existing.createdEntityType;
       let createdEntityId = existing.createdEntityId;
 
-      if (body.status === "APPROVED") {
+      if (body.status === "APPROVED" || body.status === "PUBLISHED") {
         const applied = await applyApprovedSubmission(tx, existing, auth.user.id);
         createdLocationId = applied.createdLocationId;
         createdEntityType = applied.createdEntityType;
@@ -220,6 +238,8 @@ export async function PATCH(req: NextRequest) {
           status: body.status as SubmissionStatus,
           reviewedNotes: body.reviewedNotes || null,
           reviewedById: auth.user.id,
+          assignedToId: body.assignedToId || existing.assignedToId,
+          mergeTargetId: body.mergeTargetId || existing.mergeTargetId,
           reviewedAt: new Date(),
           createdLocationId,
           createdEntityType,
@@ -240,6 +260,12 @@ export async function PATCH(req: NextRequest) {
       metadata: { createdLocationId: result.createdLocationId, createdEntityId: result.createdEntityId },
     });
     invalidatePublicCaches();
+    await notify({
+      type: "submission.update",
+      to: result.submitterEmail,
+      subject: `Submission ${result.trackingRef || result.id} ${body.status}`,
+      body: body.reviewedNotes || `Your submission is now ${body.status}.`,
+    });
     return jsonOk({ submission: result });
   } catch (e) {
     if (e instanceof Error && e.message === "PROVINCE_MISMATCH") {

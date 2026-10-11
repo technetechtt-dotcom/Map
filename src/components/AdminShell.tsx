@@ -11,6 +11,10 @@ const primary = [
   { href: "/admin/locations", label: "Locations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/admin/submissions", label: "Submissions", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/organisations", label: "Organisations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"] },
+  { href: "/admin/claims", label: "Org claims", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/data-requests", label: "Data requests", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/corrections", label: "Corrections", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/intelligence", label: "Intelligence", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/ecosystem", label: "Ecosystem records", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/admin/review", label: "Review queue", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/data-quality", label: "Data quality", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
@@ -24,6 +28,8 @@ const advanced = [
   { href: "/admin/users", label: "Users & roles", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/api-keys", label: "API keys", roles: ["SUPER_ADMIN"] },
   { href: "/admin/synonyms", label: "Search synonyms", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/translations", label: "Translations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/organisations/merge", label: "Org merge", roles: ["SUPER_ADMIN"] },
   { href: "/admin/backups", label: "Backups", roles: ["SUPER_ADMIN"] },
 ];
 

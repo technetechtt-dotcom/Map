@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { getEcosystemItems } from "@/lib/ecosystem";
+import ListingFilters from "@/components/ListingFilters";
+import { applyListingFilters, PROCUREMENT_FILTERS } from "@/lib/listing-filters";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProcurementPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ archive?: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const sp = searchParams ? await searchParams : {};
   const showArchive = sp.archive === "1";
-  const allItems = (await getEcosystemItems("procurement")) as Array<{
+  const rawItems = (await getEcosystemItems("procurement", sp.province)) as Array<{
     id: string;
     slug: string;
     title: string;
@@ -24,6 +26,7 @@ export default async function ProcurementPage({
     isExpired: boolean;
   }>;
 
+  const allItems = applyListingFilters("procurement", rawItems, sp);
   const currentItems = allItems.filter((i) => i.isCurrent);
   const archivedItems = allItems.filter((i) => i.isExpired);
   const items = showArchive ? allItems : currentItems.length > 0 ? currentItems : allItems;
@@ -33,6 +36,7 @@ export default async function ProcurementPage({
       <p className="eyebrow">Ecosystem</p>
       <h1>Procurement</h1>
       <p className="text-muted">Open tenders and RFPs linked to digital and ICT delivery.</p>
+      <ListingFilters action="/procurement" fields={PROCUREMENT_FILTERS} values={sp} />
 
       <div className="flex items-center justify-between mt-3 mb-4 flex-wrap gap-2">
         <p className="text-sm text-muted">

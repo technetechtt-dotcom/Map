@@ -58,7 +58,10 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.organisationClaim.update({ where: { id: claim.id }, data: { status: body.data.status, notes: body.data.notes, reviewedById: auth.user.id, reviewedAt: new Date() } });
     if (body.data.status === "APPROVED") {
-      await tx.user.update({ where: { id: claim.claimantId }, data: { organisationId: claim.organisationId } });
+      await tx.user.update({
+        where: { id: claim.claimantId },
+        data: { organisationId: claim.organisationId, role: "ORG_ADMIN" },
+      });
     }
     return result;
   });

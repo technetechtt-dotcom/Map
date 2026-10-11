@@ -68,6 +68,15 @@ export default function SavedPage() {
   useEffect(() => {
     setFavourites(readFavourites());
     setMounted(true);
+    fetch("/api/account/saved")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.items?.length) {
+          localStorage.setItem(KEY, JSON.stringify(data.items));
+          setFavourites(data.items);
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
   function remove(kind: string, slug: string) {
@@ -89,7 +98,7 @@ export default function SavedPage() {
         <div>
           <h1>Saved opportunities &amp; contacts</h1>
           <p className="text-muted text-sm mt-1">
-            Items you have bookmarked across the platform. Stored privately on this browser/device.
+            Signed-in accounts sync Saved items. Anonymous visitors keep browser-only favourites.
           </p>
         </div>
         {mounted && favourites.length > 0 && (

@@ -83,6 +83,10 @@ export async function PATCH(req: NextRequest) {
     id: z.string().min(1),
     status: z.enum(["OPEN", "IN_PROGRESS", "CLOSED", "REJECTED"]),
     handledNotes: z.string().max(4000).optional(),
+    assignedToId: z.string().optional(),
+    identityVerified: z.boolean().optional(),
+    dueAt: z.string().optional(),
+    responseNotes: z.string().max(4000).optional(),
   }).safeParse(parsed.data);
   if (!bodyResult.success) return jsonError("Validation failed", 400, { issues: bodyResult.error.issues });
   const body = bodyResult.data;
@@ -102,6 +106,10 @@ export async function PATCH(req: NextRequest) {
     data: {
       status: body.status as WorkflowStatus,
       handledNotes: body.handledNotes || null,
+      assignedToId: body.assignedToId || undefined,
+      identityVerified: body.identityVerified ?? undefined,
+      dueAt: body.dueAt ? new Date(body.dueAt) : undefined,
+      responseNotes: body.responseNotes || undefined,
     },
   });
   await writeAudit({

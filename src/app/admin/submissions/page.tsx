@@ -2,24 +2,28 @@
 
 import { useEffect, useState } from "react";
 import AdminShell from "@/components/AdminShell";
+import ConfirmAction from "@/components/ConfirmAction";
 
 type Submission = {
   id: string;
   type: string;
   status: string;
+  trackingRef?: string | null;
   submitterName: string;
   submitterEmail: string;
   createdAt: string;
   payload: Record<string, unknown>;
   createdEntityId?: string | null;
   createdEntityType?: string | null;
-  createdLocationId?: string | null;
 };
+
+const STATUSES = ["SUBMITTED", "ASSIGNED", "UNDER_REVIEW", "NEEDS_INFORMATION", "DUPLICATE_SUSPECTED", "VERIFIED", "PUBLISHED", "APPROVED", "REJECTED"];
 
 export default function AdminSubmissionsPage() {
   const [rows, setRows] = useState<Submission[]>([]);
   const [filter, setFilter] = useState<string>("ALL");
   const [msg, setMsg] = useState<string | null>(null);
+  const [comment, setComment] = useState<Record<string, string>>({});
 
   async function load() {
     const r = await fetch("/api/submissions");
@@ -27,17 +31,13 @@ export default function AdminSubmissionsPage() {
     const data = await r.json();
     setRows(data.submissions || []);
   }
-
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   async function review(id: string, status: string) {
-    const reviewedNotes = status === "REJECTED" ? prompt("Rejection notes") || "" : "Approved for draft import";
     const r = await fetch("/api/submissions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status, reviewedNotes }),
+      body: JSON.stringify({ id, status, reviewedNotes: comment[id] || "" }),
     });
     setMsg(r.ok ? `Submission marked as ${status}` : "Review update failed");
     load();
@@ -49,32 +49,20 @@ export default function AdminSubmissionsPage() {
     <AdminShell>
       <p className="eyebrow">Moderation</p>
       <h1 className="mb-2 text-2xl font-extrabold">Community submissions</h1>
-      <p className="text-muted text-sm mb-4">
-        Review user-submitted listings. Approving a submission stages it as a draft entity for catalogue verification.
-      </p>
-
+      <p className="text-muted text-sm mb-4">Assign reviewers, request information, flag duplicates, verify and publish. Approving stages a draft catalogue record.</p>
       <div className="mb-4 flex flex-wrap gap-2">
-        {["ALL", "PENDING", "APPROVED", "REJECTED"].map((st) => {
-          const count = st === "ALL" ? rows.length : rows.filter((r) => r.status === st).length;
-          return (
-            <button
-              key={st}
-              type="button"
-              className={`chip ${filter === st ? "chip-active" : ""}`}
-              onClick={() => setFilter(st)}
-            >
-              {st === "ALL" ? "All" : st.charAt(0) + st.slice(1).toLowerCase()} ({count})
-            </button>
-          );
-        })}
+        {["ALL", ...STATUSES].map((st) => (
+          <button key={st} type="button" className={`chip ${filter === st ? "chip-active" : ""}`} onClick={() => setFilter(st)}>
+            {st} ({st === "ALL" ? rows.length : rows.filter((r) => r.status === st).length})
+          </button>
+        ))}
       </div>
-
       {msg && <p className="mb-3 text-sm font-semibold text-g700">{msg}</p>}
       <div className="panel-card overflow-x-auto">
         <table className="table">
           <thead>
             <tr>
-              <th>When</th>
+              <th>Ref</th>
               <th>Submitter</th>
               <th>Type</th>
               <th>Payload</th>
@@ -85,32 +73,29 @@ export default function AdminSubmissionsPage() {
           <tbody>
             {filtered.map((s) => (
               <tr key={s.id}>
-                <td>{new Date(s.createdAt).toLocaleString()}</td>
+                <td className="font-semibold">{s.trackingRef || s.id.slice(-6)}</td>
                 <td>
                   <div className="font-semibold">{s.submitterName}</div>
                   <div className="text-xs text-muted">{s.submitterEmail}</div>
                 </td>
-                <td>
-                  <div className="font-semibold">{s.type}</div>
-                  {s.createdEntityId && <div className="text-xs text-muted">{s.createdEntityType}: {s.createdEntityId}</div>}
-                </td>
+                <td>{s.type}</td>
                 <td className="max-w-xs truncate text-xs">{JSON.stringify(s.payload)}</td>
                 <td><span className="chip">{s.status}</span></td>
-                <td className="space-x-1 whitespace-nowrap">
-                  {s.status === "PENDING" ? (
-                    <>
-                      <button className="chip chip-active" type="button" onClick={() => review(s.id, "APPROVED")}>Approve</button>
-                      <button className="chip hover:bg-red-50 hover:text-red-700" type="button" onClick={() => review(s.id, "REJECTED")}>Reject</button>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted">Reviewed</span>
-                  )}
+                <td className="space-y-1">
+                  <textarea className="field min-h-[60px]" placeholder="Reviewer comment" value={comment[s.id] || ""} onChange={(e) => setComment({ ...comment, [s.id]: e.target.value })} />
+                  <div className="flex flex-wrap gap-1">
+                    <button className="chip" type="button" onClick={() => review(s.id, "ASSIGNED")}>Assign</button>
+                    <button className="chip" type="button" onClick={() => review(s.id, "UNDER_REVIEW")}>Under review</button>
+                    <button className="chip" type="button" onClick={() => review(s.id, "NEEDS_INFORMATION")}>Need info</button>
+                    <button className="chip" type="button" onClick={() => review(s.id, "DUPLICATE_SUSPECTED")}>Duplicate</button>
+                    <ConfirmAction label="Approve" tone="primary" onConfirm={() => review(s.id, "APPROVED")} />
+                    <ConfirmAction label="Reject" requireReason onConfirm={(reason) => { setComment({ ...comment, [s.id]: reason }); return review(s.id, "REJECTED"); }} />
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <p className="p-4 text-muted">No submissions found matching filter.</p>}
       </div>
     </AdminShell>
   );

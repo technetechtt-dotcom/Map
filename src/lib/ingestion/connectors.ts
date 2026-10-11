@@ -206,6 +206,9 @@ export const CONNECTORS: Connector[] = [
   defineConnector("digital-infrastructure", "public-directory", "data/ingestion/digital-infrastructure.json", "INGEST_DIGITAL_INFRASTRUCTURE_URL", "government"),
   defineConnector("industry-bodies", "public-directory", "data/ingestion/industry-bodies.json", "INGEST_INDUSTRY_BODIES_URL", "institutional"),
   defineConnector("companies", "public-directory", "data/ingestion/companies.json", "INGEST_COMPANIES_URL", "directory"),
+  defineConnector("events", "public-directory", "data/ingestion/events.json", "INGEST_EVENTS_URL", "institutional"),
+  defineConnector("startups-investors", "public-directory", "data/ingestion/startups-investors.json", "INGEST_STARTUPS_INVESTORS_URL", "institutional"),
+  defineConnector("opportunities", "public-directory", "data/ingestion/opportunities.json", "INGEST_OPPORTUNITIES_URL", "government"),
 ];
 
 export async function loadNationalCatalog() {

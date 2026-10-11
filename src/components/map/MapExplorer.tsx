@@ -61,6 +61,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   } | null>(null);
   const [fitToken, setFitToken] = useState(0);
   const [viewKey, setViewKey] = useState(initialProvince);
+  const [mobilePane, setMobilePane] = useState<"map" | "list">("map");
   const listRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
@@ -399,7 +400,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
       <div className="grid flex-1 lg:grid-cols-[minmax(320px,38%)_1fr]">
         <aside
-          className="max-h-[50vh] overflow-y-auto border-r border-line bg-soft p-4 lg:max-h-[calc(100vh-180px)]"
+          className={`${mobilePane === "list" ? "block" : "hidden"} max-h-[70vh] overflow-y-auto border-r border-line bg-soft p-4 lg:block lg:max-h-[calc(100vh-180px)]`}
           aria-label="Location directory"
           data-testid="location-directory"
         >
@@ -590,7 +591,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
         </aside>
 
         <section
-          className="relative min-h-[420px] lg:min-h-[calc(100vh-180px)]"
+          className={`${mobilePane === "map" ? "block" : "hidden"} relative min-h-[420px] lg:block lg:min-h-[calc(100vh-180px)]`}
           aria-label="Interactive ICT ecosystem map of South Africa"
           data-testid="ecosystem-map"
         >
@@ -705,6 +706,17 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
             </div>
           )}
         </section>
+      </div>
+      <div className="map-pane-switch lg:hidden">
+        <button type="button" className={`chip flex-1 ${mobilePane === "map" ? "chip-active" : ""}`} onClick={() => setMobilePane("map")}>
+          Map
+        </button>
+        <button type="button" className={`chip flex-1 ${mobilePane === "list" ? "chip-active" : ""}`} onClick={() => setMobilePane("list")}>
+          List
+        </button>
+        <Link href="/nearby" className="chip flex-1 text-center">
+          Near me
+        </Link>
       </div>
     </div>
   );

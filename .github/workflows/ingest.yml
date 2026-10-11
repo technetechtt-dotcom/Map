@@ -1,0 +1,29 @@
+name: Scheduled national ingestion
+
+on:
+  schedule:
+    - cron: "20 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Stage national connectors
+        run: npx tsx scripts/ingest-national.ts
+      - name: Re-verify active connectors
+        run: node scripts/connectors/run.js
+        continue-on-error: true

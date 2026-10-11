@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { getEcosystemItems } from "@/lib/ecosystem";
+import ListingFilters from "@/components/ListingFilters";
+import { applyListingFilters, FUNDING_FILTERS } from "@/lib/listing-filters";
 
 export const dynamic = "force-dynamic";
 
 export default async function FundingPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ archive?: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const sp = searchParams ? await searchParams : {};
   const showArchive = sp.archive === "1";
-  const allItems = (await getEcosystemItems("funding")) as Array<{
+  const rawItems = (await getEcosystemItems("funding", sp.province)) as Array<{
     id: string;
     slug: string;
     title: string;
@@ -24,6 +26,7 @@ export default async function FundingPage({
     isExpired: boolean;
   }>;
 
+  const allItems = applyListingFilters("funding", rawItems, sp);
   const currentItems = allItems.filter((i) => i.isCurrent);
   const archivedItems = allItems.filter((i) => i.isExpired);
   const items = showArchive ? allItems : currentItems.length > 0 ? currentItems : allItems;
@@ -33,6 +36,7 @@ export default async function FundingPage({
       <p className="eyebrow">Ecosystem</p>
       <h1>Funding calls</h1>
       <p className="text-muted">Open and upcoming funding opportunities for ICT, skills and innovation.</p>
+      <ListingFilters action="/funding" fields={FUNDING_FILTERS} values={sp} />
 
       <div className="flex items-center justify-between mt-3 mb-4 flex-wrap gap-2">
         <p className="text-sm text-muted">

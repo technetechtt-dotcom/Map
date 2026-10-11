@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { opsUrl } from "./helpers/urls";
 
-const publicPaths = ["/", "/organisations", "/rights", "/privacy"] as const;
+const publicPaths = ["/", "/organisations", "/rights", "/privacy", "/search", "/help", "/funding", "/events"] as const;
 
 for (const path of publicPaths) {
   test(`${path} has no automatically detectable WCAG 2.2 A/AA violations`, async ({ page }) => {

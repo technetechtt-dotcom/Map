@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/shape";
 import SaveFavouriteButton from "@/components/SaveFavouriteButton";
+import ClaimOrganisationForm from "@/components/ClaimOrganisationForm";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export default async function OrgPage({ params }: { params: Promise<{ slug: stri
     ? await prisma.location.findMany({
         where: {
           slug: { in: locationSlugs },
-          status: { in: ["PUBLISHED", "VERIFIED"] },
+          status: "PUBLISHED",
         },
         include: { category: true },
         orderBy: { name: "asc" },
@@ -189,6 +190,8 @@ export default async function OrgPage({ params }: { params: Promise<{ slug: stri
           </div>
         </>
       )}
+
+      <ClaimOrganisationForm organisationId={org.id} organisationName={org.name} />
 
       <p className="mt-6">
         <Link className="text-g700 font-semibold" href="/organisations">

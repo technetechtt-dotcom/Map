@@ -25,10 +25,12 @@ export async function GET(req: NextRequest) {
   const provFilter = organisation.provinceId
     ? { OR: [{ provinceId: organisation.provinceId }, { provinceId: null }] }
     : {};
-  const [funding, tenders, programmes] = await Promise.all([
+  const [funding, tenders, programmes, events, organisations] = await Promise.all([
     prisma.fundingCall.findMany({ where: { status: "PUBLISHED", ...provFilter }, take: 100 }),
     prisma.procurement.findMany({ where: { status: "PUBLISHED", ...provFilter }, take: 100 }),
     prisma.programme.findMany({ where: { status: "PUBLISHED", ...provFilter }, take: 100 }),
+    prisma.ecosystemEvent.findMany({ where: { status: "PUBLISHED", ...provFilter }, take: 50 }),
+    prisma.organisation.findMany({ where: { status: "PUBLISHED", mergedIntoId: null, id: { not: orgId }, ...provFilter }, take: 50 }),
   ]);
   return jsonOk({
     funding: funding
@@ -43,5 +45,7 @@ export async function GET(req: NextRequest) {
       .map((programme) => ({ programme, ...scoreProgrammeMatch(organisation, programme) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10),
+    events: events.slice(0, 10).map((event) => ({ event, score: 50 })),
+    organisations: organisations.slice(0, 10).map((item) => ({ organisation: item, score: 40 })),
   });
 }

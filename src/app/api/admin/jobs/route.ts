@@ -6,6 +6,7 @@ import { tenantWhere } from "@/lib/policy";
 import { log } from "@/lib/logger";
 import { enqueueJob, JOB_TYPES, listDeadLetters, requeueDeadLetter, requeueDeadLetters } from "@/lib/jobs";
 import { authorizeCronSecret, authorizeJobRole } from "@/lib/ops-auth";
+import { notify } from "@/lib/notify";
 
 /**
  * Maintenance jobs. Auth: CRON_SECRET (global) OR exact role.
@@ -180,6 +181,27 @@ export async function POST(req: NextRequest) {
         demoted,
         sample: expired.slice(0, 10),
       };
+
+      const soon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const watchers = await prisma.notificationPreference.findMany({
+        where: { eventType: { in: ["funding.deadline", "procurement.closing", "event.reminder", "programme.update"] }, inApp: true },
+        select: { userId: true, eventType: true },
+      }).catch(() => []);
+      for (const watcher of watchers) {
+        if (watcher.eventType === "funding.deadline" && expiredFunding[0]) {
+          await notify({ type: watcher.eventType, userId: watcher.userId, subject: "Funding deadline update", body: `${expiredFunding.length} funding calls have closed or are due.` });
+        }
+        if (watcher.eventType === "procurement.closing" && expiredProcurement[0]) {
+          await notify({ type: watcher.eventType, userId: watcher.userId, subject: "Tender closing update", body: `${expiredProcurement.length} tenders have closed.` });
+        }
+        if (watcher.eventType === "event.reminder" && expiredEvents[0]) {
+          await notify({ type: watcher.eventType, userId: watcher.userId, subject: "Event update", body: `${expiredEvents.length} events have ended.` });
+        }
+        if (watcher.eventType === "programme.update" && expiredProgrammes[0]) {
+          await notify({ type: watcher.eventType, userId: watcher.userId, subject: "Programme update", body: `${expiredProgrammes.length} programmes have ended.` });
+        }
+      }
+      results.opportunityAlerts = { soon: soon.toISOString(), watchers: watchers.length };
     }
 
     if (job === "prune" || job === "all") {

@@ -125,7 +125,7 @@ export default async function AboutPage() {
           </li>
           <li>
             <Link className="text-g700 font-semibold" href="/organisations">
-              Contacts
+              Organisations
             </Link>{" "}
             — published organisations.
           </li>

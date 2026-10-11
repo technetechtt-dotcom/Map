@@ -26,6 +26,11 @@ enum RecordStatus {
 enum SubmissionStatus {
   SUBMITTED
   UNDER_REVIEW
+  ASSIGNED
+  NEEDS_INFORMATION
+  DUPLICATE_SUSPECTED
+  VERIFIED
+  PUBLISHED
   APPROVED
   REJECTED
   WITHDRAWN
@@ -111,6 +116,10 @@ model User {
   passwordHistories    PasswordHistory[]
   organisationClaims   OrganisationClaim[]
   notifications        Notification[]
+  savedItems           SavedItem[]
+  submissionsAssigned  Submission[]         @relation("SubmissionAssignee")
+  dataRequestsAssigned DataSubjectRequest[] @relation("DsarAssignee")
+  correctionsAssigned  CorrectionRequest[]  @relation("CorrectionAssignee")
   apiKeys              ApiKey[]
   mfaRecoveryRequests  MfaRecoveryRequest[] @relation("MfaRecoverySubject")
   mfaRecoveriesOpened  MfaRecoveryRequest[] @relation("MfaRecoveryRequester")
@@ -439,6 +448,9 @@ model FundingCall {
   eligibleSectorsJson Json     @default("[]")
   businessStage  String?
   geography      String?
+  targetAudience String?
+  applicationProcess String?
+  applicationUrl String?
   ownershipCriteria String?
   applicationRequirements String?
   instrument     String?
@@ -469,6 +481,11 @@ model EcosystemEvent {
   endsAt         DateTime?
   venue          String?
   onlineUrl      String?
+  town           String?
+  category       String?
+  cost           String?
+  capacity       Int?
+  attendanceFormat String?
   latitude       Float?
   longitude      Float?
   status         RecordStatus  @default(DRAFT)
@@ -498,6 +515,15 @@ model Programme {
   tagsJson       Json          @default("[]")
   startDate      DateTime?
   endDate        DateTime?
+  audience       String?
+  ageGroup       String?
+  skillsCategory String?
+  deliveryMethod String?
+  providerName   String?
+  applicationStatus String?
+  eligibility    String?
+  capacity       Int?
+  applicationUrl String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -539,6 +565,7 @@ model Submission {
   payloadJson       Json
   payloadHash       String?
   status            SubmissionStatus @default(SUBMITTED)
+  trackingRef       String?          @unique
   submitterName     String
   submitterEmail    String
   notes             String?
@@ -551,6 +578,9 @@ model Submission {
   submittedBy       User?            @relation("SubmissionSubmitter", fields: [submittedById], references: [id])
   reviewedById      String?
   reviewedBy        User?            @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
+  assignedToId      String?
+  assignedTo        User?            @relation("SubmissionAssignee", fields: [assignedToId], references: [id])
+  mergeTargetId     String?
   reviewedAt        DateTime?
   createdLocationId String?
   createdEntityType String?
@@ -690,6 +720,11 @@ model DataSubjectRequest {
   details        String?
   provinceId     String?
   handledNotes   String?
+  assignedToId   String?
+  assignedTo     User?          @relation("DsarAssignee", fields: [assignedToId], references: [id])
+  identityVerified Boolean      @default(false)
+  dueAt          DateTime?
+  responseNotes  String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -706,6 +741,10 @@ model CorrectionRequest {
   submitterEmail String
   message        String
   provinceId     String?
+  assignedToId   String?
+  assignedTo     User?          @relation("CorrectionAssignee", fields: [assignedToId], references: [id])
+  investigationNotes String?
+  resolution     String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -803,6 +842,19 @@ model NotificationPreference {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, eventType])
+}
+
+model SavedItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  slug      String
+  title     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, slug])
+  @@index([userId, createdAt])
 }
 
 model BackgroundJob {
