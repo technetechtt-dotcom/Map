@@ -301,7 +301,7 @@ export async function PATCH(req: NextRequest) {
       const mergeTargetId = body.mergeTargetId || existing.mergeTargetId;
 
       if ((body.status === "APPROVED" || body.status === "PUBLISHED") && mergeTargetId) {
-        const merged = await mergeSubmissionIntoExisting(tx, existing, mergeTargetId, auth.user.id);
+        const merged = await mergeSubmissionIntoExisting(tx, existing, mergeTargetId);
         createdLocationId = merged.createdLocationId;
         createdEntityType = merged.createdEntityType;
         createdEntityId = merged.createdEntityId;

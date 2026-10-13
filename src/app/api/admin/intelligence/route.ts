@@ -48,7 +48,11 @@ export async function GET() {
     prisma.organisation.count({ where: { verified: true, status: "PUBLISHED", ...scope } }),
     prisma.organisationRelationship.groupBy({ by: ["type"], _count: true, where: { status: "PUBLISHED", ...relationshipScope } }),
     prisma.location.count({ where: { staleAt: { not: null }, ...scope } }),
-    prisma.submission.count({ where: { status: { in: ["SUBMITTED", "ASSIGNED", "NEEDS_INFO", "DUPLICATE_SUSPECTED"] } } }),
+    prisma.submission.count({
+      where: {
+        status: { in: ["SUBMITTED", "UNDER_REVIEW", "ASSIGNED", "NEEDS_INFORMATION", "DUPLICATE_SUSPECTED"] },
+      },
+    }),
     prisma.ingestionConnectorRun.findMany({ orderBy: { startedAt: "desc" }, take: 80 }),
     prisma.programme.count({ where: { status: "PUBLISHED", ...scope } }),
     prisma.location.count({

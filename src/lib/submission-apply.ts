@@ -156,8 +156,7 @@ function mergeStringArrays(existingJson: unknown, submitted: string[]) {
 export async function mergeSubmissionIntoExisting(
   tx: Tx,
   existing: { id: string; type: string; payloadJson: unknown; provinceId: string | null },
-  targetId: string,
-  _reviewerId: string
+  targetId: string
 ) {
   const payload = (existing.payloadJson || {}) as Record<string, unknown>;
   const type = existing.type || "location";
@@ -243,17 +242,17 @@ export async function mergeSubmissionIntoExisting(
   }
 
   if (isEcosystemType(type)) {
-    const model =
+    const current =
       type === "events"
-        ? tx.ecosystemEvent
+        ? await tx.ecosystemEvent.findUnique({ where: { id: targetId } })
         : type === "programmes"
-          ? tx.programme
+          ? await tx.programme.findUnique({ where: { id: targetId } })
           : type === "procurement"
-            ? tx.procurement
-            : tx.fundingCall;
-    const current = await model.findUnique({ where: { id: targetId } });
+            ? await tx.procurement.findUnique({ where: { id: targetId } })
+            : await tx.fundingCall.findUnique({ where: { id: targetId } });
     if (!current) throw new Error("MERGE_TARGET_MISSING");
     const data: Record<string, unknown> = {};
+    const currentRecord = current as Record<string, unknown>;
     for (const [key, submitted] of [
       ["summary", payload.summary],
       ["description", payload.description || payload.eligibility],
@@ -277,15 +276,15 @@ export async function mergeSubmissionIntoExisting(
       ["closingTime", payload.closingTime],
       ["procurementCategory", payload.procurementCategory || payload.category],
     ] as const) {
-      if (!(key in current)) continue;
-      const picked = pickSubmitted((current as Record<string, unknown>)[key], submitted ? String(submitted) : null);
+      if (!(key in currentRecord)) continue;
+      const picked = pickSubmitted(currentRecord[key], submitted ? String(submitted) : null);
       if (picked.changed) {
         data[key] = picked.value;
         changedFields.push(key);
       }
     }
     if (Array.isArray(payload.sectors) || Array.isArray(payload.tags)) {
-      const merged = mergeStringArrays((current as { tagsJson?: unknown }).tagsJson, [
+      const merged = mergeStringArrays(currentRecord.tagsJson, [
         ...csvOrArray(payload.tags),
         ...csvOrArray(payload.sectors),
       ]);
@@ -294,7 +293,12 @@ export async function mergeSubmissionIntoExisting(
         changedFields.push("tagsJson");
       }
     }
-    if (Object.keys(data).length) await model.update({ where: { id: targetId }, data });
+    if (Object.keys(data).length) {
+      if (type === "events") await tx.ecosystemEvent.update({ where: { id: targetId }, data });
+      else if (type === "programmes") await tx.programme.update({ where: { id: targetId }, data });
+      else if (type === "procurement") await tx.procurement.update({ where: { id: targetId }, data });
+      else await tx.fundingCall.update({ where: { id: targetId }, data });
+    }
     return { createdLocationId: null, createdEntityType: type, createdEntityId: targetId, changedFields };
   }
 
