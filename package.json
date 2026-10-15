@@ -110,7 +110,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.55.0",
+    "@playwright/test": "^1.64.0",
     "eslint": "^8",
     "eslint-config-next": "15.5.27",
     "tsx": "^4.23.15",
