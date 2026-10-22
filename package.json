@@ -76,7 +76,7 @@
     "@aws-sdk/client-kms": "^3.1147.0",
     "@aws-sdk/client-s3": "^3.1146.0",
     "@prisma/client": "5.22.0",
-    "@sentry/browser": "10.25.0",
+    "@sentry/browser": "11.8.0",
     "@sentry/node": "10.25.0",
     "@swc/helpers": "0.5.23",
     "@types/bcryptjs": "^3.0.0",
