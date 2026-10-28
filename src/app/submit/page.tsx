@@ -43,7 +43,7 @@ function SubmitForm() {
   const initialType = TYPES.some((t) => t.id === params.get("type")) ? (params.get("type") as (typeof TYPES)[number]["id"]) : "location";
   const [type, setType] = useState<(typeof TYPES)[number]["id"]>(initialType);
   const [status, setStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);\n  const [formVersion, setFormVersion] = useState(0);
   const typeLabel = useMemo(() => TYPES.find((t) => t.id === type)?.label || "listing", [type]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -60,8 +60,10 @@ function SubmitForm() {
       url: String(fd.get("url") || "") || undefined,
     };
     if (type === "location") {
-      payload.latitude = Number(fd.get("latitude"));
-      payload.longitude = Number(fd.get("longitude"));
+      const latitude = String(fd.get("latitude") || "").trim();
+      const longitude = String(fd.get("longitude") || "").trim();
+      payload.latitude = latitude ? Number(latitude) : undefined;
+      payload.longitude = longitude ? Number(longitude) : undefined;
       payload.address = String(fd.get("address") || "");
       payload.categorySlug = String(fd.get("categorySlug") || "knowledge-hub");
       payload.opportunities = csv(fd.get("opportunities"));
@@ -73,6 +75,10 @@ function SubmitForm() {
       payload.email = String(fd.get("orgEmail") || "") || undefined;
       payload.phone = String(fd.get("orgPhone") || "") || undefined;
       payload.address = String(fd.get("address") || "") || undefined;
+      const latitude = String(fd.get("latitude") || "").trim();
+      const longitude = String(fd.get("longitude") || "").trim();
+      payload.latitude = latitude ? Number(latitude) : undefined;
+      payload.longitude = longitude ? Number(longitude) : undefined;
       payload.services = csv(fd.get("services"));
       payload.skills = csv(fd.get("skills"));
       payload.technologies = csv(fd.get("technologies"));
@@ -141,7 +147,7 @@ function SubmitForm() {
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       setStatus(`Thank you — track progress with ${data.trackingRef || "your email"}.`);
-      e.currentTarget.reset();
+      setFormVersion((value) => value + 1);
     } else {
       setStatus(data.error || "Submission failed");
     }
@@ -154,7 +160,7 @@ function SubmitForm() {
       <p className="text-muted mb-6">
         Propose a {typeLabel.toLowerCase()}. Use dropdowns and address search instead of technical slugs. You will receive a tracking reference such as ICT-2026-00452.
       </p>
-      <form onSubmit={onSubmit} className="panel-card grid gap-3">
+      <form key={formVersion} onSubmit={onSubmit} className="panel-card grid gap-3">
         <label className="grid gap-1 text-sm font-semibold">Listing type
           <select className="field" value={type} onChange={(e) => setType(e.target.value as (typeof TYPES)[number]["id"])}>
             {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
