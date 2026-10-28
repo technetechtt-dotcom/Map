@@ -31,8 +31,8 @@ test.describe("10-minute investor walkthrough", () => {
     await expect(page.getByRole("heading", { name: /search/i })).toBeVisible();
 
     await page.goto("/national");
-    await expect(page.getByRole("heading", { name: /National search/i })).toBeVisible();
-    await expect(page.getByText(/live counts from the shared catalogue/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /National dashboard/i })).toBeVisible();
+    await expect(page.getByText(/province comparison/i)).toBeVisible();
 
     await page.goto("/funding");
     await expect(page.getByRole("heading", { name: /funding/i })).toBeVisible();
