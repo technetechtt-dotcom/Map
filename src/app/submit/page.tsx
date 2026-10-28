@@ -43,7 +43,8 @@ function SubmitForm() {
   const initialType = TYPES.some((t) => t.id === params.get("type")) ? (params.get("type") as (typeof TYPES)[number]["id"]) : "location";
   const [type, setType] = useState<(typeof TYPES)[number]["id"]>(initialType);
   const [status, setStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);\n  const [formVersion, setFormVersion] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [formVersion, setFormVersion] = useState(0);
   const typeLabel = useMemo(() => TYPES.find((t) => t.id === type)?.label || "listing", [type]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
