@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       SELECT id, slug, name, 'location' AS type,
              ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography)::float8 AS metres
       FROM "Location"
-      WHERE status IN ('PUBLISHED','VERIFIED')
+      WHERE status = 'PUBLISHED'
         AND ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${metres})
       ORDER BY metres ASC
       LIMIT 25
