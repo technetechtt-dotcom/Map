@@ -70,7 +70,7 @@ export default function AdminIntelligencePage() {
       <p className="eyebrow">Ecosystem</p>
       <h1 className="mb-2 text-2xl font-extrabold">National intelligence</h1>
       <p className="text-muted mb-6">
-        KPI dashboard for province coverage, ICT density, skills, infrastructure, funding, tenders, and connector health.
+        KPI dashboard for province coverage, ecosystem records, skills programmes, funding, tenders, and connector health.
       </p>
 
       {error && <div className="panel-card text-red-700 mb-4">{error}</div>}
@@ -82,8 +82,8 @@ export default function AdminIntelligencePage() {
             <Kpi label="Published organisations" value={kpis.organisations} />
             <Kpi label="Published locations" value={kpis.locations} />
             <Kpi label="Verification quality" value={`${kpis.verificationRate}%`} hint={`${kpis.verifiedOrgs} verified / ${kpis.unverifiedPublished} unverified`} />
-            <Kpi label="Skills capacity (programmes)" value={kpis.skillsCapacity} />
-            <Kpi label="Infrastructure coverage" value={kpis.infrastructureCoverage} />
+            <Kpi label="Published skills programmes" value={kpis.skillsCapacity} />
+            <Kpi label="Infrastructure records" value={kpis.infrastructureCoverage} />
             <Kpi label="Open funding" value={kpis.fundingOpen} />
             <Kpi label="Tender activity" value={kpis.tenderActivity} />
             <Kpi label="Startup / incubator orgs" value={kpis.startupDensity} />

@@ -6,44 +6,67 @@ export default function AddressPicker({
   latName = "latitude",
   lngName = "longitude",
   addressName = "address",
+  requiredCoordinates = false,
 }: {
   latName?: string;
   lngName?: string;
   addressName?: string;
+  requiredCoordinates?: boolean;
 }) {
-  const [lat, setLat] = useState("-28.738");
-  const [lng, setLng] = useState("24.763");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
   const [address, setAddress] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function searchAddress() {
-    if (!address.trim()) return;
-    setStatus("Searching…");
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=za&limit=1`, {
-      headers: { Accept: "application/json" },
-    });
-    const rows = await res.json().catch(() => []);
-    if (!rows[0]) {
-      setStatus("No address match found");
+    const query = address.trim();
+    if (query.length < 3) {
+      setStatus("Enter at least 3 characters to search");
       return;
     }
-    setLat(rows[0].lat);
-    setLng(rows[0].lon);
-    setStatus("Pin placed from address search");
+    setBusy(true);
+    setStatus("Searching…");
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.result) {
+        setStatus(data?.error || "No address match found");
+        return;
+      }
+      setAddress(String(data.result.label || query));
+      setLat(String(data.result.latitude));
+      setLng(String(data.result.longitude));
+      setStatus("Coordinates confirmed from address search");
+    } catch {
+      setStatus("Address search is temporarily unavailable");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      setStatus("Geolocation is not available");
+      setStatus("Geolocation is not available in this browser");
       return;
     }
+    setBusy(true);
+    setStatus("Locating…");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLat(String(pos.coords.latitude));
         setLng(String(pos.coords.longitude));
-        setStatus("Pin placed from your location");
+        setStatus("Coordinates confirmed from your current location");
+        setBusy(false);
       },
-      () => setStatus("Could not read your location")
+      () => {
+        setStatus("Could not read your location. Check browser location permission or enter coordinates manually.");
+        setBusy(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
     );
   }
 
@@ -51,23 +74,53 @@ export default function AddressPicker({
     <div className="grid gap-3 rounded-xl border border-line p-3">
       <label className="grid gap-1 text-sm font-semibold">
         Address search
-        <input className="field" name={addressName} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, town, province" />
+        <input
+          className="field"
+          name={addressName}
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Street, town, province"
+          autoComplete="street-address"
+        />
       </label>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="chip" onClick={searchAddress}>Search address</button>
-        <button type="button" className="chip" onClick={useMyLocation}>Use my location</button>
+        <button type="button" className="chip" onClick={searchAddress} disabled={busy}>
+          {busy && status === "Searching…" ? "Searching…" : "Search address"}
+        </button>
+        <button type="button" className="chip" onClick={useMyLocation} disabled={busy}>
+          {busy && status === "Locating…" ? "Locating…" : "Use my location"}
+        </button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-semibold">
           Latitude
-          <input className="field" name={latName} value={lat} onChange={(e) => setLat(e.target.value)} />
+          <input
+            className="field"
+            name={latName}
+            inputMode="decimal"
+            value={lat}
+            onChange={(e) => setLat(e.target.value)}
+            required={requiredCoordinates}
+            placeholder="-28.7282"
+          />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
           Longitude
-          <input className="field" name={lngName} value={lng} onChange={(e) => setLng(e.target.value)} />
+          <input
+            className="field"
+            name={lngName}
+            inputMode="decimal"
+            value={lng}
+            onChange={(e) => setLng(e.target.value)}
+            required={requiredCoordinates}
+            placeholder="24.7499"
+          />
         </label>
       </div>
-      <p className="text-xs text-muted">Move the values after searching, or drop a pin by editing coordinates. {status}</p>
+      <p className="text-xs text-muted" aria-live="polite">
+        Search an address, use your current location, or enter verified coordinates manually.
+        {status ? ` ${status}` : ""}
+      </p>
     </div>
   );
 }
