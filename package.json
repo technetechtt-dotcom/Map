@@ -125,8 +125,6 @@
     "js-yaml": "^4.3.2",
     "source-map-js": "^1.2.2",
     "tinypool": "^2.2.0",
-    "braces": "github:scastillo-jp/braces-fork#2834dadbad8a79487a79eeb0aeaefb08c439893f",
-    "vite": "7.3.7",
-    "sharp": "0.35.5"
+    "braces": "github:scastillo-jp/braces-fork#2834dadbad8a79487a79eeb0aeaefb08c439893f"
   }
 }
