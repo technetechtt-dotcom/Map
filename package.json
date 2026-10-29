@@ -112,7 +112,7 @@
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.55.0",
     "eslint": "^8",
-    "eslint-config-next": "15.5.27",
+    "eslint-config-next": "15.5.28",
     "tsx": "^4.23.15",
     "vitest": "^3.2.4"
   },
