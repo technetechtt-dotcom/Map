@@ -72,7 +72,7 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
 
   const navLabels: Record<string, keyof typeof import("@/lib/i18n").messages.en> = {
     "/": "map",
-    "/search": "search",
+    "/search": "navSearch",
     "/organisations": "organisations",
     "/national": "national",
     "/funding": "funding",
