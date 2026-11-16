@@ -104,27 +104,36 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     setLoading(true);
     setLoadError(null);
     const handle = setTimeout(() => {
-      fetch(`/api/locations?${params}`, { signal: controller.signal })
-        .then(async (r) => {
-          if (!r.ok) {
-            const err = await r.json().catch(() => ({}));
-            throw new Error(err.error || `Locations request failed (${r.status})`);
+      (async () => {
+        const all: PublicLocation[] = [];
+        const pageSize = 200;
+        const maxPins = 1000;
+        let total = 0;
+        for (let offset = 0; offset < maxPins; offset += pageSize) {
+          const pageParams = new URLSearchParams(params);
+          pageParams.set("limit", String(pageSize));
+          pageParams.set("offset", String(offset));
+          const response = await fetch(`/api/locations?${pageParams}`, { signal: controller.signal });
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `Locations request failed (${response.status})`);
           }
-          return r.json();
-        })
-        .then((data) => {
-          setLoadError(null);
-          const next: PublicLocation[] = data.locations || [];
-          setLocations(next);
-          const current = selectedIdRef.current;
-          if (
-            current &&
-            !current.startsWith("hub-") &&
-            !next.some((x) => x.id === current)
-          ) {
-            setSelectedId(null);
-          }
-        })
+          const data = await response.json();
+          if (!Array.isArray(data.locations)) throw new Error("Invalid location response");
+          total = Number(data.total) || 0;
+          all.push(...data.locations);
+          if (data.locations.length < pageSize || all.length >= total) break;
+        }
+        if (controller.signal.aborted) return;
+        setLocations(all);
+        setLoadError(total > all.length
+          ? `Showing the first ${all.length} of ${total} map locations. Narrow your search to see more.`
+          : null);
+        const current = selectedIdRef.current;
+        if (current && !current.startsWith("hub-") && !all.some((x) => x.id === current)) {
+          setSelectedId(null);
+        }
+      })()
         .catch((err) => {
           if (err?.name === "AbortError") return;
           console.error(err);
