@@ -218,6 +218,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
   const selectFromList = useCallback((loc: PublicLocation) => {
     setSelectedId(loc.id);
+    setMobilePane("map");
     setListTab("towns");
     flyToken.current += 1;
     setFlyTarget({
@@ -230,6 +231,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
   const selectHubFromList = useCallback((hub: MapHub) => {
     setSelectedId(hub.id);
+    setMobilePane("map");
     setListTab("hubs");
     flyToken.current += 1;
     setFlyTarget({
@@ -274,6 +276,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   }
 
   function fitResults() {
+    setMobilePane("map");
     setFitToken((n) => n + 1);
   }
 
@@ -503,12 +506,10 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           <div ref={listRef} className="grid gap-3" role="list" aria-label="Matching towns and hubs">
             {listTab === "towns" &&
               locations.map((loc) => (
-                <button
+                <article
                   key={loc.id}
-                  type="button"
                   role="listitem"
                   data-id={loc.id}
-                  onClick={() => selectFromList(loc)}
                   className={`location-card text-left ${selectedId === loc.id ? "is-active" : ""}`}
                   style={{ ["--category-color" as string]: loc.category.color }}
                 >
@@ -518,7 +519,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                   <span className="min-w-0">
                     <span className="flex items-start justify-between gap-2">
                       <span>
-                        <h3 className="card-title">{loc.name}</h3>
+                        <h3 className="card-title">
+                          <button type="button" onClick={() => selectFromList(loc)} className="text-left font-bold hover:underline focus-visible:underline" aria-label={`Show ${loc.name} on map`}>{loc.name}</button>
+                        </h3>
                         <p className="card-meta">
                           {loc.district?.name || loc.province.name}
                           {loc.municipality ? ` · ${loc.municipality.name}` : ""}
@@ -540,17 +543,15 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                       {t(L, "viewProfile")} →
                     </Link>
                   </span>
-                </button>
+                </article>
               ))}
 
             {listTab === "hubs" &&
               hubs.map((hub) => (
-                <button
+                <article
                   key={hub.id}
-                  type="button"
                   role="listitem"
                   data-id={hub.id}
-                  onClick={() => selectHubFromList(hub)}
                   className={`location-card text-left ${selectedId === hub.id ? "is-active" : ""}`}
                   style={{ ["--category-color" as string]: hub.color }}
                 >
@@ -560,7 +561,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                   <span className="min-w-0">
                     <span className="flex items-start justify-between gap-2">
                       <span>
-                        <h3 className="card-title">{hub.name}</h3>
+                        <h3 className="card-title">
+                          <button type="button" onClick={() => selectHubFromList(hub)} className="text-left font-bold hover:underline focus-visible:underline" aria-label={`Show ${hub.name} on map`}>{hub.name}</button>
+                        </h3>
                         <p className="card-meta">
                           {hub.type}
                           {hub.hostTownName ? ` · ${hub.hostTownName}` : ""}
@@ -587,7 +590,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                       Organisation profile →
                     </Link>
                   </span>
-                </button>
+                </article>
               ))}
 
             {listTab === "towns" && !loading && locations.length === 0 && (
