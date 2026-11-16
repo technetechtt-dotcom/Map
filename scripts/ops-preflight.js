@@ -18,8 +18,6 @@ const BACKUP_REQUIRED = [
   "PRODUCTION_DIRECT_URL",
   "PRODUCTION_DATABASE_URL",
   "BACKUP_ENCRYPTION_KEY",
-  "BACKUP_DESTINATION",
-  "RCLONE_CONFIG",
   "S3_BUCKET",
   "S3_BACKUP_BUCKET",
   "S3_ACCESS_KEY_ID",
@@ -33,7 +31,7 @@ const BACKUP_REQUIRED = [
 
 const DEPLOY_REQUIRED = ["PRODUCTION_APP_URL", "OPS_APP_URL"];
 const DEPLOY_ONE_OF = [
-  ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"],
+  ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "VERCEL_OPS_PROJECT_ID"],
   ["PRODUCTION_DEPLOY_HOOK", "OPS_DEPLOY_HOOK"],
   ["RENDER_API_KEY", "RENDER_PRODUCTION_SERVICE_ID", "RENDER_OPS_SERVICE_ID"],
 ];
@@ -147,7 +145,7 @@ function main() {
     const hasTarget = DEPLOY_ONE_OF.some((group) => group.every(present));
     if (!hasTarget) {
       missing.push(
-        "Deployment trigger: VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK+OPS_DEPLOY_HOOK, or RENDER_API_KEY+both service IDs (service IDs alone cannot trigger a deployment)"
+        "Deployment trigger: VERCEL_TOKEN+VERCEL_ORG_ID+both VERCEL project IDs, PRODUCTION_DEPLOY_HOOK+OPS_DEPLOY_HOOK, or RENDER_API_KEY+both service IDs (service IDs alone cannot trigger a deployment)"
       );
     }
     if (!DEPLOY_AUTH.some(present)) missing.push("METRICS_TOKEN or CRON_SECRET");
