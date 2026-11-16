@@ -23,6 +23,13 @@ test.describe("public mobile navigation", () => {
     await page.getByRole("button", { name: "List", exact: true }).click();
     await expect(directory).toBeVisible();
     await expect(map).toBeHidden();
+    const select = directory.getByRole("button", { name: /^Show .+ on map$/ }).first();
+    if (await select.count()) {
+      await select.click();
+      await expect(map).toBeVisible();
+      await page.getByRole("button", { name: "List", exact: true }).click();
+      await expect(directory).toBeVisible();
+    }
     await page.getByRole("button", { name: "Map", exact: true }).click();
     await expect(map).toBeVisible();
   });
