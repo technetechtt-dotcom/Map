@@ -36,7 +36,6 @@ const DEPLOY_ONE_OF = [
   ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"],
   ["PRODUCTION_DEPLOY_HOOK", "OPS_DEPLOY_HOOK"],
   ["RENDER_API_KEY", "RENDER_PRODUCTION_SERVICE_ID", "RENDER_OPS_SERVICE_ID"],
-  ["RENDER_PRODUCTION_SERVICE_ID", "RENDER_OPS_SERVICE_ID"],
 ];
 const DEPLOY_AUTH = ["METRICS_TOKEN", "CRON_SECRET"];
 
@@ -148,7 +147,7 @@ function main() {
     const hasTarget = DEPLOY_ONE_OF.some((group) => group.every(present));
     if (!hasTarget) {
       missing.push(
-        "Deployment target: VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK+OPS_DEPLOY_HOOK, RENDER_API_KEY+service IDs, or RENDER_PRODUCTION_SERVICE_ID+RENDER_OPS_SERVICE_ID"
+        "Deployment trigger: VERCEL_TOKEN+VERCEL_ORG_ID+VERCEL_PROJECT_ID, PRODUCTION_DEPLOY_HOOK+OPS_DEPLOY_HOOK, or RENDER_API_KEY+both service IDs (service IDs alone cannot trigger a deployment)"
       );
     }
     if (!DEPLOY_AUTH.some(present)) missing.push("METRICS_TOKEN or CRON_SECRET");
