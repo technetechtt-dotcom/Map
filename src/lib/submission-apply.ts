@@ -13,7 +13,8 @@ function csvOrArray(value: unknown): string[] {
 export async function applyApprovedSubmission(
   tx: Tx,
   existing: { id: string; type: string; payloadJson: unknown; provinceId: string | null; createdLocationId: string | null; createdEntityId?: string | null },
-  reviewerId: string
+  reviewerId: string,
+  recordStatus: "PENDING_REVIEW" | "PUBLISHED" = "PENDING_REVIEW"
 ) {
   const payload = (existing.payloadJson || {}) as Record<string, unknown>;
   const type = existing.type || "location";
@@ -61,7 +62,7 @@ export async function applyApprovedSubmission(
         assetsJson: serializeArray(csvOrArray(payload.assets)),
         tagsJson: ["community-submission", ...csvOrArray(payload.tags)],
         evidenceJson: csvOrArray(payload.evidence).map((url) => ({ title: "Evidence", url })),
-        status: "PENDING_REVIEW",
+        status: recordStatus,
         ownerId: reviewerId,
         coordQuality: payload.address ? "address" : "unknown",
       },
@@ -92,7 +93,7 @@ export async function applyApprovedSubmission(
         technologiesJson: csvOrArray(payload.technologies),
         locationSlugsJson: locationSlugs,
         verificationEvidenceJson: csvOrArray(payload.evidence).map((url) => ({ title: "Evidence", url })),
-        status: "PENDING_REVIEW",
+        status: recordStatus,
         provinceId: existing.provinceId,
       },
     });
@@ -107,18 +108,18 @@ export async function applyApprovedSubmission(
     if (!title || !payload.summary) throw new Error("ECOSYSTEM_PAYLOAD");
     const created = await (type === "events"
       ? tx.ecosystemEvent.create({
-          data: ecosystemCreateData(type, payload, "PENDING_REVIEW", existing.provinceId, null) as never,
+          data: ecosystemCreateData(type, payload, recordStatus, existing.provinceId, null) as never,
         })
       : type === "programmes"
         ? tx.programme.create({
-            data: ecosystemCreateData(type, payload, "PENDING_REVIEW", existing.provinceId, null) as never,
+            data: ecosystemCreateData(type, payload, recordStatus, existing.provinceId, null) as never,
           })
         : type === "procurement"
           ? tx.procurement.create({
-              data: ecosystemCreateData(type, payload, "PENDING_REVIEW", existing.provinceId, null) as never,
+              data: ecosystemCreateData(type, payload, recordStatus, existing.provinceId, null) as never,
             })
           : tx.fundingCall.create({
-              data: ecosystemCreateData(type, payload, "PENDING_REVIEW", existing.provinceId, null) as never,
+              data: ecosystemCreateData(type, payload, recordStatus, existing.provinceId, null) as never,
             }));
     return { createdLocationId: null, createdEntityType: type, createdEntityId: created.id };
   }
@@ -156,7 +157,8 @@ function mergeStringArrays(existingJson: unknown, submitted: string[]) {
 export async function mergeSubmissionIntoExisting(
   tx: Tx,
   existing: { id: string; type: string; payloadJson: unknown; provinceId: string | null },
-  targetId: string
+  targetId: string,
+  recordStatus: "PENDING_REVIEW" | "PUBLISHED" = "PENDING_REVIEW"
 ) {
   const payload = (existing.payloadJson || {}) as Record<string, unknown>;
   const type = existing.type || "location";
@@ -202,6 +204,10 @@ export async function mergeSubmissionIntoExisting(
       }
       await tx.location.updateMany({ where: { slug: { in: locationSlugs } }, data: { organisationId: current.id } });
     }
+    if (recordStatus === "PUBLISHED" && current.status !== "PUBLISHED") {
+      data.status = "PUBLISHED";
+      changedFields.push("status");
+    }
     if (Object.keys(data).length) {
       await tx.organisation.update({ where: { id: targetId }, data });
     }
@@ -236,6 +242,10 @@ export async function mergeSubmissionIntoExisting(
         data[column] = serializeArray(merged.value);
         changedFields.push(column);
       }
+    }
+    if (recordStatus === "PUBLISHED" && current.status !== "PUBLISHED") {
+      data.status = "PUBLISHED";
+      changedFields.push("status");
     }
     if (Object.keys(data).length) await tx.location.update({ where: { id: targetId }, data });
     return { createdLocationId: targetId, createdEntityType: "location", createdEntityId: targetId, changedFields };
@@ -292,6 +302,10 @@ export async function mergeSubmissionIntoExisting(
         data.tagsJson = merged.value;
         changedFields.push("tagsJson");
       }
+    }
+    if (recordStatus === "PUBLISHED" && currentRecord.status !== "PUBLISHED") {
+      data.status = "PUBLISHED";
+      changedFields.push("status");
     }
     if (Object.keys(data).length) {
       if (type === "events") await tx.ecosystemEvent.update({ where: { id: targetId }, data });
