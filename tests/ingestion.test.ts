@@ -15,7 +15,7 @@ describe("national ingestion connectors", () => {
     const municipalities = batches.find((batch) => batch.connector === "municipalities");
     expect(municipalities?.rows.length).toBeGreaterThan(0);
     const companies = batches.find((batch) => batch.connector === "companies");
-    expect(companies?.rows.length).toBe(0);
+    expect(companies?.rows.length).toBeGreaterThan(0);
     expect(rows.every((row) => row.sourceVersion && row.retrievedAt && row.confidence && row.licence)).toBe(true);
   });
 

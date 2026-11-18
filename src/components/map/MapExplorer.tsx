@@ -104,27 +104,36 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
     setLoading(true);
     setLoadError(null);
     const handle = setTimeout(() => {
-      fetch(`/api/locations?${params}`, { signal: controller.signal })
-        .then(async (r) => {
-          if (!r.ok) {
-            const err = await r.json().catch(() => ({}));
-            throw new Error(err.error || `Locations request failed (${r.status})`);
+      (async () => {
+        const all: PublicLocation[] = [];
+        const pageSize = 200;
+        const maxPins = 1000;
+        let total = 0;
+        for (let offset = 0; offset < maxPins; offset += pageSize) {
+          const pageParams = new URLSearchParams(params);
+          pageParams.set("limit", String(pageSize));
+          pageParams.set("offset", String(offset));
+          const response = await fetch(`/api/locations?${pageParams}`, { signal: controller.signal });
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `Locations request failed (${response.status})`);
           }
-          return r.json();
-        })
-        .then((data) => {
-          setLoadError(null);
-          const next: PublicLocation[] = data.locations || [];
-          setLocations(next);
-          const current = selectedIdRef.current;
-          if (
-            current &&
-            !current.startsWith("hub-") &&
-            !next.some((x) => x.id === current)
-          ) {
-            setSelectedId(null);
-          }
-        })
+          const data = await response.json();
+          if (!Array.isArray(data.locations)) throw new Error("Invalid location response");
+          total = Number(data.total) || 0;
+          all.push(...data.locations);
+          if (data.locations.length < pageSize || all.length >= total) break;
+        }
+        if (controller.signal.aborted) return;
+        setLocations(all);
+        setLoadError(total > all.length
+          ? `Showing the first ${all.length} of ${total} map locations. Narrow your search to see more.`
+          : null);
+        const current = selectedIdRef.current;
+        if (current && !current.startsWith("hub-") && !all.some((x) => x.id === current)) {
+          setSelectedId(null);
+        }
+      })()
         .catch((err) => {
           if (err?.name === "AbortError") return;
           console.error(err);
@@ -209,6 +218,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
   const selectFromList = useCallback((loc: PublicLocation) => {
     setSelectedId(loc.id);
+    setMobilePane("map");
     setListTab("towns");
     flyToken.current += 1;
     setFlyTarget({
@@ -221,6 +231,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
 
   const selectHubFromList = useCallback((hub: MapHub) => {
     setSelectedId(hub.id);
+    setMobilePane("map");
     setListTab("hubs");
     flyToken.current += 1;
     setFlyTarget({
@@ -265,6 +276,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
   }
 
   function fitResults() {
+    setMobilePane("map");
     setFitToken((n) => n + 1);
   }
 
@@ -494,12 +506,10 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
           <div ref={listRef} className="grid gap-3" role="list" aria-label="Matching towns and hubs">
             {listTab === "towns" &&
               locations.map((loc) => (
-                <button
+                <article
                   key={loc.id}
-                  type="button"
                   role="listitem"
                   data-id={loc.id}
-                  onClick={() => selectFromList(loc)}
                   className={`location-card text-left ${selectedId === loc.id ? "is-active" : ""}`}
                   style={{ ["--category-color" as string]: loc.category.color }}
                 >
@@ -509,7 +519,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                   <span className="min-w-0">
                     <span className="flex items-start justify-between gap-2">
                       <span>
-                        <h3 className="card-title">{loc.name}</h3>
+                        <h3 className="card-title">
+                          <button type="button" onClick={() => selectFromList(loc)} className="text-left font-bold hover:underline focus-visible:underline" aria-label={`Show ${loc.name} on map`}>{loc.name}</button>
+                        </h3>
                         <p className="card-meta">
                           {loc.district?.name || loc.province.name}
                           {loc.municipality ? ` · ${loc.municipality.name}` : ""}
@@ -531,17 +543,15 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                       {t(L, "viewProfile")} →
                     </Link>
                   </span>
-                </button>
+                </article>
               ))}
 
             {listTab === "hubs" &&
               hubs.map((hub) => (
-                <button
+                <article
                   key={hub.id}
-                  type="button"
                   role="listitem"
                   data-id={hub.id}
-                  onClick={() => selectHubFromList(hub)}
                   className={`location-card text-left ${selectedId === hub.id ? "is-active" : ""}`}
                   style={{ ["--category-color" as string]: hub.color }}
                 >
@@ -551,7 +561,9 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                   <span className="min-w-0">
                     <span className="flex items-start justify-between gap-2">
                       <span>
-                        <h3 className="card-title">{hub.name}</h3>
+                        <h3 className="card-title">
+                          <button type="button" onClick={() => selectHubFromList(hub)} className="text-left font-bold hover:underline focus-visible:underline" aria-label={`Show ${hub.name} on map`}>{hub.name}</button>
+                        </h3>
                         <p className="card-meta">
                           {hub.type}
                           {hub.hostTownName ? ` · ${hub.hostTownName}` : ""}
@@ -578,7 +590,7 @@ export default function MapExplorer({ locale = "en" }: { locale?: string }) {
                       Organisation profile →
                     </Link>
                   </span>
-                </button>
+                </article>
               ))}
 
             {listTab === "towns" && !loading && locations.length === 0 && (

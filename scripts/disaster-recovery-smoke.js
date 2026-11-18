@@ -53,6 +53,7 @@ try {
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ictmap-dr-"));
 const dump = path.join(dir, "database.sql");
 const restoredDump = path.join(dir, "restored.sql");
+const compatibleDump = path.join(dir, "restore-compatible.sql");
 const started = Date.now();
 const restoreDb = `ictmap_dr_${Date.now()}`;
 const adminUrl = withDatabase(url, "postgres");
@@ -82,6 +83,22 @@ try {
   }
   gpgWithPassphrase(["--decrypt", "--output", restoredDump, `${dump}.gpg`], key);
 
+  // First prove encryption/decryption preserved the dump byte-for-byte.
+  const checksum = crypto.createHash("sha256").update(fs.readFileSync(dump)).digest("hex");
+  const restoredChecksum = crypto.createHash("sha256").update(fs.readFileSync(restoredDump)).digest("hex");
+  if (checksum !== restoredChecksum) throw new Error("decrypted dump does not match source dump");
+
+  // pg_dump from newer PostgreSQL releases can emit SET transaction_timeout,
+  // which older supported restore targets (for example PostgreSQL 16) reject.
+  // Strip only that session setting; application/schema/data SQL remains unchanged.
+  const restoredText = fs.readFileSync(restoredDump, "utf8");
+  const compatibilityTransforms = [];
+  const restoreText = restoredText.replace(/^SET transaction_timeout = .*;\r?\n/gm, () => {
+    compatibilityTransforms.push("transaction_timeout");
+    return "-- transaction_timeout omitted for restore-target compatibility\n";
+  });
+  fs.writeFileSync(compatibleDump, restoreText);
+
   try {
     run(`psql --dbname="${adminUrl}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${quoteIdent(restoreDb)}"`);
     created = true;
@@ -96,7 +113,7 @@ try {
 
   run(`psql --dbname="${restoreUrl}" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS postgis"`);
   run(`psql --dbname="${restoreUrl}" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_trgm"`);
-  execSync(`psql --dbname="${restoreUrl}" -v ON_ERROR_STOP=1 -f "${restoredDump}"`, {
+  execSync(`psql --dbname="${restoreUrl}" -v ON_ERROR_STOP=1 -f "${compatibleDump}"`, {
     stdio: "pipe",
     env: process.env,
   });
@@ -109,9 +126,6 @@ try {
     throw new Error("restored database missing application tables");
   }
 
-  const checksum = crypto.createHash("sha256").update(fs.readFileSync(dump)).digest("hex");
-  const restoredChecksum = crypto.createHash("sha256").update(fs.readFileSync(restoredDump)).digest("hex");
-  if (checksum !== restoredChecksum) throw new Error("decrypted dump does not match source dump");
   const rtoMinutes = Math.max(1, Math.round((Date.now() - started) / 60000) || 1);
   const report = {
     ok: true,
@@ -125,6 +139,7 @@ try {
     organisationCount,
     rpoMinutes: 1440,
     rtoObservedMinutes: rtoMinutes,
+    compatibilityTransforms,
   };
   fs.mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
   fs.writeFileSync(path.join(process.cwd(), "data", "dr-restore.json"), JSON.stringify(report, null, 2));

@@ -46,6 +46,7 @@ jobs:
       S3_BACKUP_ENDPOINT: ${{ secrets.S3_BACKUP_ENDPOINT }}
       PRODUCTION_APP_URL: ${{ secrets.PRODUCTION_APP_URL }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
       NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
     steps:
       - uses: actions/checkout@v7
@@ -160,10 +161,27 @@ jobs:
           NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
         run: |
           if [ -n "$NOTIFY_WEBHOOK_URL" ]; then
-            curl -fsS -X POST "$NOTIFY_WEBHOOK_URL" \
-              -H "Content-Type: application/json" \
-              -H "x-cron-secret: $CRON_SECRET" \
-              -d '{"type":"backup.failed","subject":"Production backup failed","body":"The scheduled encrypted backup workflow failed. Investigate immediately."}'
+            PAYLOAD='{"type":"backup.failed","subject":"Production backup failed","body":"The scheduled encrypted backup workflow failed. Investigate immediately."}'
+            ALERT_OK=0
+            if [ -n "$CRON_SECRET" ]; then
+              if curl -fsS -X POST "$NOTIFY_WEBHOOK_URL" \
+                -H "Content-Type: application/json" \
+                -H "x-cron-secret: $CRON_SECRET" \
+                -d "$PAYLOAD"; then
+                ALERT_OK=1
+              fi
+            fi
+            if [ "$ALERT_OK" -ne 1 ] && [ -n "$METRICS_TOKEN" ]; then
+              if curl -fsS -X POST "$NOTIFY_WEBHOOK_URL" \
+                -H "Content-Type: application/json" \
+                -H "x-metrics-token: $METRICS_TOKEN" \
+                -d "$PAYLOAD"; then
+                ALERT_OK=1
+              fi
+            fi
+            if [ "$ALERT_OK" -ne 1 ]; then
+              echo "Backup alert endpoint rejected all configured operational tokens"
+            fi
           fi
           echo "Backup failed — paging operators"
           exit 1
