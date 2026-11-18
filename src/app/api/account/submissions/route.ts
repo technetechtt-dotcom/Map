@@ -19,12 +19,14 @@ function key(type: string | null | undefined, id: string | null | undefined) {
 export async function GET() {
   const auth = await requireSession();
   if (auth.error) return auth.error;
+  const accountEmail = auth.user.email?.trim().toLowerCase();
+  if (!accountEmail) return jsonError("Account email is required", 400);
 
   const rows = await prisma.submission.findMany({
     where: {
       OR: [
         { submittedById: auth.user.id },
-        { submittedById: null, submitterEmail: auth.user.email.toLowerCase() },
+        { submittedById: null, submitterEmail: accountEmail },
       ],
     },
     include: { province: { select: { name: true, slug: true } } },
@@ -76,6 +78,8 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
+  const accountEmail = auth.user.email?.trim().toLowerCase();
+  if (!accountEmail) return jsonError("Account email is required", 400);
   const parsed = await readJsonLimited(req);
   if (!parsed.ok) return jsonError(parsed.error, 413);
   const body = actionSchema.safeParse(parsed.data);
@@ -86,7 +90,7 @@ export async function PATCH(req: NextRequest) {
       id: body.data.id,
       OR: [
         { submittedById: auth.user.id },
-        { submittedById: null, submitterEmail: auth.user.email.toLowerCase() },
+        { submittedById: null, submitterEmail: accountEmail },
       ],
     },
   });
@@ -138,7 +142,7 @@ export async function PATCH(req: NextRequest) {
   });
   await notify({
     type: "submission.update",
-    to: auth.user.email,
+    to: accountEmail,
     userId: auth.user.id,
     subject: `Submission ${existing.trackingRef || existing.id} resubmitted`,
     body: "Your additional information has been sent back to the review queue.",
