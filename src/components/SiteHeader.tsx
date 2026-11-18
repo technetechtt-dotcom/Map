@@ -33,7 +33,7 @@ function AuthControls() {
             Ops
           </Link>
         )}
-        <Link href="/account/notifications" className="secondary-button">
+        <Link href="/account" className="secondary-button">
           Account
         </Link>
         <button type="button" className="secondary-button" onClick={() => signOut({ callbackUrl: "/" })}>
