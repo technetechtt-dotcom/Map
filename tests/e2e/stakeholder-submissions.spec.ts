@@ -17,16 +17,18 @@ test("signed-in stakeholder can track and resubmit requested information", async
   let submissionId: string | null = null;
 
   try {
-    await page.goto("/login?callbackUrl=%2Faccount%2Fsubmissions");
+    await page.goto("/login");
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/\/account\/submissions/, { timeout: 20_000 });
-    await expect(page.getByRole("link", { name: /new submission/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/?$/, { timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible({ timeout: 20_000 });
 
     const session = await page.request.get("/api/auth/session");
     expect(session.ok()).toBeTruthy();
     expect((await session.json())?.user?.email).toBe(email);
+    await page.goto("/account/submissions");
+    await expect(page.getByRole("link", { name: /new submission/i })).toBeVisible({ timeout: 20_000 });
 
     const submitted = await page.request.post("/api/submissions", {
       data: {
