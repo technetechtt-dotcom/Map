@@ -144,6 +144,8 @@ export async function POST(req: NextRequest) {
     return jsonError("Validation failed", 400, { issues: bodyResult.error.issues });
   }
   const body = bodyResult.data;
+  const optionalAuth = await requireSession();
+  const actor = "user" in optionalAuth ? optionalAuth.user : null;
 
   if (process.env.POPIA_CONSENT_REQUIRED === "1" && body.consent !== true) {
     return jsonError("Consent required", 400);
@@ -216,11 +218,14 @@ export async function POST(req: NextRequest) {
       status: "SUBMITTED",
       trackingRef: makeTrackingRef(crypto.randomUUID()),
       provinceId,
-      organisationId: body.organisationId || null,
+      organisationId: body.organisationId || actor?.organisationId || null,
+      submittedById: actor?.id || null,
     },
   });
 
   await writeAudit({
+    user: actor || undefined,
+    userId: actor?.id,
     action: "SUBMISSION",
     entityType: "Submission",
     entityId: created.id,
@@ -237,6 +242,7 @@ export async function POST(req: NextRequest) {
   await notify({
     type: "submission.update",
     to: created.submitterEmail,
+    userId: actor?.id,
     subject: `Submission received ${trackingRef}`,
     body: `Your listing is under review. Track progress with ${trackingRef}.`,
   });
@@ -300,14 +306,15 @@ export async function PATCH(req: NextRequest) {
       let createdEntityId = existing.createdEntityId;
       const mergeTargetId = body.mergeTargetId || existing.mergeTargetId;
 
+      const recordStatus = body.status === "PUBLISHED" ? "PUBLISHED" : "PENDING_REVIEW";
       if ((body.status === "APPROVED" || body.status === "PUBLISHED") && mergeTargetId) {
-        const merged = await mergeSubmissionIntoExisting(tx, existing, mergeTargetId);
+        const merged = await mergeSubmissionIntoExisting(tx, existing, mergeTargetId, recordStatus);
         createdLocationId = merged.createdLocationId;
         createdEntityType = merged.createdEntityType;
         createdEntityId = merged.createdEntityId;
         mergeChangedFields = merged.changedFields;
       } else if (body.status === "APPROVED" || body.status === "PUBLISHED") {
-        const applied = await applyApprovedSubmission(tx, existing, auth.user.id);
+        const applied = await applyApprovedSubmission(tx, existing, auth.user.id, recordStatus);
         createdLocationId = applied.createdLocationId;
         createdEntityType = applied.createdEntityType;
         createdEntityId = applied.createdEntityId;
@@ -356,6 +363,7 @@ export async function PATCH(req: NextRequest) {
     await notify({
       type: "submission.update",
       to: result.submitterEmail,
+      userId: result.submittedById || undefined,
       subject: `Submission ${result.trackingRef || result.id} ${body.status}`,
       body: body.reviewedNotes || `Your submission is now ${body.status}.`,
     });
