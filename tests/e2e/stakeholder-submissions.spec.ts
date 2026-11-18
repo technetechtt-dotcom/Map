@@ -21,6 +21,12 @@ test("signed-in stakeholder can track and resubmit requested information", async
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/account\/submissions/, { timeout: 20_000 });
+    await expect(page.getByRole("link", { name: /new submission/i })).toBeVisible({ timeout: 20_000 });
+
+    const session = await page.request.get("/api/auth/session");
+    expect(session.ok()).toBeTruthy();
+    expect((await session.json())?.user?.email).toBe(email);
 
     const submitted = await page.request.post("/api/submissions", {
       data: {
