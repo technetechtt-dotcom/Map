@@ -43,9 +43,11 @@ function rootAdvisories(name, seen = new Set()) {
   const info = vulns[name];
 
   for (const via of info?.via || []) {
-    if (via && typeof via === "object" && typeof via.source === "number") {
-      roots.set(via.source, {
-        source: via.source,
+    if (via && typeof via === "object" && via.source != null) {
+      const source = Number(via.source);
+      if (!Number.isFinite(source)) continue;
+      roots.set(source, {
+        source,
         name: via.name,
         title: via.title,
         severity: via.severity,
