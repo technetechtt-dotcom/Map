@@ -70,9 +70,23 @@ export default function SiteHeader({ locale = "en" }: { locale?: string }) {
     router.refresh();
   }
 
-  const nav = PUBLIC_NAV.map((item) =>
-    item.href === "/about" ? { ...item, label: t(L, "about") } : item.href === "/national" ? { ...item, label: t(L, "national") } : item
-  );
+  const navLabels: Record<string, keyof typeof import("@/lib/i18n").messages.en> = {
+    "/": "map",
+    "/search": "navSearch",
+    "/organisations": "organisations",
+    "/national": "national",
+    "/funding": "funding",
+    "/events": "events",
+    "/programmes": "programmes",
+    "/procurement": "procurement",
+    "/submit": "submit",
+    "/about": "about",
+    "/help": "help",
+  };
+  const nav = PUBLIC_NAV.map((item) => ({
+    ...item,
+    label: navLabels[item.href] ? t(L, navLabels[item.href]) : item.label,
+  }));
 
   return (
     <header className="site-header">
