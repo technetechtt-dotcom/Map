@@ -50,38 +50,46 @@ function buildFromBackupKeys() {
 }
 
 async function probe(built) {
-  if (process.env.SKIP_S3_PROBE === "1") return;
-  const { S3Client, HeadBucketCommand, CreateBucketCommand } = require("@aws-sdk/client-s3");
+  if (process.env.SKIP_S3_PROBE === "1") {
+    if (process.env.CI || process.env.GITHUB_ACTIONS) {
+      throw new Error("SKIP_S3_PROBE is forbidden in CI backup workflows");
+    }
+    return;
+  }
+  // A backup writer often intentionally lacks s3:ListBucket. HeadBucket can
+  // return HTTP 403 even when PutObject is allowed. Test actual write/delete
+  // permissions instead; never attempt to create a production backup bucket.
+  const { randomUUID } = require("crypto");
+  const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
   const client = new S3Client({
     region: built.region,
     endpoint: built.endpoint || undefined,
     forcePathStyle: Boolean(built.endpoint),
     credentials: { accessKeyId: built.accessKey, secretAccessKey: built.secret },
   });
+  const key = `healthchecks/rclone-${randomUUID()}.txt`;
+  let wrote = false;
   try {
-    await client.send(new HeadBucketCommand({ Bucket: built.bucket }));
+    await client.send(new PutObjectCommand({
+      Bucket: built.bucket, Key: key, Body: "backup-write-check",
+    }));
+    wrote = true;
+    await client.send(new DeleteObjectCommand({ Bucket: built.bucket, Key: key }));
   } catch (error) {
-    const name = error?.name || "";
-    const code = error?.Code || error?.code || "";
-    const message = error instanceof Error ? error.message : String(error);
-    const http = error?.$metadata?.httpStatusCode;
-    const blob = `${name} ${code} ${message} ${http || ""}`;
-    if (/NotFound|NoSuchBucket|404/i.test(blob)) {
-      await client.send(new CreateBucketCommand({ Bucket: built.bucket }));
-      return;
-    }
-    console.error(
-      JSON.stringify({
-        ok: false,
-        error: "S3 backup credentials failed HeadBucket",
-        name: name || "Unknown",
-        code: code || "Unknown",
-        http: http || null,
-        message: message.slice(0, 240),
-        hint: "Replace S3_BACKUP_ACCESS_KEY_ID / S3_BACKUP_SECRET_ACCESS_KEY with a live IAM user that can PutObject on S3_BACKUP_BUCKET. If the keys are for R2/MinIO, set S3_BACKUP_ENDPOINT too.",
-      })
-    );
-    process.exit(1);
+    const http = error?.$metadata?.httpStatusCode || null;
+    console.error(JSON.stringify({
+      ok: false,
+      error: "Backup bucket write/delete probe failed",
+      http,
+      code: error?.name || error?.Code || "Unknown",
+      hint: "Check S3_BACKUP_ENDPOINT, bucket region, and the independent backup credentials. Grant object PutObject and DeleteObject for healthchecks/*; never skip production backup verification.",
+    }));
+    // If deletion failed, do not silently report a healthy backup destination.
+    if (wrote) console.error("A healthcheck object may require manual cleanup.");
+    process.exitCode = 1;
+    throw new Error("Offsite backup destination is not writable and cleanable");
+  } finally {
+    client.destroy();
   }
 }
 
