@@ -96,7 +96,8 @@ test("Ops approve and publish makes a stakeholder funding submission public", as
     });
     expect(submitted.status(), await submitted.text()).toBe(201);
     const created = await submitted.json();
-    submissionId = created.id;
+    const createdId = String(created.id);
+    submissionId = createdId;
 
     await page.goto(opsUrl("/login"));
     await page.locator('input[name="email"]').fill(adminEmail);
@@ -106,14 +107,14 @@ test("Ops approve and publish makes a stakeholder funding submission public", as
 
     const published = await page.request.patch(opsUrl("/api/submissions"), {
       data: {
-        id: submissionId,
+        id: createdId,
         status: "PUBLISHED",
         reviewedNotes: "Official source checked and approved for publication.",
       },
     });
     expect(published.status(), await published.text()).toBe(200);
 
-    const stored = await prisma.submission.findUnique({ where: { id: submissionId } });
+    const stored = await prisma.submission.findUnique({ where: { id: createdId } });
     expect(stored?.status).toBe("PUBLISHED");
     expect(stored?.createdEntityType).toBe("funding");
     expect(stored?.createdEntityId).toBeTruthy();
