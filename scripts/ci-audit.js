@@ -1,6 +1,6 @@
 /**
  * CI dependency audit. Fails on unwaived HIGH/CRITICAL root advisories.
- * npm can assign a parent package the highest severity of all transitive
+ * Do not allowlist framework packages.\n * npm can assign a parent package the highest severity of all transitive
  * findings, so evaluate the underlying advisory objects rather than blindly
  * treating every propagated parent severity as a distinct high advisory.
  */
