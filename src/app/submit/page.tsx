@@ -156,13 +156,23 @@ function SubmitForm() {
 
   return (
     <div className="page max-w-2xl">
-      <p className="eyebrow">Community</p>
-      <h1>Submit a listing</h1>
+      <p className="eyebrow">Stakeholder contribution</p>
+      <h1>Submit to the ICT Ecosystem</h1>
       <p className="text-muted mb-6">
-        Propose a {typeLabel.toLowerCase()}. Use dropdowns and address search instead of technical slugs. You will receive a tracking reference such as ICT-2026-00452.
+        Submit a {typeLabel.toLowerCase()} for Ops review. Nothing becomes public until the platform team checks the information and publishes it. You will receive a tracking reference such as ICT-2026-00452.
       </p>
+      <div className="panel-card mb-5">
+        <h2 className="font-bold">Submitting for an organisation, municipality, funder or programme?</h2>
+        <p className="mt-1 text-sm text-muted">You can submit without an account, or sign in to manage all your submissions, respond to reviewer questions and open published records from one dashboard.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link className="btn btn-outline text-xs" href="/account/submissions">My submissions</Link>
+          <Link className="chip" href="/login?callbackUrl=%2Fsubmit">Sign in</Link>
+          <Link className="chip" href="/signup">Create stakeholder account</Link>
+          <Link className="chip" href="/track">Track by reference</Link>
+        </div>
+      </div>
       <form key={formVersion} onSubmit={onSubmit} className="panel-card grid gap-3">
-        <label className="grid gap-1 text-sm font-semibold">Listing type
+        <label className="grid gap-1 text-sm font-semibold">What would you like to submit?
           <select className="field" value={type} onChange={(e) => setType(e.target.value as (typeof TYPES)[number]["id"])}>
             {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
@@ -178,7 +188,7 @@ function SubmitForm() {
         </label>
         {type === "location" && (
           <>
-            <AddressPicker />
+            <AddressPicker requiredCoordinates />
             <label className="grid gap-1 text-sm font-semibold">Category
               <select className="field" name="categorySlug" defaultValue="knowledge-hub">
                 {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -268,8 +278,8 @@ function SubmitForm() {
         <label className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
           Website<input className="field" name="website" tabIndex={-1} autoComplete="off" />
         </label>
-        <button className="btn" type="submit" disabled={loading}>{loading ? "Submitting…" : "Submit for review"}</button>
-        {status && <p className="text-sm font-semibold text-g700">{status} <Link href="/track">Track status</Link></p>}
+        <button className="btn" type="submit" disabled={loading}>{loading ? "Submitting…" : "Send to Ops for review"}</button>
+        {status && <p className="text-sm font-semibold text-g700">{status} <Link href="/track">Track status</Link> · <Link href="/account/submissions">My submissions</Link></p>}
       </form>
     </div>
   );
