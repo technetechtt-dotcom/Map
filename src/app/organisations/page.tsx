@@ -201,6 +201,12 @@ export default async function OrganisationsPage({
       {orgs.length === 0 && (
         <p className="text-muted">No organisations match this filter.</p>
       )}
+
+      <p className="mt-6 text-sm">
+        <Link className="text-g700 font-semibold" href="/submit?type=organisation">
+          Submit an organisation →
+        </Link>
+      </p>
     </div>
   );
 }
