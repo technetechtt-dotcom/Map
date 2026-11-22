@@ -18,6 +18,8 @@ The Innovation Repository provides a protected knowledge-management space for st
 ## File controls
 Uploads use the platform's protected object-storage pipeline. Files are private by default, subject to size limits, magic-byte/content checks, malware scanning and audit logging. Supported repository formats include PDF, DOCX, XLSX, PPTX and approved image formats.
 
+Opening a document writes `REPOSITORY_DOCUMENT_VIEW`. Downloading the private object writes `REPOSITORY_DOCUMENT_DOWNLOAD`. Both records keep the actor, document, province and organisation. Group access does not imply organisation-wide access, and an organisation assignment does not grant access to another organisation's files.
+
 ## Document lifecycle
 Every repository document has title, description, category, tags, visibility, uploader, tenant scope and version metadata. A new version may supersede an earlier record; superseded versions remain auditable. Administrators and authorised owners can archive documents instead of deleting knowledge history.
 

@@ -20,6 +20,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     },
   });
   if (!document) return jsonError("Not found", 404);
+  await writeAudit({
+    user: auth.user,
+    action: "REPOSITORY_DOCUMENT_VIEW",
+    entityType: "RepositoryDocument",
+    entityId: document.id,
+    provinceId: document.provinceId,
+    organisationId: document.organisationId,
+    metadata: { title: document.title, version: document.version, status: document.status },
+  });
   return jsonOk({ document });
 }
 

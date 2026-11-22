@@ -62,6 +62,27 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      <div className="panel-card mt-8 h-80">
+        <h2 className="mb-3 font-bold">Opportunities, submissions and repository</h2>
+        <ResponsiveContainer width="100%" height="85%">
+          <BarChart data={[
+            { name: "Funding", count: data.totals.funding || 0 },
+            { name: "Events", count: data.totals.events || 0 },
+            { name: "Programmes", count: data.totals.programmes || 0 },
+            { name: "Procurement", count: data.totals.procurements || 0 },
+            { name: "Open submissions", count: data.totals.openSubmissions || 0 },
+            { name: "Repository files", count: data.totals.repositoryDocuments || 0 },
+            { name: "Stakeholder groups", count: data.totals.repositoryGroups || 0 },
+          ]}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" interval={0} angle={-25} textAnchor="end" height={70} />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Bar dataKey="count" fill="#0f766e" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <div className="panel-card h-80">
           <h2 className="mb-3 font-bold">Locations by category</h2>

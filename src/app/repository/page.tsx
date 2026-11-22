@@ -10,10 +10,11 @@ type DocumentRow = {
   description?: string | null;
   category?: string | null;
   visibility: string;
+  status: string;
   version: number;
   createdAt: string;
   storedObject: { url: string; filename: string; contentType: string; sizeBytes: number };
-  uploadedBy: { name: string };
+  uploadedBy: { id?: string; name: string };
   groups: Group[];
 };
 
@@ -23,10 +24,16 @@ export default function RepositoryPage() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
+  const [history, setHistory] = useState(false);
+  const [versionOf, setVersionOf] = useState<DocumentRow | null>(null);
 
   const load = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (history) params.set("history", "1");
+    const query = params.toString();
     const [docsRes, groupsRes] = await Promise.all([
-      fetch(`/api/repository${q ? `?q=${encodeURIComponent(q)}` : ""}`, { cache: "no-store" }),
+      fetch(`/api/repository${query ? `?${query}` : ""}`, { cache: "no-store" }),
       fetch("/api/repository/groups", { cache: "no-store" }),
     ]);
     if (docsRes.ok) {
@@ -37,7 +44,7 @@ export default function RepositoryPage() {
       const data = await groupsRes.json();
       setGroups(data.groups || []);
     }
-  }, [q]);
+  }, [q, history]);
 
   useEffect(() => {
     load().catch(() => setMessage("Could not load repository"));
@@ -76,13 +83,15 @@ export default function RepositoryPage() {
           tags: String(form.get("tags") || "").split(",").map((v) => v.trim()).filter(Boolean),
           visibility,
           groupIds: selectedGroups,
+          supersedesId: versionOf?.id,
         }),
       });
       const created = await createRes.json();
       if (!createRes.ok) throw new Error(created.error || "Could not register document");
 
       event.currentTarget.reset();
-      setMessage("Document uploaded to the stakeholder repository.");
+      setVersionOf(null);
+      setMessage(versionOf ? `Version ${versionOf.version + 1} published and the previous version archived as superseded.` : "Document uploaded to the stakeholder repository.");
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Upload failed");
@@ -115,6 +124,9 @@ export default function RepositoryPage() {
               placeholder="Search repository…"
               aria-label="Search repository"
             />
+            <button className={`chip ${history ? "chip-active" : ""}`} type="button" onClick={() => setHistory((value) => !value)}>
+              {history ? "Showing versions and archives" : "Show versions and archives"}
+            </button>
           </div>
           <div className="space-y-3">
             {documents.map((document) => (
@@ -123,7 +135,7 @@ export default function RepositoryPage() {
                   <div>
                     <h2 className="font-bold text-g700">{document.title}</h2>
                     <p className="text-xs text-muted">
-                      Version {document.version} · {new Date(document.createdAt).toLocaleDateString()} · {document.uploadedBy.name}
+                      Version {document.version} · {document.status} · {new Date(document.createdAt).toLocaleDateString()} · {document.uploadedBy.name}
                     </p>
                   </div>
                   <span className="chip">{document.category || "Document"}</span>
@@ -133,9 +145,30 @@ export default function RepositoryPage() {
                   {document.groups.map((group) => <span key={group.id} className="chip">{group.name}</span>)}
                   {document.visibility !== "GROUPS" && <span className="chip">{document.visibility.replaceAll("_", " ")}</span>}
                 </div>
-                <a className="mt-3 inline-block text-sm font-semibold text-g700" href={document.storedObject.url}>
-                  View / download document →
-                </a>
+                <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold">
+                  <a className="text-g700" href={document.storedObject.url}>View / download document →</a>
+                  {document.status === "ACTIVE" && (
+                    <>
+                      <button className="text-g700" type="button" onClick={() => setVersionOf(document)}>Upload new version</button>
+                      <button
+                        className="text-g700"
+                        type="button"
+                        onClick={async () => {
+                          const response = await fetch(`/api/repository/${document.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ status: "ARCHIVED" }),
+                          });
+                          const data = await response.json().catch(() => ({}));
+                          setMessage(response.ok ? "Document archived. It stays in the audit history." : data.error || "Could not archive document");
+                          if (response.ok) await load();
+                        }}
+                      >
+                        Archive
+                      </button>
+                    </>
+                  )}
+                </div>
               </article>
             ))}
             {documents.length === 0 && <p className="text-muted">No documents are available in your permitted groups yet.</p>}
@@ -143,8 +176,13 @@ export default function RepositoryPage() {
         </section>
 
         <aside className="panel-card">
-          <h2 className="text-lg font-bold">Upload document</h2>
-          <p className="mt-1 text-sm text-muted">Files remain private and are checked before storage.</p>
+          <h2 className="text-lg font-bold">{versionOf ? `New version of ${versionOf.title}` : "Upload document"}</h2>
+          <p className="mt-1 text-sm text-muted">
+            {versionOf
+              ? `This becomes version ${versionOf.version + 1}. The current file stays available in version history.`
+              : "Files remain private and are checked before storage."}
+          </p>
+          {versionOf && <button className="chip mt-2" type="button" onClick={() => setVersionOf(null)}>Cancel new version</button>}
           <form className="mt-4 grid gap-3" onSubmit={submit}>
             <label className="text-sm font-semibold">Title
               <input className="field mt-1 w-full" name="title" required maxLength={180} />

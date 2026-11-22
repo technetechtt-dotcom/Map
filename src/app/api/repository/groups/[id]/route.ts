@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, requireSession } from "@/lib/api";
-import { canManageRepositoryGroups, isProvincialAdmin, isSuperAdmin } from "@/lib/policy";
+import { canManageRepositoryGroups, isProvincialAdmin } from "@/lib/policy";
 import { readJsonLimited } from "@/lib/security";
 import { writeAudit } from "@/lib/audit";
 

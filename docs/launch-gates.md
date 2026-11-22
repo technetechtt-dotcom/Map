@@ -95,6 +95,17 @@ Sync secrets: `npm run ops:sync-secrets .env.production.secrets`
 
 ---
 
+## Repository release (code complete; operator steps remain)
+
+- [x] Group, organisation, province and stakeholder visibility enforced in policy tests (`tests/repository-access.test.ts`)
+- [x] Document view and private download write audit actions
+- [x] Version upload and archive controls on `/repository`
+- [x] Public innovation dashboard KPIs and the admin opportunity/repository chart
+- [x] Object backup selects every `StoredObject`, including repository files (`missingRepositoryObjectBackups`)
+- [ ] Apply `20261122190000_stakeholder_repository` on the staging database (`npm run db:migrate` with the staging `DIRECT_URL`)
+- [ ] Facilitator delivers `docs/stakeholder-repository-training.md` to administrators and stakeholder users
+- [ ] Staging upload, view, group access, and cross-tenant denial exercised against the deployed staging origin
+
 ## P2 — Operational maturity
 
 - [ ] Incident runbooks exercised: `docs/incident-runbooks.md`

@@ -170,6 +170,12 @@ export function backupObjectKey(filename: string, createdAt: Date) {
   return `objects/${createdAt.toISOString().slice(0, 10)}/${filename}`;
 }
 
+/** Repository files are ordinary StoredObject rows and must all appear in a full object backup. */
+export function missingRepositoryObjectBackups(backedUpIds: string[], repositoryObjectIds: string[]) {
+  const backedUp = new Set(backedUpIds);
+  return repositoryObjectIds.filter((id) => !backedUp.has(id));
+}
+
 function runStatus(failed: number, attempted: number): BackupRunStatus {
   if (attempted === 0) return "SUCCESS";
   if (failed === 0) return "SUCCESS";

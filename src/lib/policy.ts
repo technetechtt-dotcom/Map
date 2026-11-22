@@ -116,19 +116,54 @@ export function canManageRepositoryGroups(user?: AuthUser | null) {
   return isSuperAdmin(user) || isProvincialAdmin(user);
 }
 
+export type RepositoryAccessDocument = {
+  uploadedById: string;
+  organisationId?: string | null;
+  provinceId?: string | null;
+  visibility: string;
+  status?: string | null;
+  groupUserIds?: string[];
+};
+
+/** Visibility is exact: organisation, province, and group access do not leak across tenants. */
+export function canReadRepositoryDocument(
+  user: AuthUser | null | undefined,
+  document: RepositoryAccessDocument
+) {
+  if (!user?.id) return false;
+  if (isSuperAdmin(user)) return true;
+  if (document.uploadedById === user.id) return true;
+  const historical = document.status === "ARCHIVED" || document.status === "SUPERSEDED";
+  if (historical) {
+    const sameOrganisation = Boolean(document.organisationId && document.organisationId === user.organisationId);
+    return (isOrgAdmin(user) && sameOrganisation) || (isProvincialAdmin(user) && document.provinceId === user.provinceId);
+  }
+  if (document.visibility === "ALL_STAKEHOLDERS") return true;
+  if (document.visibility === "ORGANISATION") {
+    return Boolean(user.organisationId && document.organisationId === user.organisationId);
+  }
+  if (document.visibility === "PROVINCE") {
+    return Boolean(user.provinceId && document.provinceId === user.provinceId);
+  }
+  if (document.visibility === "GROUPS") return (document.groupUserIds || []).includes(user.id);
+  return false;
+}
+
 export function repositoryDocumentWhere(user: AuthUser | null | undefined): Record<string, unknown> {
   if (!user?.id) return { id: "__none__" };
   if (isSuperAdmin(user)) return {};
-  const shared = {
+  return {
     OR: [
-      { visibility: "ALL_STAKEHOLDERS" },
       { uploadedById: user.id },
-      ...(user.organisationId ? [{ organisationId: user.organisationId }] : []),
-      ...(user.provinceId ? [{ provinceId: user.provinceId, visibility: "PROVINCE" }] : []),
-      { groupAccess: { some: { group: { members: { some: { userId: user.id } } } } } },
+      { visibility: "ALL_STAKEHOLDERS" },
+      ...(user.organisationId ? [{ visibility: "ORGANISATION", organisationId: user.organisationId }] : []),
+      ...(user.provinceId ? [{ visibility: "PROVINCE", provinceId: user.provinceId }] : []),
+      {
+        visibility: "GROUPS",
+        groupAccess: { some: { group: { members: { some: { userId: user.id } } } } },
+      },
     ],
   };
-  return shared;
 }
 
 export function canAccessOpsDashboard(user?: AuthUser | null) {

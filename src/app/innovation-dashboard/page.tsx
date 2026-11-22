@@ -19,11 +19,17 @@ export default async function InnovationDashboardPage() {
     );
   }
 
-  const [locations, organisations, funding, events, programmes, procurements, byDistrict, districts] = await Promise.all([
+  const now = new Date();
+  const [locations, organisations, verifiedOrganisations, funding, openFunding, events, upcomingEvents, programmes, procurements, byDistrict, districts] = await Promise.all([
     prisma.location.count({ where: { provinceId: province.id, status: "PUBLISHED" } }),
     prisma.organisation.count({ where: { provinceId: province.id, status: "PUBLISHED" } }),
+    prisma.organisation.count({ where: { provinceId: province.id, status: "PUBLISHED", verified: true } }),
     prisma.fundingCall.count({ where: { provinceId: province.id, status: "PUBLISHED" } }),
+    prisma.fundingCall.count({
+      where: { provinceId: province.id, status: "PUBLISHED", OR: [{ deadline: null }, { deadline: { gte: now } }] },
+    }),
     prisma.ecosystemEvent.count({ where: { provinceId: province.id, status: "PUBLISHED" } }),
+    prisma.ecosystemEvent.count({ where: { provinceId: province.id, status: "PUBLISHED", startsAt: { gte: now } } }),
     prisma.programme.count({ where: { provinceId: province.id, status: "PUBLISHED" } }),
     prisma.procurement.count({ where: { provinceId: province.id, status: "PUBLISHED" } }),
     prisma.location.groupBy({
@@ -34,6 +40,18 @@ export default async function InnovationDashboardPage() {
     prisma.district.findMany({ where: { provinceId: province.id }, select: { id: true, name: true, code: true } }),
   ]);
 
+  const indicators = [
+    { label: "Published locations", value: locations },
+    { label: "Organisations", value: organisations },
+    { label: "Verified organisations", value: verifiedOrganisations },
+    { label: "Funding calls", value: funding },
+    { label: "Open funding", value: openFunding },
+    { label: "Programmes", value: programmes },
+    { label: "Events", value: events },
+    { label: "Upcoming events", value: upcomingEvents },
+    { label: "Procurement notices", value: procurements },
+  ];
+  const maxIndicator = Math.max(1, ...indicators.map((item) => item.value));
   const districtMap = Object.fromEntries(districts.map((district) => [district.id, district]));
   const districtRows = byDistrict
     .map((row) => ({ district: row.districtId ? districtMap[row.districtId] : null, count: row._count }))
@@ -54,13 +72,30 @@ export default async function InnovationDashboardPage() {
       </div>
 
       <div className="stat-grid mt-6">
-        <div className="stat"><strong>{locations}</strong><span className="text-xs uppercase tracking-wide text-muted">Published locations</span></div>
-        <div className="stat"><strong>{organisations}</strong><span className="text-xs uppercase tracking-wide text-muted">Organisations</span></div>
-        <div className="stat"><strong>{funding}</strong><span className="text-xs uppercase tracking-wide text-muted">Funding calls</span></div>
-        <div className="stat"><strong>{programmes}</strong><span className="text-xs uppercase tracking-wide text-muted">Programmes</span></div>
-        <div className="stat"><strong>{events}</strong><span className="text-xs uppercase tracking-wide text-muted">Events</span></div>
-        <div className="stat"><strong>{procurements}</strong><span className="text-xs uppercase tracking-wide text-muted">Procurement notices</span></div>
+        {indicators.map((item) => (
+          <div key={item.label} className="stat">
+            <strong>{item.value}</strong>
+            <span className="text-xs uppercase tracking-wide text-muted">{item.label}</span>
+          </div>
+        ))}
       </div>
+
+      <section className="panel-card mt-6">
+        <h2 className="mb-3 text-lg font-bold">Ecosystem mix</h2>
+        <div className="grid gap-3">
+          {indicators.map((item) => (
+            <div key={item.label}>
+              <div className="mb-1 flex justify-between text-sm">
+                <span>{item.label}</span>
+                <span className="font-semibold">{item.value}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-soft">
+                <div className="h-full rounded-full" style={{ width: `${Math.round((item.value / maxIndicator) * 100)}%`, background: "var(--g700)" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="panel-card">

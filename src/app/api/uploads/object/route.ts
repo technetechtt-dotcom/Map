@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { canManageAllProvinces } from "@/lib/policy";
+import { canManageAllProvinces, canReadRepositoryDocument } from "@/lib/policy";
 import { jsonError, requireSession } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
       uploadedById: true,
       repositoryDocument: {
         select: {
+          id: true,
           uploadedById: true,
           organisationId: true,
           provinceId: true,
@@ -50,19 +52,30 @@ export async function GET(req: NextRequest) {
     const repository = object.repositoryDocument;
     const repositoryAllowed = Boolean(
       repository &&
-      repository.status === "ACTIVE" &&
-      (
-        repository.uploadedById === auth.user.id ||
-        repository.visibility === "ALL_STAKEHOLDERS" ||
-        (repository.visibility === "PROVINCE" && repository.provinceId && repository.provinceId === auth.user.provinceId) ||
-        (repository.organisationId && repository.organisationId === auth.user.organisationId) ||
-        repository.groupAccess.some((entry) =>
-          entry.group.members.some((member) => member.userId === auth.user.id)
-        )
-      )
+      canReadRepositoryDocument(auth.user, {
+        uploadedById: repository.uploadedById,
+        organisationId: repository.organisationId,
+        provinceId: repository.provinceId,
+        visibility: repository.visibility,
+        status: repository.status,
+        groupUserIds: repository.groupAccess.flatMap((entry) => entry.group.members.map((member) => member.userId)),
+      })
     );
-    if (!owner && !sameOrganisation && !repositoryAllowed && !canManageAllProvinces(auth.user)) {
+    if (repository) {
+      if (!repositoryAllowed) return jsonError("Forbidden", 403);
+    } else if (!owner && !sameOrganisation && !canManageAllProvinces(auth.user)) {
       return jsonError("Forbidden", 403);
+    }
+    if (repository) {
+      await writeAudit({
+        user: auth.user,
+        action: "REPOSITORY_DOCUMENT_DOWNLOAD",
+        entityType: "RepositoryDocument",
+        entityId: repository.id,
+        provinceId: repository.provinceId,
+        organisationId: repository.organisationId,
+        metadata: { filename: object.filename },
+      });
     }
   }
 

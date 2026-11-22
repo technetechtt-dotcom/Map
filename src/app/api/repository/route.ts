@@ -19,9 +19,10 @@ export async function GET(req: NextRequest) {
 
   const q = (req.nextUrl.searchParams.get("q") || "").trim();
   const category = (req.nextUrl.searchParams.get("category") || "").trim();
+  const history = req.nextUrl.searchParams.get("history") === "1";
   const clauses: Record<string, unknown>[] = [
     repositoryDocumentWhere(auth.user),
-    { status: "ACTIVE" },
+    history ? { status: { in: ["ACTIVE", "SUPERSEDED", "ARCHIVED"] } } : { status: "ACTIVE" },
   ];
   if (q) {
     clauses.push({
