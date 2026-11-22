@@ -5,6 +5,7 @@ export const PUBLIC_NAV: PublicNavItem[] = [
   { href: "/search", label: "Search" },
   { href: "/organisations", label: "Organisations" },
   { href: "/national", label: "National" },
+  { href: "/innovation-dashboard", label: "Innovation dashboard" },
   { href: "/funding", label: "Funding" },
   { href: "/events", label: "Events" },
   { href: "/programmes", label: "Programmes" },
