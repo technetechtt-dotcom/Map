@@ -102,6 +102,7 @@ Sync secrets: `npm run ops:sync-secrets .env.production.secrets`
 - [x] Version upload and archive controls on `/repository`
 - [x] Public innovation dashboard KPIs and the admin opportunity/repository chart
 - [x] Object backup selects every `StoredObject`, including repository files (`missingRepositoryObjectBackups`)
+- [x] Playwright spec covers upload, view, group access, organisation denial, archive, and view/download audit (`tests/e2e/repository-access.spec.ts`)
 - [ ] Apply `20261122190000_stakeholder_repository` on the staging database (`npm run db:migrate` with the staging `DIRECT_URL`)
 - [ ] Facilitator delivers `docs/stakeholder-repository-training.md` to administrators and stakeholder users
 - [ ] Staging upload, view, group access, and cross-tenant denial exercised against the deployed staging origin
