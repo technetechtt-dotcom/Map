@@ -727,7 +727,7 @@ model RepositoryGroup {
   members        RepositoryGroupMember[]
   documentAccess RepositoryDocumentGroup[]
 
-  @@unique([name, provinceId, organisationId])
+  @@index([name, provinceId, organisationId])
   @@index([provinceId, active])
   @@index([organisationId, active])
 }
