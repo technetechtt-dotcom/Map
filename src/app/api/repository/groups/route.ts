@@ -48,6 +48,17 @@ export async function POST(req: NextRequest) {
   if (isProvincialAdmin(auth.user)) provinceId = auth.user.provinceId || null;
   if (isProvincialAdmin(auth.user) && !provinceId) return jsonError("Provincial admin has no province assignment", 403);
 
+  const existingGroup = await prisma.repositoryGroup.findFirst({
+    where: {
+      name: { equals: name, mode: "insensitive" },
+      provinceId,
+      organisationId: body.organisationId || null,
+      active: true,
+    },
+    select: { id: true },
+  });
+  if (existingGroup) return jsonError("A stakeholder group with this name already exists in this scope", 409);
+
   const emails = Array.from(new Set((body.memberEmails || []).map((e) => String(e).trim().toLowerCase()).filter(Boolean)));
   const users = emails.length
     ? await prisma.user.findMany({
@@ -61,8 +72,7 @@ export async function POST(req: NextRequest) {
     : [];
   if (users.length !== emails.length) return jsonError("One or more member emails were not found in the permitted scope", 400);
 
-  try {
-    const group = await prisma.repositoryGroup.create({
+  const group = await prisma.repositoryGroup.create({
       data: {
         name,
         description: body.description?.trim() || null,
@@ -83,8 +93,5 @@ export async function POST(req: NextRequest) {
       organisationId: group.organisationId,
       metadata: { name, members: users.map((user) => user.email) },
     });
-    return jsonOk({ group }, 201);
-  } catch {
-    return jsonError("A stakeholder group with this name already exists in this scope", 409);
-  }
+  return jsonOk({ group }, 201);
 }
