@@ -48,7 +48,7 @@ CREATE TABLE "RepositoryDocumentGroup" (
   CONSTRAINT "RepositoryDocumentGroup_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "RepositoryGroup_name_provinceId_organisationId_key" ON "RepositoryGroup"("name","provinceId","organisationId");
+CREATE INDEX "RepositoryGroup_name_provinceId_organisationId_idx" ON "RepositoryGroup"("name","provinceId","organisationId");
 CREATE INDEX "RepositoryGroup_provinceId_active_idx" ON "RepositoryGroup"("provinceId","active");
 CREATE INDEX "RepositoryGroup_organisationId_active_idx" ON "RepositoryGroup"("organisationId","active");
 
