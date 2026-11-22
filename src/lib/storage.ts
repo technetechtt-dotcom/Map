@@ -17,13 +17,16 @@ const ALLOWED: Record<string, string[]> = {
   ".webp": ["image/webp"],
   ".gif": ["image/gif"],
   ".pdf": ["application/pdf"],
+  ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+  ".pptx": ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
 };
 
 export function sniffMimeForTest(buf: Buffer): string | null {
   return sniffMime(buf);
 }
 
-function sniffMime(buf: Buffer): string | null {
+function sniffMime(buf: Buffer, ext?: string): string | null {
   if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
     return "image/png";
   }
@@ -40,6 +43,12 @@ function sniffMime(buf: Buffer): string | null {
   if (buf.length >= 6 && buf.toString("ascii", 0, 6) === "GIF87a") return "image/gif";
   if (buf.length >= 6 && buf.toString("ascii", 0, 6) === "GIF89a") return "image/gif";
   if (buf.length >= 5 && buf.toString("ascii", 0, 5) === "%PDF-") return "application/pdf";
+  if (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) {
+    if (ext === ".docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (ext === ".xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    if (ext === ".pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    return "application/zip";
+  }
   return null;
 }
 
@@ -66,7 +75,7 @@ export async function validateAndStoreUpload(
   const ext = path.extname(file.name || "").toLowerCase();
   if (!ext || !ALLOWED[ext]) return { ok: false, error: "Unsupported file type" };
 
-  const sniffed = sniffMime(bytes);
+  const sniffed = sniffMime(bytes, ext);
   if (!sniffed || !ALLOWED[ext].includes(sniffed)) {
     return { ok: false, error: "File content does not match extension" };
   }
