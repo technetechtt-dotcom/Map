@@ -112,6 +112,25 @@ export function canManageBackups(user?: AuthUser | null) {
   return isSuperAdmin(user);
 }
 
+export function canManageRepositoryGroups(user?: AuthUser | null) {
+  return isSuperAdmin(user) || isProvincialAdmin(user);
+}
+
+export function repositoryDocumentWhere(user: AuthUser | null | undefined): Record<string, unknown> {
+  if (!user?.id) return { id: "__none__" };
+  if (isSuperAdmin(user)) return {};
+  const shared = {
+    OR: [
+      { visibility: "ALL_STAKEHOLDERS" },
+      { uploadedById: user.id },
+      ...(user.organisationId ? [{ organisationId: user.organisationId }] : []),
+      ...(user.provinceId ? [{ provinceId: user.provinceId, visibility: "PROVINCE" }] : []),
+      { groupAccess: { some: { group: { members: { some: { userId: user.id } } } } } },
+    ],
+  };
+  return shared;
+}
+
 export function canAccessOpsDashboard(user?: AuthUser | null) {
   return isSuperAdmin(user) || isProvincialAdmin(user);
 }
