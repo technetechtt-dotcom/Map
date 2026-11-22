@@ -63,7 +63,7 @@ export default async function ProcurementPage({
                     item.freshness === "Closing soon"
                       ? "chip-urgent font-semibold"
                       : item.freshness === "Closed" || item.freshness === "Past"
-                      ? "opacity-75 bg-slate-100 text-slate-600 border-slate-300"
+                      ? "bg-slate-100 text-slate-800 border-slate-300"
                       : "chip-active"
                   }`}
                 >

@@ -62,7 +62,7 @@ export default async function ProgrammesPage({
                     item.freshness === "Closing soon"
                       ? "chip-urgent font-semibold"
                       : item.freshness === "Past" || item.freshness === "Closed"
-                      ? "opacity-75 bg-slate-100 text-slate-600 border-slate-300"
+                      ? "bg-slate-100 text-slate-800 border-slate-300"
                       : "chip-active font-semibold"
                   }`}
                 >

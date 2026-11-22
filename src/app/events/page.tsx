@@ -64,7 +64,7 @@ export default async function EventsPage({
                       ? "chip-active font-semibold"
                       : item.freshness === "Ongoing"
                       ? "chip-urgent font-semibold"
-                      : "opacity-75 bg-slate-100 text-slate-600 border-slate-300"
+                      : "bg-slate-100 text-slate-800 border-slate-300"
                   }`}
                 >
                   {item.freshness}
