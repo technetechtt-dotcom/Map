@@ -50,6 +50,8 @@ export async function GET() {
     programmes,
     procurements,
     submissions,
+    repositoryDocuments,
+    repositoryGroups,
     recentViews,
     audits,
   ] = await Promise.all([
@@ -84,6 +86,22 @@ export async function GET() {
     canShowSubmissions(auth.user)
       ? prisma.submission.count({ where: submissionWhere as never })
       : Promise.resolve(0),
+    prisma.repositoryDocument.count({
+      where: isSuperAdmin(auth.user)
+        ? { status: "ACTIVE" }
+        : isProvincialAdmin(auth.user) && auth.user.provinceId
+          ? { status: "ACTIVE", provinceId: auth.user.provinceId }
+          : isOrgAdmin(auth.user) && auth.user.organisationId
+            ? { status: "ACTIVE", organisationId: auth.user.organisationId }
+            : { id: "__none__" },
+    }),
+    prisma.repositoryGroup.count({
+      where: isSuperAdmin(auth.user)
+        ? { active: true }
+        : isProvincialAdmin(auth.user) && auth.user.provinceId
+          ? { active: true, provinceId: auth.user.provinceId }
+          : { id: "__none__" },
+    }),
     prisma.analyticsEvent.count({ where: analyticsWhere }),
     canShowAudit(auth.user)
       ? prisma.auditLog.findMany({
@@ -112,6 +130,8 @@ export async function GET() {
       programmes,
       procurements,
       openSubmissions: submissions,
+      repositoryDocuments,
+      repositoryGroups,
       analyticsEvents7d: recentViews,
     },
     byCategory: byCategory.map((r) => ({
