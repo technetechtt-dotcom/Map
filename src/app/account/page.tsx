@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 
 const cards = [
   { href: "/account/submissions", title: "My submissions", body: "Track organisations, funding, programmes, events and tenders you submitted." },
+  { href: "/repository", title: "Innovation Repository", body: "View and securely share stakeholder documents with authorised groups." },
   { href: "/submit", title: "Submit to the ecosystem", body: "Add a new organisation, funding opportunity, event, programme or procurement notice." },
   { href: "/account/notifications", title: "Notifications", body: "Choose how you receive submission, funding, event and programme updates." },
   { href: "/saved", title: "Saved", body: "Return to opportunities and organisations you saved." },

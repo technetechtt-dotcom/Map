@@ -18,7 +18,27 @@ export async function GET(req: NextRequest) {
 
   const object = await prisma.storedObject.findFirst({
     where: { filename: key },
-    select: { filename: true, contentType: true, access: true, driver: true, url: true, organisationId: true, uploadedById: true },
+    select: {
+      filename: true,
+      contentType: true,
+      access: true,
+      driver: true,
+      url: true,
+      organisationId: true,
+      uploadedById: true,
+      repositoryDocument: {
+        select: {
+          uploadedById: true,
+          organisationId: true,
+          provinceId: true,
+          visibility: true,
+          status: true,
+          groupAccess: {
+            select: { group: { select: { members: { select: { userId: true } } } } },
+          },
+        },
+      },
+    },
   });
   if (!object) return jsonError("Object not found", 404);
 
@@ -27,7 +47,21 @@ export async function GET(req: NextRequest) {
     if (auth.error) return auth.error;
     const sameOrganisation = Boolean(object.organisationId && object.organisationId === auth.user.organisationId);
     const owner = object.uploadedById === auth.user.id;
-    if (!owner && !sameOrganisation && !canManageAllProvinces(auth.user)) {
+    const repository = object.repositoryDocument;
+    const repositoryAllowed = Boolean(
+      repository &&
+      repository.status === "ACTIVE" &&
+      (
+        repository.uploadedById === auth.user.id ||
+        repository.visibility === "ALL_STAKEHOLDERS" ||
+        (repository.visibility === "PROVINCE" && repository.provinceId && repository.provinceId === auth.user.provinceId) ||
+        (repository.organisationId && repository.organisationId === auth.user.organisationId) ||
+        repository.groupAccess.some((entry) =>
+          entry.group.members.some((member) => member.userId === auth.user.id)
+        )
+      )
+    );
+    if (!owner && !sameOrganisation && !repositoryAllowed && !canManageAllProvinces(auth.user)) {
       return jsonError("Forbidden", 403);
     }
   }
