@@ -124,6 +124,8 @@ model User {
   mfaRecoveryRequests  MfaRecoveryRequest[] @relation("MfaRecoverySubject")
   mfaRecoveriesOpened  MfaRecoveryRequest[] @relation("MfaRecoveryRequester")
   mfaRecoveriesApproved MfaRecoveryRequest[] @relation("MfaRecoveryApprover")
+  repositoryMemberships RepositoryGroupMember[]
+  repositoryDocuments   RepositoryDocument[] @relation("RepositoryDocumentUploader")
 
   @@index([role, active])
   @@index([provinceId])
@@ -694,21 +696,94 @@ model BackupRecord {
 }
 
 model StoredObject {
-  id             String                @id @default(cuid())
-  filename       String
-  url            String
-  contentType    String
-  sizeBytes      Int
-  sha256         String
-  access         String                @default("private")
-  driver         String                @default("local")
-  organisationId String?
-  uploadedById   String?
-  createdAt      DateTime              @default(now())
-  replicas       ObjectBackupReplica[]
+  id                 String                @id @default(cuid())
+  filename           String
+  url                String
+  contentType        String
+  sizeBytes          Int
+  sha256             String
+  access             String                @default("private")
+  driver             String                @default("local")
+  organisationId     String?
+  uploadedById       String?
+  createdAt          DateTime              @default(now())
+  replicas           ObjectBackupReplica[]
+  repositoryDocument RepositoryDocument?
 
   @@index([organisationId])
   @@index([sha256])
+}
+
+model RepositoryGroup {
+  id             String                    @id @default(cuid())
+  name           String
+  description    String?
+  provinceId     String?
+  organisationId String?
+  createdById    String?
+  active         Boolean                   @default(true)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  members        RepositoryGroupMember[]
+  documentAccess RepositoryDocumentGroup[]
+
+  @@index([name, provinceId, organisationId])
+  @@index([provinceId, active])
+  @@index([organisationId, active])
+}
+
+model RepositoryGroupMember {
+  id        String          @id @default(cuid())
+  groupId   String
+  group     RepositoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String          @default("MEMBER")
+  createdAt DateTime        @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId, groupId])
+}
+
+model RepositoryDocument {
+  id             String                    @id @default(cuid())
+  title          String
+  description    String?
+  category       String?
+  tagsJson       Json                      @default("[]")
+  visibility     String                    @default("GROUPS")
+  status         String                    @default("ACTIVE")
+  version        Int                       @default(1)
+  storedObjectId String                    @unique
+  storedObject   StoredObject              @relation(fields: [storedObjectId], references: [id], onDelete: Restrict)
+  uploadedById   String
+  uploadedBy     User                      @relation("RepositoryDocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  provinceId     String?
+  organisationId String?
+  supersedesId   String?
+  supersedes     RepositoryDocument?       @relation("RepositoryDocumentVersions", fields: [supersedesId], references: [id])
+  supersededBy   RepositoryDocument[]      @relation("RepositoryDocumentVersions")
+  groupAccess    RepositoryDocumentGroup[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([provinceId, status, createdAt])
+  @@index([organisationId, status, createdAt])
+  @@index([uploadedById, createdAt])
+  @@index([category])
+  @@index([visibility])
+}
+
+model RepositoryDocumentGroup {
+  id         String             @id @default(cuid())
+  documentId String
+  document   RepositoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  groupId    String
+  group      RepositoryGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt  DateTime           @default(now())
+
+  @@unique([documentId, groupId])
+  @@index([groupId, documentId])
 }
 
 model DataSubjectRequest {
