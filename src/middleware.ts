@@ -98,6 +98,19 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  if (pathname.startsWith("/repository")) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const role = (token as { role?: string; invalid?: boolean } | null)?.role;
+    if (!token || !role || (token as { invalid?: boolean }).invalid) {
+      const login = new URL("/login", req.url);
+      login.searchParams.set("callbackUrl", `${pathname}${req.nextUrl.search}`);
+      return NextResponse.redirect(login);
+    }
+    if ((token as { mustChangePassword?: boolean }).mustChangePassword) {
+      return NextResponse.redirect(new URL("/account/security?force=1", req.url));
+    }
+  }
+
   // Force password change for authenticated callers hitting account pages except security
   if (pathname.startsWith("/account") && !pathname.startsWith("/account/security")) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
