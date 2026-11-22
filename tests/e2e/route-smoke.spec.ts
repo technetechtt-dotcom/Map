@@ -6,6 +6,7 @@ const publicRoutes = [
   "/about",
   "/organisations",
   "/national",
+  "/innovation-dashboard",
   "/funding",
   "/events",
   "/programmes",
@@ -25,6 +26,7 @@ const publicRoutes = [
   "/account/submissions",
   "/account/notifications",
   "/account/security",
+  "/repository",
   "/rights",
   "/privacy",
   "/terms",
@@ -41,6 +43,7 @@ const opsRoutes = [
   "/admin/data-requests",
   "/admin/corrections",
   "/admin/intelligence",
+  "/admin/repository",
   "/admin/translations",
 ];
 
