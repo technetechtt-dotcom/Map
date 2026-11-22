@@ -10,6 +10,7 @@ const primary = [
   { href: "/admin", label: "Overview", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/admin/locations", label: "Locations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN", "CONTRIBUTOR"] },
   { href: "/admin/submissions", label: "Submissions", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
+  { href: "/admin/repository", label: "Repository", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/organisations", label: "Organisations", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN", "ORG_ADMIN"] },
   { href: "/admin/claims", label: "Org claims", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
   { href: "/admin/data-requests", label: "Data requests", roles: ["SUPER_ADMIN", "PROVINCIAL_ADMIN"] },
