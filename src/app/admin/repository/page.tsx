@@ -26,6 +26,21 @@ export default function RepositoryAdminPage() {
     load().catch((error) => setMessage(error.message));
   }, [load]);
 
+  async function manageMembers(group: Group) {
+    const current = group.members.map((member) => member.user.email).join(", ");
+    const raw = prompt("Member emails (comma separated)", current);
+    if (raw === null) return;
+    const memberEmails = raw.split(/[\n,;]/).map((email) => email.trim()).filter(Boolean);
+    const response = await fetch(`/api/repository/groups/${group.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberEmails }),
+    });
+    const data = await response.json();
+    setMessage(response.ok ? "Stakeholder group membership updated." : data.error || "Could not update group");
+    if (response.ok) await load();
+  }
+
   async function createGroup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -65,13 +80,14 @@ export default function RepositoryAdminPage() {
         <section className="panel-card overflow-x-auto">
           <h2 className="mb-3 font-bold">Stakeholder groups</h2>
           <table className="table">
-            <thead><tr><th>Group</th><th>Members</th><th>Documents</th></tr></thead>
+            <thead><tr><th>Group</th><th>Members</th><th>Documents</th><th>Actions</th></tr></thead>
             <tbody>
               {groups.map((group) => (
                 <tr key={group.id}>
                   <td><strong>{group.name}</strong>{group.description && <div className="text-xs text-muted">{group.description}</div>}</td>
                   <td>{group.members.length ? group.members.map((member) => member.user.name || member.user.email).join(", ") : "No members"}</td>
                   <td>{group._count.documentAccess}</td>
+                  <td><button type="button" className="text-sm font-semibold text-g700" onClick={() => manageMembers(group)}>Manage members</button></td>
                 </tr>
               ))}
             </tbody>
