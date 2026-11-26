@@ -101,7 +101,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
-    "recharts": "^3.10.1",
+    "recharts": "^3.11.1",
     "sharp": "^0.35.3",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
